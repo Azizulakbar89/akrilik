@@ -24,6 +24,83 @@
     <!-- ApexCharts CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.35.0/dist/apexcharts.css">
 
+    <style>
+        /* Additional responsive styles */
+        @media (max-width: 1024px) {
+            .main-container {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+
+            .pd-ltr-20 {
+                padding: 15px;
+            }
+
+            .header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                z-index: 1000;
+            }
+
+            .mobile-logo {
+                display: block !important;
+                margin-left: 15px;
+            }
+
+            .left-side-bar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+
+            .left-side-bar.open {
+                transform: translateX(0);
+            }
+
+            .mobile-menu-overlay {
+                display: block;
+                opacity: 0;
+                visibility: hidden;
+                transition: all 0.3s ease-in-out;
+            }
+
+            .mobile-menu-overlay.show {
+                opacity: 0.6;
+                visibility: visible;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                padding-top: 70px;
+            }
+
+            .pd-ltr-20 {
+                padding: 10px;
+            }
+
+            .user-name {
+                display: none !important;
+            }
+
+            .header-right {
+                width: auto;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-container {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .pd-ltr-20 {
+                padding: 5px;
+            }
+        }
+    </style>
+
     @stack('styles')
 </head>
 
@@ -63,6 +140,37 @@
     <script src="{{ asset('src/plugins/datatables/js/dataTables.bootstrap4.min.js') }}"></script>
     <script src="{{ asset('src/plugins/datatables/js/dataTables.responsive.min.js') }}"></script>
     <script src="{{ asset('src/plugins/datatables/js/responsive.bootstrap4.min.js') }}"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Mobile menu toggle functionality
+            $('#mobile-menu-toggle').on('click', function() {
+                $('.left-side-bar').addClass('open');
+                $('.mobile-menu-overlay').addClass('show');
+            });
+
+            $('.close-sidebar, .mobile-menu-overlay').on('click', function() {
+                $('.left-side-bar').removeClass('open');
+                $('.mobile-menu-overlay').removeClass('show');
+            });
+
+            // Close sidebar when clicking on menu items (for mobile)
+            $('.sidebar-menu a').on('click', function() {
+                if ($(window).width() <= 1024) {
+                    $('.left-side-bar').removeClass('open');
+                    $('.mobile-menu-overlay').removeClass('show');
+                }
+            });
+
+            // Handle window resize
+            $(window).on('resize', function() {
+                if ($(window).width() > 1024) {
+                    $('.left-side-bar').removeClass('open');
+                    $('.mobile-menu-overlay').removeClass('show');
+                }
+            });
+        });
+    </script>
 
     @stack('scripts')
 </body>
