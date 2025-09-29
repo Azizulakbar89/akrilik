@@ -20,7 +20,6 @@
     <!-- CSS -->
     <link rel="stylesheet" type="text/css" href="/vendors/styles/core.css">
     <link rel="stylesheet" type="text/css" href="/vendors/styles/icon-font.min.css">
-
     <link rel="stylesheet" type="text/css" href="/vendors/styles/style.css">
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
@@ -35,6 +34,42 @@
 
         gtag('config', 'UA-119386393-1');
     </script>
+
+    <style>
+        .btn-register {
+            background-color: #1b00ff;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn-register:hover {
+            background-color: #1600cc;
+        }
+
+        .btn-register:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .form-control:focus {
+            border-color: #1b00ff;
+            box-shadow: 0 0 0 0.2rem rgba(27, 0, 255, 0.25);
+        }
+
+        .terms-error {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
 </head>
 
 <body class="login-page">
@@ -48,12 +83,12 @@
                 <div class="col-md-6 col-lg-5">
                     <div class="register-box bg-white box-shadow border-radius-10">
                         <div class="login-title">
-                            <h2 class="text-center text-primary">Register </h2>
+                            <h2 class="text-center text-primary">Register</h2>
                         </div>
 
                         <div class="wizard-content">
                             <form class="tab-wizard2 wizard-circle wizard" method="POST"
-                                action="{{ route('register') }}">
+                                action="{{ route('register') }}" id="registerForm">
                                 @csrf
 
                                 <h5>Basic Account Credentials</h5>
@@ -111,6 +146,18 @@
                                                         policy
                                                     </label>
                                                 </div>
+                                                <div class="terms-error" id="termsError">
+                                                    You must agree to the terms and conditions
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Tombol Register yang ditambahkan -->
+                                        <div class="form-group row mt-4">
+                                            <div class="col-sm-12">
+                                                <button type="submit" class="btn-register" id="registerButton">
+                                                    Register
+                                                </button>
                                             </div>
                                         </div>
 
@@ -144,6 +191,46 @@
     <script src="/vendors/scripts/script.min.js"></script>
     <script src="/vendors/scripts/process.js"></script>
     <script src="/vendors/scripts/layout-settings.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('registerForm');
+            const termsCheckbox = document.getElementById('terms');
+            const registerButton = document.getElementById('registerButton');
+            const termsError = document.getElementById('termsError');
+
+            // Validasi form sebelum submit
+            form.addEventListener('submit', function(e) {
+                if (!termsCheckbox.checked) {
+                    e.preventDefault();
+                    termsError.style.display = 'block';
+                    termsCheckbox.focus();
+                }
+            });
+
+            // Sembunyikan error terms ketika checkbox dicentang
+            termsCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    termsError.style.display = 'none';
+                }
+            });
+
+            // Validasi real-time untuk password
+            const password = document.getElementById('password');
+            const confirmPassword = document.getElementById('password_confirmation');
+
+            function validatePassword() {
+                if (password.value !== confirmPassword.value) {
+                    confirmPassword.setCustomValidity("Passwords don't match");
+                } else {
+                    confirmPassword.setCustomValidity('');
+                }
+            }
+
+            password.addEventListener('change', validatePassword);
+            confirmPassword.addEventListener('keyup', validatePassword);
+        });
+    </script>
 </body>
 
 </html>
