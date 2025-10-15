@@ -38,11 +38,6 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('admin.komposisi-produk.index') }}" class="dropdown-toggle no-arrow">
-                            <span class="micon dw dw-book"></span><span class="mtext">Komposisi Produk</span>
-                        </a>
-                    </li>
-                    <li>
                         <a href="{{ route('admin.supplier.index') }}" class="dropdown-toggle no-arrow">
                             <span class="micon dw dw-truck"></span><span class="mtext">Supplier</span>
                         </a>
@@ -71,11 +66,6 @@
                     <li>
                         <a href="{{ route('owner.penjualan.index') }}" class="dropdown-toggle no-arrow">
                             <span class="micon dw dw-money"></span><span class="mtext">Penjualan</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('owner.komposisi-produk.index') }}" class="dropdown-toggle no-arrow">
-                            <span class="micon dw dw-book"></span><span class="mtext">Komposisi Produk</span>
                         </a>
                     </li>
                     <li>

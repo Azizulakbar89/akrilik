@@ -1,12 +1,7 @@
 <div class="header">
     <div class="header-left">
         <div class="menu-icon dw dw-menu" id="mobile-menu-toggle"></div>
-        {{-- <div class="mobile-logo" style="display: none;">
-            <a href="{{ route('dashboard') }}">
-                <img style="width: 80px; height: 60px;" src="{{ asset('vendors/images/logo.png') }}" alt=""
-                    class="light-logo">
-            </a>
-        </div> --}}
+
     </div>
     <div class="header-right">
         <div class="user-info-dropdown">

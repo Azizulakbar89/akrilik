@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 
 <head>
     <meta charset="utf-8">
-    <title>@yield('title', 'Akrilik - Laravel Breeze')</title>
+    <title>@yield('title', 'Bahan Baku - Akrilik')</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -21,83 +21,49 @@
         href="{{ asset('src/plugins/datatables/css/responsive.bootstrap4.min.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ asset('vendors/styles/style.css') }}">
 
-    <!-- ApexCharts CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.35.0/dist/apexcharts.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
 
     <style>
-        /* Additional responsive styles */
-        @media (max-width: 1024px) {
-            .main-container {
-                padding-left: 20px;
-                padding-right: 20px;
-            }
-
-            .pd-ltr-20 {
-                padding: 15px;
-            }
-
-            .header {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                z-index: 1000;
-            }
-
-            .mobile-logo {
-                display: block !important;
-                margin-left: 15px;
-            }
-
-            .left-side-bar {
-                transform: translateX(-100%);
-                transition: transform 0.3s ease-in-out;
-            }
-
-            .left-side-bar.open {
-                transform: translateX(0);
-            }
-
-            .mobile-menu-overlay {
-                display: block;
-                opacity: 0;
-                visibility: hidden;
-                transition: all 0.3s ease-in-out;
-            }
-
-            .mobile-menu-overlay.show {
-                opacity: 0.6;
-                visibility: visible;
-            }
+        .badge-warning {
+            background-color: #ffc107;
+            color: #212529;
         }
 
-        @media (max-width: 768px) {
-            .main-container {
-                padding-top: 70px;
-            }
-
-            .pd-ltr-20 {
-                padding: 10px;
-            }
-
-            .user-name {
-                display: none !important;
-            }
-
-            .header-right {
-                width: auto;
-            }
+        .badge-success {
+            background-color: #28a745;
+            color: #fff;
         }
 
-        @media (max-width: 480px) {
-            .main-container {
-                padding-left: 10px;
-                padding-right: 10px;
-            }
+        .dropdown-menu-icon-list .dropdown-item i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
 
-            .pd-ltr-20 {
-                padding: 5px;
-            }
+        .table img {
+            border-radius: 5px;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .data-table tbody tr:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+
+        .dropdown-menu {
+            z-index: 1001;
+        }
+
+        .modal-backdrop {
+            z-index: 999;
+        }
+
+        .modal {
+            z-index: 1000;
         }
     </style>
 
@@ -127,50 +93,20 @@
         </div>
     </div>
 
+    @stack('modals')
+
     <script src="{{ asset('vendors/scripts/core.js') }}"></script>
     <script src="{{ asset('vendors/scripts/script.min.js') }}"></script>
     <script src="{{ asset('vendors/scripts/process.js') }}"></script>
     <script src="{{ asset('vendors/scripts/layout-settings.js') }}"></script>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.35.0/dist/apexcharts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
     <script src="{{ asset('src/plugins/datatables/js/jquery.dataTables.min.js') }}"></script>
     <script src="{{ asset('src/plugins/datatables/js/dataTables.bootstrap4.min.js') }}"></script>
     <script src="{{ asset('src/plugins/datatables/js/dataTables.responsive.min.js') }}"></script>
     <script src="{{ asset('src/plugins/datatables/js/responsive.bootstrap4.min.js') }}"></script>
-
-    <script>
-        $(document).ready(function() {
-            // Mobile menu toggle functionality
-            $('#mobile-menu-toggle').on('click', function() {
-                $('.left-side-bar').addClass('open');
-                $('.mobile-menu-overlay').addClass('show');
-            });
-
-            $('.close-sidebar, .mobile-menu-overlay').on('click', function() {
-                $('.left-side-bar').removeClass('open');
-                $('.mobile-menu-overlay').removeClass('show');
-            });
-
-            // Close sidebar when clicking on menu items (for mobile)
-            $('.sidebar-menu a').on('click', function() {
-                if ($(window).width() <= 1024) {
-                    $('.left-side-bar').removeClass('open');
-                    $('.mobile-menu-overlay').removeClass('show');
-                }
-            });
-
-            // Handle window resize
-            $(window).on('resize', function() {
-                if ($(window).width() > 1024) {
-                    $('.left-side-bar').removeClass('open');
-                    $('.mobile-menu-overlay').removeClass('show');
-                }
-            });
-        });
-    </script>
 
     @stack('scripts')
 </body>
