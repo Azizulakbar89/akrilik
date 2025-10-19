@@ -172,7 +172,6 @@ class BahanBakuController extends Controller
         try {
             $bahanBaku = BahanBaku::findOrFail($id);
 
-            // Hapus foto jika ada
             if ($bahanBaku->foto) {
                 Storage::disk('public')->delete($bahanBaku->foto);
             }

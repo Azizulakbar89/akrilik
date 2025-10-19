@@ -19,7 +19,7 @@
                 </div>
                 <div class="col-md-6 col-sm-12 text-right">
                     <button class="btn btn-info" data-toggle="modal" data-target="#modalPrintLaporan">
-                        <i class="fa fa-file-pdf"></i> Generate PDF
+                        <i class="fa fa-file-pdf"></i> Print Laporan
                     </button>
                 </div>
             </div>
@@ -104,7 +104,7 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Generate Laporan PDF</h5>
+                    <h5 class="modal-title">Print Generate</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -125,7 +125,7 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="fa fa-file-pdf"></i> Generate PDF
+                            <i class="fa fa-file-pdf"></i> Print Laporan
                         </button>
                     </div>
                 </form>

@@ -59,13 +59,6 @@ class PenjualanController extends Controller
                         ], 422);
                     }
 
-                    if (!$produk->bisaDiproduksi($item['jumlah'])) {
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => 'Stok bahan baku tidak mencukupi untuk memproduksi produk ' . $produk->nama
-                        ], 422);
-                    }
-
                     $subtotal = $produk->harga * $item['jumlah'];
                     $total += $subtotal;
 
@@ -80,13 +73,6 @@ class PenjualanController extends Controller
                     ];
                 } else {
                     $bahanBaku = BahanBaku::findOrFail($item['item_id']);
-
-                    if ($bahanBaku->stok < $item['jumlah']) {
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => 'Stok bahan baku ' . $bahanBaku->nama . ' tidak mencukupi. Stok tersedia: ' . $bahanBaku->stok
-                        ], 422);
-                    }
 
                     $subtotal = $bahanBaku->harga_jual * $item['jumlah'];
                     $total += $subtotal;
@@ -128,12 +114,7 @@ class PenjualanController extends Controller
 
                     $produk->stok -= $item['jumlah'];
                     $produk->save();
-
-                    $produk->kurangiStokBahanBaku($item['jumlah']);
                 } else {
-                    $bahanBaku = BahanBaku::find($item['bahan_baku_id']);
-                    $bahanBaku->stok -= $item['jumlah'];
-                    $bahanBaku->save();
                 }
             }
 
@@ -141,7 +122,7 @@ class PenjualanController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Penjualan berhasil disimpan',
+                'message' => 'Penjualan berhasil disimpan (tanpa mengurangi stok bahan baku)',
                 'data' => [
                     'kode_penjualan' => $penjualan->kode_penjualan,
                     'total' => $total,
