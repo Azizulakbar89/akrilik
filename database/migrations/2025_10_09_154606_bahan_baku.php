@@ -19,6 +19,7 @@ return new class extends Migration
             $table->integer('rop');
             $table->integer('min');
             $table->integer('max');
+            $table->integer('lead_time');
             $table->string('foto')->nullable();
             $table->timestamps();
         });

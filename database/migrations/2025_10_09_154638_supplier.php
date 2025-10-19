@@ -13,7 +13,6 @@ return new class extends Migration
             $table->string('nama');
             $table->text('alamat');
             $table->string('notel');
-            $table->integer('lead_time');
             $table->timestamps();
         });
     }

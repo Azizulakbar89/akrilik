@@ -20,7 +20,6 @@ class SupplierController extends Controller
             'nama' => 'required|string|max:255',
             'alamat' => 'required|string',
             'notel' => 'required|string|max:20',
-            'lead_time' => 'required|integer|min:1'
         ]);
 
         Supplier::create($request->all());
@@ -40,7 +39,6 @@ class SupplierController extends Controller
             'nama' => 'required|string|max:255',
             'alamat' => 'required|string',
             'notel' => 'required|string|max:20',
-            'lead_time' => 'required|integer|min:1'
         ]);
 
         $supplier = Supplier::findOrFail($id);

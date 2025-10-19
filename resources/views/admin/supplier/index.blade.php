@@ -42,7 +42,6 @@
                             <th>Nama Supplier</th>
                             <th>Alamat</th>
                             <th>Telepon</th>
-                            <th>Lead Time (hari)</th>
                             <th class="datatable-nosort">Aksi</th>
                         </tr>
                     </thead>
@@ -53,7 +52,6 @@
                                 <td>{{ $s->nama }}</td>
                                 <td>{{ $s->alamat }}</td>
                                 <td>{{ $s->notel }}</td>
-                                <td>{{ $s->lead_time }} hari</td>
                                 <td>
                                     <div class="dropdown">
                                         <a class="btn btn-link font-24 p-0 line-height-1 no-arrow dropdown-toggle"
@@ -128,14 +126,6 @@
                                         <div class="invalid-feedback"></div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Lead Time (hari)</label>
-                                        <input type="number" class="form-control" name="lead_time" min="1" required>
-                                        <small class="form-text text-muted">Waktu pengiriman dalam hari</small>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -193,15 +183,6 @@
                                         <div class="invalid-feedback"></div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Lead Time (hari)</label>
-                                        <input type="number" class="form-control" name="lead_time" id="edit_lead_time"
-                                            min="1" required>
-                                        <small class="form-text text-muted">Waktu pengiriman dalam hari</small>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -247,12 +228,6 @@
                             <div class="form-group">
                                 <label>Telepon</label>
                                 <p id="show_notel" class="form-control-plaintext"></p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Lead Time</label>
-                                <p id="show_lead_time" class="form-control-plaintext"></p>
                             </div>
                         </div>
                     </div>
@@ -377,7 +352,6 @@
                         $('#show_nama').text(response.nama || '-');
                         $('#show_alamat').text(response.alamat || '-');
                         $('#show_notel').text(response.notel || '-');
-                        $('#show_lead_time').text((response.lead_time || '0') + ' hari');
 
                         // Tampilkan modal
                         $('#showSupplierModal').modal('show');
@@ -427,7 +401,6 @@
                         $('#edit_nama').val(response.nama);
                         $('#edit_alamat').val(response.alamat);
                         $('#edit_notel').val(response.notel);
-                        $('#edit_lead_time').val(response.lead_time);
 
                         // Tampilkan modal
                         $('#editSupplierModal').modal('show');

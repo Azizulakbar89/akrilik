@@ -19,8 +19,7 @@ class SupplierOwnerController extends Controller
         $request->validate([
             'nama' => 'required|string|max:255',
             'alamat' => 'required|string',
-            'notel' => 'required|string|max:20',
-            'lead_time' => 'required|integer|min:1'
+            'notel' => 'required|string|max:20'
         ]);
 
         Supplier::create($request->all());
@@ -39,8 +38,7 @@ class SupplierOwnerController extends Controller
         $request->validate([
             'nama' => 'required|string|max:255',
             'alamat' => 'required|string',
-            'notel' => 'required|string|max:20',
-            'lead_time' => 'required|integer|min:1'
+            'notel' => 'required|string|max:20'
         ]);
 
         $supplier = Supplier::findOrFail($id);

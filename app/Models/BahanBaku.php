@@ -17,6 +17,7 @@ class BahanBaku extends Model
         'harga_beli',
         'harga_jual',
         'stok',
+        'lead_time',
         'safety_stock',
         'rop',
         'min',
@@ -28,6 +29,7 @@ class BahanBaku extends Model
         'harga_beli' => 'decimal:2',
         'harga_jual' => 'decimal:2',
         'stok' => 'integer',
+        'lead_time' => 'integer',
         'safety_stock' => 'integer',
         'rop' => 'integer',
         'min' => 'integer',
@@ -74,7 +76,6 @@ class BahanBaku extends Model
     {
         if ($this->isPerluPembelian()) {
             $quantity = $this->max - $this->stok;
-
             return max(0, $quantity);
         }
         return 0;
@@ -148,5 +149,98 @@ class BahanBaku extends Model
     {
         $this->stok += $jumlah;
         $this->save();
+    }
+
+    // Method untuk menghitung safety stock, min, max, rop secara otomatis
+    public function hitungParameterStok()
+    {
+        // Ambil data penjualan 1 bulan terakhir
+        $satuBulanLalu = now()->subMonth();
+
+        $dataPenjualan = $this->detailPenjualan()
+            ->whereHas('penjualan', function ($query) use ($satuBulanLalu) {
+                $query->where('created_at', '>=', $satuBulanLalu);
+            })
+            ->selectRaw('SUM(jumlah) as total_keluar, COUNT(DISTINCT DATE(created_at)) as count_hari')
+            ->first();
+
+        $totalKeluar = $dataPenjualan->total_keluar ?? 0;
+        $countHari = $dataPenjualan->count_hari ?: 1; // Minimal 1 hari untuk menghindari division by zero
+
+        // Hitung penggunaan rata-rata per hari
+        $penggunaanRataRata = $totalKeluar / $countHari;
+
+        // Hitung penggunaan rata-rata per periode (dalam contoh: per hari)
+        $T = round($penggunaanRataRata);
+
+        // Ambil lead time (dalam hari)
+        $LT = $this->lead_time ?: 2; // Default 2 hari jika tidak diisi
+
+        // Hitung pemakaian maksimum (ambil dari data historis)
+        $pemakaianMaksimum = $this->detailPenjualan()
+            ->whereHas('penjualan', function ($query) use ($satuBulanLalu) {
+                $query->where('created_at', '>=', $satuBulanLalu);
+            })
+            ->selectRaw('DATE(created_at) as tanggal, SUM(jumlah) as total_harian')
+            ->groupBy('tanggal')
+            ->orderByDesc('total_harian')
+            ->value('total_harian') ?? ($T * 2); // Default 2x rata-rata jika tidak ada data
+
+        // Hitung Safety Stock
+        $SS = ($pemakaianMaksimum - $T) * $LT;
+        $SS = max(0, round($SS)); // Pastikan tidak negatif
+
+        // Hitung Minimal Stock
+        $minStock = ($T * $LT) + $SS;
+
+        // Hitung Maksimal Stock
+        $maxStock = 2 * ($T * $LT) + $SS;
+
+        // Hitung Reorder Point
+        $ROP = $maxStock - $minStock;
+
+        // Update data ke model
+        $this->update([
+            'safety_stock' => $SS,
+            'min' => $minStock,
+            'max' => $maxStock,
+            'rop' => $ROP
+        ]);
+
+        return [
+            'safety_stock' => $SS,
+            'min' => $minStock,
+            'max' => $maxStock,
+            'rop' => $ROP,
+            'penggunaan_rata_rata' => $T,
+            'pemakaian_maksimum' => $pemakaianMaksimum,
+            'lead_time' => $LT
+        ];
+    }
+
+    // Method untuk mendapatkan statistik penggunaan
+    public function getStatistikPenggunaan()
+    {
+        $satuBulanLalu = now()->subMonth();
+
+        $statistik = $this->detailPenjualan()
+            ->whereHas('penjualan', function ($query) use ($satuBulanLalu) {
+                $query->where('created_at', '>=', $satuBulanLalu);
+            })
+            ->selectRaw('
+                SUM(jumlah) as total_keluar,
+                COUNT(DISTINCT DATE(created_at)) as count_hari,
+                MAX(jumlah) as max_keluar_satu_kali,
+                AVG(jumlah) as avg_keluar_per_transaksi
+            ')
+            ->first();
+
+        return [
+            'total_keluar' => $statistik->total_keluar ?? 0,
+            'count_hari' => $statistik->count_hari ?? 0,
+            'max_keluar_satu_kali' => $statistik->max_keluar_satu_kali ?? 0,
+            'avg_keluar_per_transaksi' => $statistik->avg_keluar_per_transaksi ?? 0,
+            'penggunaan_rata_rata_per_hari' => $statistik->total_keluar / max($statistik->count_hari, 1)
+        ];
     }
 }
