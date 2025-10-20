@@ -6,7 +6,7 @@ use App\Models\Penjualan;
 use App\Models\Produk;
 use App\Models\BahanBaku;
 use App\Models\DetailPenjualan;
-use App\Models\KomposisiBahanBaku;
+use App\Models\PenggunaanBahanBaku;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,10 +48,12 @@ class PenjualanController extends Controller
             $total = 0;
             $items = [];
 
+            // Validasi stok dan hitung total
             foreach ($request->items as $item) {
                 if ($item['jenis_item'] == 'produk') {
                     $produk = Produk::findOrFail($item['item_id']);
 
+                    // Validasi stok produk saja
                     if ($produk->stok < $item['jumlah']) {
                         return response()->json([
                             'status' => 'error',
@@ -74,6 +76,14 @@ class PenjualanController extends Controller
                 } else {
                     $bahanBaku = BahanBaku::findOrFail($item['item_id']);
 
+                    // Validasi stok bahan baku
+                    if ($bahanBaku->stok < $item['jumlah']) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Stok bahan baku ' . $bahanBaku->nama . ' tidak mencukupi. Stok tersedia: ' . $bahanBaku->stok
+                        ], 422);
+                    }
+
                     $subtotal = $bahanBaku->harga_jual * $item['jumlah'];
                     $total += $subtotal;
 
@@ -89,6 +99,7 @@ class PenjualanController extends Controller
                 }
             }
 
+            // Validasi pembayaran
             if ($request->bayar < $total) {
                 return response()->json([
                     'status' => 'error',
@@ -98,6 +109,7 @@ class PenjualanController extends Controller
 
             $kembalian = $request->bayar - $total;
 
+            // Buat penjualan
             $penjualan = Penjualan::create([
                 'nama_customer' => $request->nama_customer,
                 'total' => $total,
@@ -115,6 +127,22 @@ class PenjualanController extends Controller
                     $produk->stok -= $item['jumlah'];
                     $produk->save();
                 } else {
+                    $bahanBaku = BahanBaku::find($item['bahan_baku_id']);
+
+                    // Kurangi stok bahan baku untuk penjualan langsung
+                    $bahanBaku->stok -= $item['jumlah'];
+                    $bahanBaku->save();
+
+                    // Catat penggunaan bahan baku untuk penjualan langsung
+                    PenggunaanBahanBaku::create([
+                        'bahan_baku_id' => $bahanBaku->id,
+                        'jumlah' => $item['jumlah'],
+                        'tanggal' => now(),
+                        'keterangan' => 'Penjualan langsung bahan baku'
+                    ]);
+
+                    // Update parameter stok bahan baku
+                    $bahanBaku->updateParameterStok();
                 }
             }
 
@@ -122,7 +150,7 @@ class PenjualanController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Penjualan berhasil disimpan (tanpa mengurangi stok bahan baku)',
+                'message' => 'Penjualan berhasil disimpan',
                 'data' => [
                     'kode_penjualan' => $penjualan->kode_penjualan,
                     'total' => $total,
@@ -197,13 +225,24 @@ class PenjualanController extends Controller
                     if ($produk) {
                         $produk->stok += $detail->jumlah;
                         $produk->save();
-
-                        $produk->kembalikanStokBahanBaku($detail->jumlah);
                     }
                 } else {
                     $bahanBaku = BahanBaku::find($detail->bahan_baku_id);
                     if ($bahanBaku) {
-                        $bahanBaku->kembalikanStok($detail->jumlah);
+                        // Kembalikan stok bahan baku untuk penjualan langsung
+                        $bahanBaku->stok += $detail->jumlah;
+                        $bahanBaku->save();
+
+                        // Catat pengembalian sebagai penggunaan negatif
+                        PenggunaanBahanBaku::create([
+                            'bahan_baku_id' => $bahanBaku->id,
+                            'jumlah' => -$detail->jumlah,
+                            'tanggal' => now(),
+                            'keterangan' => 'Pembatalan penjualan bahan baku'
+                        ]);
+
+                        // Update parameter stok
+                        $bahanBaku->updateParameterStok();
                     }
                 }
             }

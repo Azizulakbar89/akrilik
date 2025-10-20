@@ -50,7 +50,7 @@
     <div class="card-box mb-30">
         <div class="pd-20">
             <h4 class="text-blue h4">Daftar Bahan Baku</h4>
-            <p class="mb-0">Monitoring stok dan informasi bahan baku</p>
+            <p class="mb-0">Parameter stok dihitung otomatis berdasarkan data penggunaan 7 hari terakhir</p>
         </div>
         <div class="pb-20">
             <div class="table-responsive" style="overflow-x: auto;">
@@ -64,6 +64,7 @@
                             <th>Harga Beli</th>
                             <th>Harga Jual</th>
                             <th>Stok</th>
+                            <th>Lead Time</th>
                             <th>Safety Stock</th>
                             <th>ROP</th>
                             <th>Min</th>
@@ -97,15 +98,16 @@
                                         {{ $bb->stok }}
                                     </span>
                                 </td>
+                                <td>{{ $bb->lead_time }} hari</td>
                                 <td>{{ $bb->safety_stock }}</td>
                                 <td>{{ $bb->rop }}</td>
                                 <td>{{ $bb->min }}</td>
                                 <td>{{ $bb->max }}</td>
                                 <td>
                                     @if ($bb->stok <= $bb->min)
-                                        <span class="badge badge-warning">Perlu Pembelian</span>
+                                        <span class="badge badge-danger">Perlu Pembelian</span>
                                     @elseif ($bb->stok <= $bb->safety_stock)
-                                        <span class="badge badge-info">Perhatian</span>
+                                        <span class="badge badge-warning">Stok Menipis</span>
                                     @else
                                         <span class="badge badge-success">Aman</span>
                                     @endif
@@ -119,6 +121,10 @@
                                         <div class="dropdown-menu dropdown-menu-right dropdown-menu-icon-list">
                                             <a class="dropdown-item show-btn" href="#" data-id="{{ $bb->id }}">
                                                 <i class="fas fa-eye"></i> Lihat Detail
+                                            </a>
+                                            <a class="dropdown-item calculation-detail-btn" href="#"
+                                                data-id="{{ $bb->id }}">
+                                                <i class="fas fa-calculator"></i> Detail Perhitungan
                                             </a>
                                             <a class="dropdown-item edit-btn" href="#" data-id="{{ $bb->id }}"
                                                 data-toggle="modal" data-target="#editBahanBakuModal">
@@ -142,7 +148,6 @@
 @endsection
 
 @push('modals')
-    <!-- Create Bahan Baku Modal -->
     <div class="modal fade" id="createBahanBakuModal" tabindex="-1" role="dialog"
         aria-labelledby="createBahanBakuModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -157,6 +162,10 @@
                     enctype="multipart/form-data">
                     @csrf
                     <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Isi parameter stok sesuai dengan kebutuhan. Parameter ini
+                            akan digunakan untuk sistem peringatan stok.
+                        </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -167,7 +176,15 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="satuan">Satuan <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="satuan" name="satuan" required>
+                                    <select class="form-control select2" name="satuan" required>
+                                        <option value="">Pilih Satuan</option>
+                                        <option value="Cm">Cm</option>
+                                        <option value="gram">gram</option>
+                                        <option value="liter">liter</option>
+                                        <option value="pcs">pcs</option>
+                                        <option value="kg">kg</option>
+                                        <option value="m">m</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -175,23 +192,32 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="harga_beli">Harga Beli <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="harga_beli" name="harga_beli"
-                                        required>
+                                    <input type="number" step="0.01" class="form-control" id="harga_beli"
+                                        name="harga_beli" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="harga_jual">Harga Jual <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="harga_jual" name="harga_jual"
-                                        required>
+                                    <input type="number" step="0.01" class="form-control" id="harga_jual"
+                                        name="harga_jual" required>
                                 </div>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="stok">Stok <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="stok" name="stok" required>
+                                    <label for="stok">Stok Awal <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="stok" name="stok"
+                                        value="0" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="lead_time">Lead Time (hari) <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="lead_time" name="lead_time"
+                                        value="1" required min="1">
+                                    <small class="form-text text-muted">Waktu tunggu pesanan sampai diterima</small>
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -201,23 +227,23 @@
                                         required>
                                 </div>
                             </div>
+                        </div>
+                        <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label for="rop">ROP <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="rop" name="rop" required>
                                 </div>
                             </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="min">Min (Reorder Point) <span class="text-danger">*</span></label>
+                                    <label for="min">Min Stock <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="min" name="min" required>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="max">Max (Maximum Stock) <span class="text-danger">*</span></label>
+                                    <label for="max">Max Stock <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="max" name="max" required>
                                 </div>
                             </div>
@@ -237,7 +263,6 @@
         </div>
     </div>
 
-    <!-- Edit Bahan Baku Modal -->
     <div class="modal fade" id="editBahanBakuModal" tabindex="-1" role="dialog"
         aria-labelledby="editBahanBakuModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -252,6 +277,9 @@
                     @csrf
                     @method('PUT')
                     <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Update parameter stok sesuai dengan kebutuhan.
+                        </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -262,7 +290,15 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="edit_satuan">Satuan <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="edit_satuan" name="satuan" required>
+                                    <select class="form-control select2" name="satuan" id="edit_satuan" required>
+                                        <option value="">Pilih Satuan</option>
+                                        <option value="Cm">Cm</option>
+                                        <option value="gram">gram</option>
+                                        <option value="liter">liter</option>
+                                        <option value="pcs">pcs</option>
+                                        <option value="kg">kg</option>
+                                        <option value="m">m</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -270,15 +306,15 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="edit_harga_beli">Harga Beli <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="edit_harga_beli" name="harga_beli"
-                                        required>
+                                    <input type="number" step="0.01" class="form-control" id="edit_harga_beli"
+                                        name="harga_beli" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="edit_harga_jual">Harga Jual <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="edit_harga_jual" name="harga_jual"
-                                        required>
+                                    <input type="number" step="0.01" class="form-control" id="edit_harga_jual"
+                                        name="harga_jual" required>
                                 </div>
                             </div>
                         </div>
@@ -291,28 +327,37 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
+                                    <label for="edit_lead_time">Lead Time (hari) <span
+                                            class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="edit_lead_time" name="lead_time"
+                                        required min="1">
+                                    <small class="form-text text-muted">Waktu tunggu pesanan sampai diterima</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
                                     <label for="edit_safety_stock">Safety Stock <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="edit_safety_stock"
                                         name="safety_stock" required>
                                 </div>
                             </div>
+                        </div>
+                        <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label for="edit_rop">ROP <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="edit_rop" name="rop" required>
                                 </div>
                             </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="edit_min">Min (Reorder Point) <span class="text-danger">*</span></label>
+                                    <label for="edit_min">Min Stock <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="edit_min" name="min" required>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="edit_max">Max (Maximum Stock) <span class="text-danger">*</span></label>
+                                    <label for="edit_max">Max Stock <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="edit_max" name="max" required>
                                 </div>
                             </div>
@@ -333,7 +378,6 @@
         </div>
     </div>
 
-    <!-- Modal Show Bahan Baku -->
     <div class="modal fade" id="showBahanBakuModal" tabindex="-1" role="dialog"
         aria-labelledby="showBahanBakuModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -383,19 +427,13 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-group">
-                                        <label class="font-weight-bold">Safety Stock</label>
-                                        <p id="show_safety_stock" class="form-control-plaintext"></p>
+                                        <label class="font-weight-bold">Lead Time</label>
+                                        <p id="show_lead_time" class="form-control-plaintext"></p>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label class="font-weight-bold">ROP</label>
-                                        <p id="show_rop" class="form-control-plaintext"></p>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-group">
                                         <label class="font-weight-bold">Status Stok</label>
                                         <p id="show_status" class="form-control-plaintext"></p>
@@ -403,16 +441,28 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <div class="form-group">
-                                        <label class="font-weight-bold">Min (Reorder Point)</label>
-                                        <p id="show_min" class="form-control-plaintext"></p>
+                                        <label class="font-weight-bold">Safety Stock</label>
+                                        <p id="show_safety_stock" class="form-control-plaintext font-weight-bold"></p>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <div class="form-group">
-                                        <label class="font-weight-bold">Max (Maximum Stock)</label>
-                                        <p id="show_max" class="form-control-plaintext"></p>
+                                        <label class="font-weight-bold">ROP</label>
+                                        <p id="show_rop" class="form-control-plaintext font-weight-bold"></p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">Min Stock</label>
+                                        <p id="show_min" class="form-control-plaintext font-weight-bold"></p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">Max Stock</label>
+                                        <p id="show_max" class="form-control-plaintext font-weight-bold"></p>
                                     </div>
                                 </div>
                             </div>
@@ -442,7 +492,27 @@
         </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="calculationDetailModal" tabindex="-1" role="dialog"
+        aria-labelledby="calculationDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="calculationDetailModalLabel">Detail Perhitungan Parameter Stok</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="calculationDetailContent">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
         aria-hidden="true">
         <div class="modal-dialog">
@@ -515,6 +585,22 @@
             background: #a8a8a8;
         }
 
+        .calculation-step {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #007bff;
+        }
+
+        .calculation-result {
+            background: #e7f3ff;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 4px solid #28a745;
+        }
+
         @media print {
             .no-print {
                 display: none !important;
@@ -533,7 +619,6 @@
         $(document).ready(function() {
             console.log('Owner Bahan Baku - Document ready');
 
-            // Initialize DataTable with enhanced features
             var table = $('.data-table').DataTable({
                 responsive: false,
                 scrollX: true,
@@ -563,7 +648,135 @@
                 ]
             });
 
-            // Show Bahan Baku details
+            $('.select2').select2({
+                theme: 'bootstrap4',
+                width: '100%',
+                placeholder: 'Pilih Satuan',
+                allowClear: true
+            });
+
+            // Calculation Detail Button
+            $(document).on('click', '.calculation-detail-btn', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                var id = $(this).data('id');
+                $(this).closest('.dropdown-menu').prev('.dropdown-toggle').dropdown('toggle');
+
+                Swal.fire({
+                    title: 'Memuat...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                $.ajax({
+                    url: '{{ url('owner/bahan-baku') }}/' + id + '/calculation-detail',
+                    type: 'GET',
+                    success: function(response) {
+                        Swal.close();
+                        if (response.status === 'success') {
+                            var data = response.data;
+                            var html = '';
+
+                            html += '<div class="mb-4">';
+                            html += '<h5>Informasi Bahan Baku</h5>';
+                            html += '<p><strong>Nama:</strong> ' + data.bahan_baku + '</p>';
+                            html += '<p><strong>Lead Time:</strong> ' + data.lead_time + '</p>';
+                            html += '</div>';
+
+                            html += '<div class="mb-4">';
+                            html += '<h5>Statistik Penggunaan (7 Hari Terakhir)</h5>';
+                            html += '<div class="row">';
+                            html += '<div class="col-md-6"><p><strong>Total Keluar:</strong> ' +
+                                data.statistik_penggunaan.total_keluar + ' ' + data.bahan_baku +
+                                '</p></div>';
+                            html +=
+                                '<div class="col-md-6"><p><strong>Jumlah Transaksi:</strong> ' +
+                                data.statistik_penggunaan.count_keluar + ' kali</p></div>';
+                            html +=
+                                '<div class="col-md-6"><p><strong>Rata-rata per Hari:</strong> ' +
+                                data.statistik_penggunaan.rata_rata_per_hari + ' ' + data
+                                .bahan_baku + '</p></div>';
+                            html +=
+                                '<div class="col-md-6"><p><strong>Maksimum per Hari:</strong> ' +
+                                data.statistik_penggunaan.maks_keluar_per_hari + ' ' + data
+                                .bahan_baku + '</p></div>';
+                            html += '</div>';
+                            html += '</div>';
+
+                            html += '<div class="mb-4">';
+                            html += '<h5>Detail Perhitungan</h5>';
+
+                            html += '<div class="calculation-step">';
+                            html += '<h6>Safety Stock (SS)</h6>';
+                            html +=
+                                '<p class="mb-1">Rumus: (Pemakaian Maksimum - Rata-rata) × Lead Time</p>';
+                            html += '<p class="mb-0"><strong>' + data.perhitungan.safety_stock +
+                                '</strong></p>';
+                            html += '</div>';
+
+                            html += '<div class="calculation-step">';
+                            html += '<h6>Minimal Stock (Min)</h6>';
+                            html +=
+                                '<p class="mb-1">Rumus: (Rata-rata × Lead Time) + Safety Stock</p>';
+                            html += '<p class="mb-0"><strong>' + data.perhitungan.min_stock +
+                                '</strong></p>';
+                            html += '</div>';
+
+                            html += '<div class="calculation-step">';
+                            html += '<h6>Maksimal Stock (Max)</h6>';
+                            html +=
+                                '<p class="mb-1">Rumus: 2 × (Rata-rata × Lead Time) + Safety Stock</p>';
+                            html += '<p class="mb-0"><strong>' + data.perhitungan.max_stock +
+                                '</strong></p>';
+                            html += '</div>';
+
+                            html += '<div class="calculation-step">';
+                            html += '<h6>Reorder Point (ROP)</h6>';
+                            html += '<p class="mb-1">Rumus: Maksimal Stock - Minimal Stock</p>';
+                            html += '<p class="mb-0"><strong>' + data.perhitungan.rop +
+                                '</strong></p>';
+                            html += '</div>';
+                            html += '</div>';
+
+                            html += '<div class="calculation-result">';
+                            html += '<h5>Hasil Perhitungan</h5>';
+                            html += '<div class="row">';
+                            html += '<div class="col-md-3"><p><strong>Safety Stock:</strong> ' +
+                                data.hasil.safety_stock + '</p></div>';
+                            html += '<div class="col-md-3"><p><strong>ROP:</strong> ' + data
+                                .hasil.rop + '</p></div>';
+                            html += '<div class="col-md-3"><p><strong>Min Stock:</strong> ' +
+                                data.hasil.min + '</p></div>';
+                            html += '<div class="col-md-3"><p><strong>Max Stock:</strong> ' +
+                                data.hasil.max + '</p></div>';
+                            html += '</div>';
+                            html += '</div>';
+
+                            $('#calculationDetailContent').html(html);
+                            $('#calculationDetailModal').modal('show');
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Gagal memuat detail perhitungan'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: xhr.responseJSON?.message ||
+                                'Gagal memuat detail perhitungan'
+                        });
+                    }
+                });
+            });
+
             $(document).on('click', '.show-btn', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -571,7 +784,6 @@
                 var id = $(this).data('id');
                 console.log('Show button clicked for ID:', id);
 
-                // Close dropdown if open
                 $(this).closest('.dropdown-menu').prev('.dropdown-toggle').dropdown('toggle');
 
                 Swal.fire({
@@ -592,7 +804,6 @@
                         if (response.status === 'success') {
                             var data = response.data;
 
-                            // Fill data to modal
                             $('#show_nama').text(data.nama || '-');
                             $('#show_satuan').text(data.satuan || '-');
                             $('#show_harga_beli').text(data.harga_beli ? 'Rp ' + parseFloat(data
@@ -600,20 +811,22 @@
                             $('#show_harga_jual').text(data.harga_jual ? 'Rp ' + parseFloat(data
                                 .harga_jual).toLocaleString('id-ID') : '-');
                             $('#show_stok').text(data.stok || '0');
+                            $('#show_lead_time').text(data.lead_time ? data.lead_time +
+                                ' hari' : '-');
                             $('#show_safety_stock').text(data.safety_stock || '0');
                             $('#show_rop').text(data.rop || '0');
                             $('#show_min').text(data.min || '0');
                             $('#show_max').text(data.max || '0');
 
-                            // Status Stok dengan warna yang sesuai
                             var statusText, statusClass;
                             if (data.stok <= data.min) {
                                 statusText =
-                                    '<span class="badge badge-warning">Perlu Pembelian</span>';
-                                statusClass = 'text-warning';
+                                    '<span class="badge badge-danger">Perlu Pembelian</span>';
+                                statusClass = 'text-danger';
                             } else if (data.stok <= data.safety_stock) {
-                                statusText = '<span class="badge badge-info">Perhatian</span>';
-                                statusClass = 'text-info';
+                                statusText =
+                                    '<span class="badge badge-warning">Stok Menipis</span>';
+                                statusClass = 'text-warning';
                             } else {
                                 statusText = '<span class="badge badge-success">Aman</span>';
                                 statusClass = 'text-success';
@@ -621,7 +834,6 @@
                             $('#show_status').html(statusText);
                             $('#show_stok').addClass(statusClass);
 
-                            // Analisis stok
                             var analisisText = '';
                             if (data.stok <= data.min) {
                                 analisisText =
@@ -635,13 +847,11 @@
                             }
                             $('#analisis_text').text(analisisText);
 
-                            // Foto
                             $('#show_foto').html(data.foto ?
                                 `<img src="{{ asset('storage') }}/${data.foto}" alt="Foto Bahan Baku" style="max-width: 200px; height: auto; border-radius: 5px; border: 2px solid #dee2e6;">` :
                                 '<div style="width: 200px; height: 200px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; border-radius: 5px; border: 2px solid #dee2e6;"><i class="fas fa-image" style="font-size: 48px; color: #6c757d;"></i><br><small class="text-muted">Tidak ada foto</small></div>'
                             );
 
-                            // Show modal
                             $('#showBahanBakuModal').modal('show');
                         } else {
                             console.error('Response status not success:', response);
@@ -665,7 +875,6 @@
                 });
             });
 
-            // Edit Bahan Baku
             $(document).on('click', '.edit-btn', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -673,7 +882,6 @@
                 var id = $(this).data('id');
                 console.log('Edit button clicked for ID:', id);
 
-                // Close dropdown if open
                 $(this).closest('.dropdown-menu').prev('.dropdown-toggle').dropdown('toggle');
 
                 Swal.fire({
@@ -694,26 +902,24 @@
                         if (response.status === 'success') {
                             var data = response.data;
 
-                            // Fill edit form
                             $('#editForm').attr('action', '{{ url('owner/bahan-baku') }}/' +
                                 id);
                             $('#edit_nama').val(data.nama || '');
-                            $('#edit_satuan').val(data.satuan || '');
+                            $('#edit_satuan').val(data.satuan || '').trigger('change');
                             $('#edit_harga_beli').val(data.harga_beli || '');
                             $('#edit_harga_jual').val(data.harga_jual || '');
                             $('#edit_stok').val(data.stok || '');
+                            $('#edit_lead_time').val(data.lead_time || '');
                             $('#edit_safety_stock').val(data.safety_stock || '');
                             $('#edit_rop').val(data.rop || '');
                             $('#edit_min').val(data.min || '');
                             $('#edit_max').val(data.max || '');
 
-                            // Foto preview
                             $('#edit_foto_preview').html(data.foto ?
                                 `<img src="{{ asset('storage') }}/${data.foto}" alt="Foto Bahan Baku" style="max-width: 200px; height: auto; border-radius: 5px; border: 2px solid #dee2e6;">` :
                                 '<div style="width: 200px; height: 200px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; border-radius: 5px; border: 2px solid #dee2e6;"><i class="fas fa-image" style="font-size: 48px; color: #6c757d;"></i><br><small class="text-muted">Tidak ada foto</small></div>'
                             );
 
-                            // Show modal
                             $('#editBahanBakuModal').modal('show');
                         } else {
                             console.error('Response status not success:', response);
@@ -737,7 +943,6 @@
                 });
             });
 
-            // Delete functionality
             $(document).on('click', '.delete-btn', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -745,10 +950,8 @@
                 var id = $(this).data('id');
                 var nama = $(this).data('nama');
 
-                // Close dropdown if open
                 $(this).closest('.dropdown-menu').prev('.dropdown-toggle').dropdown('toggle');
 
-                // Set data for delete modal
                 $('#deleteNama').text(nama);
                 $('#deleteForm').attr('action', '{{ url('owner/bahan-baku') }}/' + id);
 

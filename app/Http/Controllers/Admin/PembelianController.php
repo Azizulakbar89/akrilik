@@ -20,6 +20,7 @@ class PembelianController extends Controller
         $supplier = Supplier::all();
         $bahanBaku = BahanBaku::all();
 
+        // Ambil rekomendasi pembelian berdasarkan sistem Min-Max
         $rekomendasi = BahanBaku::perluPembelian()->get()->map(function ($bahan) {
             return $bahan->rekomendasi_pembelian;
         })->filter();
@@ -147,7 +148,7 @@ class PembelianController extends Controller
             }
 
             DB::commit();
-            return response()->json(['success' => 'Pembelian dari rekomendasi berhasil disimpan']);
+            return response()->json(['success' => 'Pembelian dari rekomendasi sistem Min-Max berhasil disimpan']);
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
@@ -197,6 +198,7 @@ class PembelianController extends Controller
                 return response()->json(['error' => 'Pembelian hanya dapat diubah saat status menunggu persetujuan'], 403);
             }
 
+            // Hapus detail pembelian lama
             DetailPembelian::where('pembelian_id', $id)->delete();
 
             $total = 0;
@@ -204,12 +206,14 @@ class PembelianController extends Controller
                 $total += $item['jumlah'] * $item['harga'];
             }
 
+            // Update pembelian
             $pembelian->update([
                 'supplier_id' => $request->supplier_id,
                 'total' => $total,
                 'tanggal' => $request->tanggal,
             ]);
 
+            // Buat detail pembelian baru
             foreach ($request->items as $item) {
                 DetailPembelian::create([
                     'pembelian_id' => $pembelian->id,
@@ -248,49 +252,6 @@ class PembelianController extends Controller
         }
     }
 
-    public function approve($id)
-    {
-        DB::beginTransaction();
-        try {
-            $pembelian = Pembelian::with('detailPembelian')->findOrFail($id);
-
-            if ($pembelian->status !== 'menunggu_persetujuan') {
-                return response()->json(['error' => 'Pembelian tidak dapat disetujui'], 403);
-            }
-
-            foreach ($pembelian->detailPembelian as $detail) {
-                $bahanBaku = BahanBaku::find($detail->bahan_baku_id);
-                $bahanBaku->stok += $detail->jumlah;
-                $bahanBaku->save();
-            }
-
-            $pembelian->update(['status' => 'completed']);
-
-            DB::commit();
-            return response()->json(['success' => 'Pembelian berhasil disetujui dan stok diperbarui']);
-        } catch (\Exception $e) {
-            DB::rollback();
-            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
-        }
-    }
-
-    public function reject($id)
-    {
-        try {
-            $pembelian = Pembelian::findOrFail($id);
-
-            if ($pembelian->status !== 'menunggu_persetujuan') {
-                return response()->json(['error' => 'Pembelian tidak dapat ditolak'], 403);
-            }
-
-            $pembelian->update(['status' => 'ditolak']);
-
-            return response()->json(['success' => 'Pembelian ditolak']);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
-        }
-    }
-
     public function getStokTidakAman()
     {
         $stokTidakAman = BahanBaku::whereColumn('stok', '<=', 'min')
@@ -322,5 +283,51 @@ class PembelianController extends Controller
             'total_rekomendasi' => $totalRekomendasi,
             'jumlah_item' => $rekomendasi->count()
         ]);
+    }
+
+    // Method untuk mendapatkan detail perhitungan sistem Min-Max
+    public function getDetailPerhitungan($id)
+    {
+        try {
+            $bahanBaku = BahanBaku::findOrFail($id);
+            $parameters = $bahanBaku->hitungParameterStok();
+            $statistik = $parameters['statistik'];
+
+            $calculationDetail = [
+                'bahan_baku' => $bahanBaku->nama,
+                'lead_time' => $bahanBaku->lead_time . ' hari',
+                'stok_sekarang' => $bahanBaku->stok,
+                'statistik_penggunaan' => [
+                    'total_keluar' => $statistik['total_keluar'],
+                    'count_keluar' => $statistik['count_keluar'],
+                    'rata_rata_per_hari' => $statistik['rata_rata'],
+                    'maks_keluar_per_hari' => $statistik['maks_keluar']
+                ],
+                'perhitungan' => [
+                    'safety_stock' => "({$statistik['maks_keluar']} - {$statistik['rata_rata']}) × {$bahanBaku->lead_time} = {$parameters['safety_stock']}",
+                    'min_stock' => "({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['min']}",
+                    'max_stock' => "2 × ({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['max']}",
+                    'rop' => "{$parameters['max']} - {$parameters['min']} = {$parameters['rop']}"
+                ],
+                'rekomendasi_pembelian' => [
+                    'perlu_pembelian' => $bahanBaku->isPerluPembelian(),
+                    'jumlah_rekomendasi' => $bahanBaku->jumlahPemesananRekomendasi(),
+                    'alasan' => $bahanBaku->isPerluPembelian() ?
+                        "Stok ({$bahanBaku->stok}) ≤ Min ({$parameters['min']})" :
+                        "Stok ({$bahanBaku->stok}) > Min ({$parameters['min']})"
+                ],
+                'hasil' => $parameters
+            ];
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $calculationDetail
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

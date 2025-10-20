@@ -21,6 +21,9 @@
             </div>
             <div class="col-md-6 col-sm-12 text-right">
                 @if (Auth::user()->role === 'admin')
+                    <button class="btn btn-success" id="recalculateAllBtn">
+                        <i class="fas fa-calculator"></i> Hitung Ulang Semua
+                    </button>
                     <button class="btn btn-primary" data-toggle="modal" data-target="#tambahBahanBakuModal">
                         <i class="fas fa-plus"></i> Tambah Bahan Baku
                     </button>
@@ -32,6 +35,7 @@
     <div class="card-box mb-30">
         <div class="pd-20">
             <h4 class="text-blue h4">Daftar Bahan Baku</h4>
+            <p class="mb-0">Parameter stok dihitung otomatis berdasarkan data penggunaan 30 hari terakhir</p>
         </div>
         <div class="pb-20">
             <div class="table-responsive" style="overflow-x: auto;">
@@ -45,6 +49,7 @@
                             <th>Harga Beli</th>
                             <th>Harga Jual</th>
                             <th>Stok</th>
+                            <th>Lead Time</th>
                             <th>Safety Stock</th>
                             <th>ROP</th>
                             <th>Min</th>
@@ -73,13 +78,16 @@
                                 <td>Rp {{ number_format($bb->harga_beli, 0, ',', '.') }}</td>
                                 <td>Rp {{ number_format($bb->harga_jual, 0, ',', '.') }}</td>
                                 <td>{{ $bb->stok }}</td>
+                                <td>{{ $bb->lead_time }} hari</td>
                                 <td>{{ $bb->safety_stock }}</td>
                                 <td>{{ $bb->rop }}</td>
                                 <td>{{ $bb->min }}</td>
                                 <td>{{ $bb->max }}</td>
                                 <td>
                                     @if ($bb->stok <= $bb->min)
-                                        <span class="badge badge-warning">Perlu Pembelian</span>
+                                        <span class="badge badge-danger">Perlu Pembelian</span>
+                                    @elseif ($bb->stok <= $bb->safety_stock)
+                                        <span class="badge badge-warning">Stok Menipis</span>
                                     @else
                                         <span class="badge badge-success">Aman</span>
                                     @endif
@@ -93,6 +101,10 @@
                                         <div class="dropdown-menu dropdown-menu-right dropdown-menu-icon-list">
                                             <a class="dropdown-item show-btn" href="#" data-id="{{ $bb->id }}">
                                                 <i class="fas fa-eye"></i> Lihat
+                                            </a>
+                                            <a class="dropdown-item calculation-detail-btn" href="#"
+                                                data-id="{{ $bb->id }}">
+                                                <i class="fas fa-calculator"></i> Detail Perhitungan
                                             </a>
                                             @if (Auth::user()->role === 'admin')
                                                 <a class="dropdown-item edit-btn" href="#"
@@ -117,7 +129,6 @@
 @endsection
 
 @push('modals')
-    <!-- Modal Tambah Bahan Baku -->
     @if (Auth::user()->role === 'admin')
         <div class="modal fade" id="tambahBahanBakuModal" tabindex="-1" role="dialog"
             aria-labelledby="tambahBahanBakuModalLabel" aria-hidden="true">
@@ -132,6 +143,10 @@
                     <form id="tambahBahanBakuForm" enctype="multipart/form-data">
                         @csrf
                         <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Safety Stock, ROP, Min, dan Max akan dihitung otomatis
+                                berdasarkan data penggunaan 30 hari terakhir.
+                            </div>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
@@ -175,21 +190,7 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label>Safety Stock</label>
-                                        <input type="number" class="form-control" name="safety_stock" required>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label>ROP</label>
-                                        <input type="number" class="form-control" name="rop" required>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-group">
                                         <label>Stok Awal</label>
                                         <input type="number" class="form-control" name="stok" value="0"
@@ -197,19 +198,12 @@
                                         <div class="invalid-feedback"></div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Min (Reorder Point)</label>
-                                        <input type="number" class="form-control" name="min" required>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Max (Maximum Stock)</label>
-                                        <input type="number" class="form-control" name="max" required>
+                                        <label>Lead Time (hari)</label>
+                                        <input type="number" class="form-control" name="lead_time" value="1"
+                                            required min="1">
+                                        <small class="form-text text-muted">Waktu tunggu pesanan sampai diterima</small>
                                         <div class="invalid-feedback"></div>
                                     </div>
                                 </div>
@@ -230,7 +224,6 @@
         </div>
     @endif
 
-    <!-- Modal Edit Bahan Baku -->
     @if (Auth::user()->role === 'admin')
         <div class="modal fade" id="editBahanBakuModal" tabindex="-1" role="dialog"
             aria-labelledby="editBahanBakuModalLabel" aria-hidden="true">
@@ -247,6 +240,10 @@
                         @method('PUT')
                         <input type="hidden" name="id" id="edit_id">
                         <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Safety Stock, ROP, Min, dan Max akan dihitung ulang
+                                otomatis berdasarkan data penggunaan 30 hari terakhir.
+                            </div>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
@@ -291,23 +288,7 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label>Safety Stock</label>
-                                        <input type="number" class="form-control" name="safety_stock"
-                                            id="edit_safety_stock" required>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label>ROP</label>
-                                        <input type="number" class="form-control" name="rop" id="edit_rop"
-                                            required>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-group">
                                         <label>Stok</label>
                                         <input type="number" class="form-control" name="stok" id="edit_stok"
@@ -315,21 +296,12 @@
                                         <div class="invalid-feedback"></div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Min (Reorder Point)</label>
-                                        <input type="number" class="form-control" name="min" id="edit_min"
-                                            required>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Max (Maximum Stock)</label>
-                                        <input type="number" class="form-control" name="max" id="edit_max"
-                                            required>
+                                        <label>Lead Time (hari)</label>
+                                        <input type="number" class="form-control" name="lead_time" id="edit_lead_time"
+                                            required min="1">
+                                        <small class="form-text text-muted">Waktu tunggu pesanan sampai diterima</small>
                                         <div class="invalid-feedback"></div>
                                     </div>
                                 </div>
@@ -352,7 +324,6 @@
         </div>
     @endif
 
-    <!-- Modal Show Bahan Baku -->
     <div class="modal fade" id="showBahanBakuModal" tabindex="-1" role="dialog"
         aria-labelledby="showBahanBakuModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -402,19 +373,13 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Safety Stock</label>
-                                        <p id="show_safety_stock" class="form-control-plaintext"></p>
+                                        <label>Lead Time</label>
+                                        <p id="show_lead_time" class="form-control-plaintext"></p>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label>ROP</label>
-                                        <p id="show_rop" class="form-control-plaintext"></p>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <div class="form-group">
                                         <label>Status Stok</label>
                                         <p id="show_status" class="form-control-plaintext"></p>
@@ -422,20 +387,53 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <div class="form-group">
-                                        <label>Min (Reorder Point)</label>
-                                        <p id="show_min" class="form-control-plaintext"></p>
+                                        <label>Safety Stock</label>
+                                        <p id="show_safety_stock" class="form-control-plaintext font-weight-bold"></p>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <div class="form-group">
-                                        <label>Max (Maximum Stock)</label>
-                                        <p id="show_max" class="form-control-plaintext"></p>
+                                        <label>ROP</label>
+                                        <p id="show_rop" class="form-control-plaintext font-weight-bold"></p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label>Min Stock</label>
+                                        <p id="show_min" class="form-control-plaintext font-weight-bold"></p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label>Max Stock</label>
+                                        <p id="show_max" class="form-control-plaintext font-weight-bold"></p>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="calculationDetailModal" tabindex="-1" role="dialog"
+        aria-labelledby="calculationDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="calculationDetailModalLabel">Detail Perhitungan Parameter Stok</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="calculationDetailContent">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -485,6 +483,22 @@
         .table-responsive::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
         }
+
+        .calculation-step {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #007bff;
+        }
+
+        .calculation-result {
+            background: #e7f3ff;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 4px solid #28a745;
+        }
     </style>
 @endpush
 
@@ -532,13 +546,187 @@
                 }
             });
 
+            $('#recalculateAllBtn').on('click', function() {
+                Swal.fire({
+                    title: 'Hitung Ulang Semua Parameter Stok?',
+                    text: 'Proses ini akan menghitung ulang Safety Stock, ROP, Min, dan Max untuk semua bahan baku',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Ya, Hitung Ulang',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'Menghitung...',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        $.ajax({
+                            url: '{{ route('admin.bahan-baku.recalculate-all') }}',
+                            type: 'POST',
+                            success: function(response) {
+                                Swal.close();
+                                if (response.status === 'success') {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Sukses',
+                                        text: response.message
+                                    }).then(() => {
+                                        window.location.reload();
+                                    });
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.close();
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: xhr.responseJSON?.message ||
+                                        'Terjadi kesalahan'
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+
+            $(document).on('click', '.calculation-detail-btn', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                var id = $(this).data('id');
+                $(this).closest('.dropdown-menu').prev('.dropdown-toggle').dropdown('toggle');
+
+                Swal.fire({
+                    title: 'Memuat...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                $.ajax({
+                    url: '{{ url('admin/bahan-baku') }}/' + id + '/calculation-detail',
+                    type: 'GET',
+                    success: function(response) {
+                        Swal.close();
+                        if (response.status === 'success') {
+                            var data = response.data;
+                            var html = '';
+
+                            html += '<div class="mb-4">';
+                            html += '<h5>Informasi Bahan Baku</h5>';
+                            html += '<p><strong>Nama:</strong> ' + data.bahan_baku + '</p>';
+                            html += '<p><strong>Lead Time:</strong> ' + data.lead_time + '</p>';
+                            html += '</div>';
+
+                            html += '<div class="mb-4">';
+                            html += '<h5>Statistik Penggunaan (30 Hari Terakhir)</h5>';
+                            html += '<div class="row">';
+                            html += '<div class="col-md-6"><p><strong>Total Keluar:</strong> ' +
+                                data.statistik_penggunaan.total_keluar + ' ' + data.bahan_baku +
+                                '</p></div>';
+                            html +=
+                                '<div class="col-md-6"><p><strong>Jumlah Transaksi:</strong> ' +
+                                data.statistik_penggunaan.count_keluar + ' kali</p></div>';
+                            html +=
+                                '<div class="col-md-6"><p><strong>Rata-rata per Hari:</strong> ' +
+                                data.statistik_penggunaan.rata_rata_per_hari + ' ' + data
+                                .bahan_baku + '</p></div>';
+                            html +=
+                                '<div class="col-md-6"><p><strong>Maksimum per Hari:</strong> ' +
+                                data.statistik_penggunaan.maks_keluar_per_hari + ' ' + data
+                                .bahan_baku + '</p></div>';
+                            if (data.statistik_penggunaan.hari_aktif !== undefined) {
+                                html +=
+                                    '<div class="col-md-6"><p><strong>Hari dengan Transaksi:</strong> ' +
+                                    data.statistik_penggunaan.hari_aktif + ' dari ' + data
+                                    .statistik_penggunaan.range_hari + ' hari</p></div>';
+                            }
+                            html += '</div>';
+                            html += '</div>';
+
+                            html += '<div class="mb-4">';
+                            html += '<h5>Detail Perhitungan</h5>';
+
+                            html += '<div class="calculation-step">';
+                            html += '<h6>Safety Stock (SS)</h6>';
+                            html +=
+                                '<p class="mb-1">Rumus: (Pemakaian Maksimum - Rata-rata) × Lead Time</p>';
+                            html += '<p class="mb-0"><strong>' + data.perhitungan.safety_stock +
+                                '</strong></p>';
+                            html += '</div>';
+
+                            html += '<div class="calculation-step">';
+                            html += '<h6>Minimal Stock (Min)</h6>';
+                            html +=
+                                '<p class="mb-1">Rumus: (Rata-rata × Lead Time) + Safety Stock</p>';
+                            html += '<p class="mb-0"><strong>' + data.perhitungan.min_stock +
+                                '</strong></p>';
+                            html += '</div>';
+
+                            html += '<div class="calculation-step">';
+                            html += '<h6>Maksimal Stock (Max)</h6>';
+                            html +=
+                                '<p class="mb-1">Rumus: 2 × (Rata-rata × Lead Time) + Safety Stock</p>';
+                            html += '<p class="mb-0"><strong>' + data.perhitungan.max_stock +
+                                '</strong></p>';
+                            html += '</div>';
+
+                            html += '<div class="calculation-step">';
+                            html += '<h6>Reorder Point (ROP)</h6>';
+                            html += '<p class="mb-1">Rumus: Maksimal Stock - Minimal Stock</p>';
+                            html += '<p class="mb-0"><strong>' + data.perhitungan.rop +
+                                '</strong></p>';
+                            html += '</div>';
+                            html += '</div>';
+
+                            html += '<div class="calculation-result">';
+                            html += '<h5>Hasil Perhitungan</h5>';
+                            html += '<div class="row">';
+                            html += '<div class="col-md-3"><p><strong>Safety Stock:</strong> ' +
+                                data.hasil.safety_stock + '</p></div>';
+                            html += '<div class="col-md-3"><p><strong>ROP:</strong> ' + data
+                                .hasil.rop + '</p></div>';
+                            html += '<div class="col-md-3"><p><strong>Min Stock:</strong> ' +
+                                data.hasil.min + '</p></div>';
+                            html += '<div class="col-md-3"><p><strong>Max Stock:</strong> ' +
+                                data.hasil.max + '</p></div>';
+                            html += '</div>';
+                            html += '</div>';
+
+                            $('#calculationDetailContent').html(html);
+                            $('#calculationDetailModal').modal('show');
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Gagal memuat detail perhitungan'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: xhr.responseJSON?.message ||
+                                'Gagal memuat detail perhitungan'
+                        });
+                    }
+                });
+            });
+
             $(document).on('click', '.show-btn', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
 
                 var id = $(this).data('id');
-                console.log('Show button clicked for ID:', id);
-
                 $(this).closest('.dropdown-menu').prev('.dropdown-toggle').dropdown('toggle');
 
                 Swal.fire({
@@ -554,8 +742,6 @@
                     type: 'GET',
                     success: function(response) {
                         Swal.close();
-                        console.log('Response received:', response);
-
                         if (response.status === 'success') {
                             var data = response.data;
 
@@ -566,13 +752,17 @@
                             $('#show_harga_jual').text(data.harga_jual ? 'Rp ' + parseFloat(data
                                 .harga_jual).toLocaleString('id-ID') : '-');
                             $('#show_stok').text(data.stok || '0');
+                            $('#show_lead_time').text(data.lead_time ? data.lead_time +
+                                ' hari' : '-');
                             $('#show_safety_stock').text(data.safety_stock || '0');
                             $('#show_rop').text(data.rop || '0');
                             $('#show_min').text(data.min || '0');
                             $('#show_max').text(data.max || '0');
 
                             var statusText = data.stok <= data.min ?
-                                '<span class="badge badge-warning">Perlu Pembelian</span>' :
+                                '<span class="badge badge-danger">Perlu Pembelian</span>' :
+                                data.stok <= data.safety_stock ?
+                                '<span class="badge badge-warning">Stok Menipis</span>' :
                                 '<span class="badge badge-success">Aman</span>';
                             $('#show_status').html(statusText);
 
@@ -582,19 +772,10 @@
                             );
 
                             $('#showBahanBakuModal').modal('show');
-                            console.log('Show modal should be visible now');
-                        } else {
-                            console.error('Response status not success:', response);
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'Gagal memuat data bahan baku'
-                            });
                         }
                     },
-                    error: function(xhr, status, error) {
+                    error: function(xhr) {
                         Swal.close();
-                        console.error('AJAX Error:', status, error, xhr.responseJSON);
                         Swal.fire({
                             icon: 'error',
                             title: 'Error',
@@ -610,7 +791,6 @@
                 e.stopPropagation();
 
                 var id = $(this).data('id');
-                console.log('Edit button clicked for ID:', id);
                 $(this).closest('.dropdown-menu').prev('.dropdown-toggle').dropdown('toggle');
 
                 Swal.fire({
@@ -626,8 +806,6 @@
                     type: 'GET',
                     success: function(response) {
                         Swal.close();
-                        console.log('Response received:', response);
-
                         if (response.status === 'success') {
                             var data = response.data;
 
@@ -637,10 +815,7 @@
                             $('#edit_harga_beli').val(data.harga_beli);
                             $('#edit_harga_jual').val(data.harga_jual);
                             $('#edit_stok').val(data.stok);
-                            $('#edit_safety_stock').val(data.safety_stock);
-                            $('#edit_rop').val(data.rop);
-                            $('#edit_min').val(data.min);
-                            $('#edit_max').val(data.max);
+                            $('#edit_lead_time').val(data.lead_time);
 
                             $('#current_foto').html(data.foto ?
                                 `<p>Foto saat ini:</p><img src="{{ asset('storage') }}/${data.foto}" alt="Foto Bahan Baku" style="max-width: 100px; height: auto; border-radius: 5px; margin-top: 5px;">` :
@@ -648,19 +823,10 @@
                             );
 
                             $('#editBahanBakuModal').modal('show');
-                            console.log('Edit modal should be visible now');
-                        } else {
-                            console.error('Response status not success:', response);
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'Gagal memuat data bahan baku'
-                            });
                         }
                     },
-                    error: function(xhr, status, error) {
+                    error: function(xhr) {
                         Swal.close();
-                        console.error('AJAX Error:', status, error, xhr.responseJSON);
                         Swal.fire({
                             icon: 'error',
                             title: 'Error',
@@ -868,12 +1034,6 @@
                 $('#editBahanBakuForm').find('.is-invalid').removeClass('is-invalid');
                 $('#current_foto').empty();
                 $('#editBahanBakuForm select').val('').trigger('change');
-            });
-
-            console.log('Modals initialized:', {
-                showModal: $('#showBahanBakuModal').length,
-                editModal: $('#editBahanBakuModal').length,
-                addModal: $('#tambahBahanBakuModal').length
             });
         });
     </script>

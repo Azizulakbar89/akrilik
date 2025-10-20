@@ -55,6 +55,9 @@ class Produk extends Model
 
             $bahanBaku->stok -= $kebutuhan;
             $bahanBaku->save();
+
+            // Update parameter stok bahan baku
+            $bahanBaku->updateParameterStok();
         }
     }
 
@@ -66,6 +69,9 @@ class Produk extends Model
 
             $bahanBaku->stok += $kebutuhan;
             $bahanBaku->save();
+
+            // Update parameter stok bahan baku
+            $bahanBaku->updateParameterStok();
         }
     }
 
@@ -91,6 +97,19 @@ class Produk extends Model
         return $hpp;
     }
 
+    public function getMarginAttribute()
+    {
+        return $this->harga - $this->hpp;
+    }
+
+    public function getMarginPersenAttribute()
+    {
+        if ($this->hpp > 0) {
+            return round((($this->harga - $this->hpp) / $this->hpp) * 100, 2);
+        }
+        return 0;
+    }
+
     public function kurangiStok($jumlah)
     {
         if ($this->stok < $jumlah) {
@@ -105,5 +124,21 @@ class Produk extends Model
     {
         $this->stok += $jumlah;
         $this->save();
+    }
+
+    // Method untuk produksi produk (tambah stok dengan mengurangi bahan baku)
+    public function produksi($jumlah)
+    {
+        if (!$this->bisaDiproduksi($jumlah)) {
+            throw new \Exception("Bahan baku tidak mencukupi untuk memproduksi {$jumlah} {$this->nama}");
+        }
+
+        // Kurangi stok bahan baku
+        $this->kurangiStokBahanBaku($jumlah);
+
+        // Tambah stok produk
+        $this->tambahStok($jumlah);
+
+        return $this;
     }
 }

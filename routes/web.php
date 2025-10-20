@@ -37,7 +37,16 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
 
-    Route::resource('bahan-baku', BahanBakuController::class);
+    Route::prefix('bahan-baku')->name('bahan-baku.')->group(function () {
+        Route::get('/', [BahanBakuController::class, 'index'])->name('index');
+        Route::post('/', [BahanBakuController::class, 'store'])->name('store');
+        Route::get('/{id}', [BahanBakuController::class, 'show'])->name('show');
+        Route::put('/{id}', [BahanBakuController::class, 'update'])->name('update');
+        Route::delete('/{id}', [BahanBakuController::class, 'destroy'])->name('destroy');
+
+        Route::post('/recalculate-all', [BahanBakuController::class, 'recalculateAll'])->name('recalculate-all');
+        Route::get('/{id}/calculation-detail', [BahanBakuController::class, 'getCalculationDetail'])->name('calculation-detail');
+    });
 
     Route::prefix('produk')->name('produk.')->group(function () {
         Route::get('/', [ProdukController::class, 'index'])->name('index');
@@ -51,6 +60,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     });
 
     Route::resource('supplier', SupplierController::class);
+
     Route::resource('pembelian', PembelianController::class);
 
     Route::post('/pembelian/{id}/approve', [PembelianController::class, 'approve'])->name('pembelian.approve');
@@ -58,6 +68,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/pembelian-rekomendasi/create', [PembelianController::class, 'createFromRekomendasi'])->name('pembelian.rekomendasi.create');
     Route::get('/api/stok-tidak-aman', [PembelianController::class, 'getStokTidakAman'])->name('pembelian.api.stok-tidak-aman');
     Route::get('/api/rekomendasi', [PembelianController::class, 'getRekomendasiPembelian'])->name('pembelian.api.rekomendasi');
+    Route::get('/api/perhitungan/{id}', [PembelianController::class, 'getDetailPerhitungan'])->name('pembelian.api.perhitungan');
 
     Route::prefix('penjualan')->name('penjualan.')->group(function () {
         Route::get('/', [PenjualanController::class, 'index'])->name('index');
@@ -72,6 +83,7 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
     Route::get('/dashboard', [OwnerDashboard::class, 'index'])->name('dashboard');
 
     Route::resource('bahan-baku', BahanBakuOwnerController::class);
+    Route::get('/bahan-baku/{id}/calculation-detail', [BahanBakuOwnerController::class, 'getCalculationDetail'])->name('bahan-baku.calculation-detail');
     Route::resource('produk', ProdukOwnerController::class);
     Route::resource('supplier', SupplierOwnerController::class);
 

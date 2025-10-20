@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\PenggunaanBahanBaku;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,24 +18,37 @@ class BahanBaku extends Model
         'harga_beli',
         'harga_jual',
         'stok',
-        'lead_time',
         'safety_stock',
         'rop',
         'min',
         'max',
+        'lead_time',
         'foto'
+    ];
+
+    protected $attributes = [
+        'safety_stock' => 0,
+        'rop' => 0,
+        'min' => 0,
+        'max' => 0,
+        'stok' => 0
     ];
 
     protected $casts = [
         'harga_beli' => 'decimal:2',
         'harga_jual' => 'decimal:2',
         'stok' => 'integer',
-        'lead_time' => 'integer',
         'safety_stock' => 'integer',
         'rop' => 'integer',
         'min' => 'integer',
-        'max' => 'integer'
+        'max' => 'integer',
+        'lead_time' => 'integer'
     ];
+
+    public function penggunaan()
+    {
+        return $this->hasMany(PenggunaanBahanBaku::class, 'bahan_baku_id');
+    }
 
     public function detailPenjualan()
     {
@@ -51,30 +65,156 @@ class BahanBaku extends Model
         return $this->hasMany(DetailPembelian::class, 'bahan_baku_id');
     }
 
+    // Method untuk menghitung statistik penggunaan 30 hari terakhir - DIPERBAIKI
+    public function hitungStatistikPenggunaan($rangeHari = 30)
+    {
+        $startDate = now()->subDays($rangeHari)->startOfDay();
+
+        // Cek data penggunaan dari tabel penggunaan_bahan_baku
+        $penggunaan = $this->penggunaan()
+            ->where('created_at', '>=', $startDate)
+            ->where('jumlah', '>', 0)
+            ->get();
+
+        // Jika belum ada data penggunaan, coba dari detail penjualan
+        if ($penggunaan->isEmpty()) {
+            $penggunaan = $this->detailPenjualan()
+                ->whereHas('penjualan', function ($query) use ($startDate) {
+                    $query->where('created_at', '>=', $startDate);
+                })
+                ->where('jumlah', '>', 0)
+                ->get();
+        }
+
+        // Jika masih belum ada data, return default 0
+        if ($penggunaan->isEmpty()) {
+            return [
+                'total_keluar' => 0,
+                'count_keluar' => 0,
+                'rata_rata' => 0,
+                'maks_keluar' => 0,
+                'range_hari' => $rangeHari,
+                'hari_aktif' => 0
+            ];
+        }
+
+        $totalKeluar = $penggunaan->sum('jumlah');
+        $countKeluar = $penggunaan->count();
+
+        // Hitung jumlah hari aktual dengan transaksi
+        $hariDenganTransaksi = $penggunaan->groupBy(function ($item) {
+            return $item->created_at->format('Y-m-d');
+        })->count();
+
+        $hariAktif = max(1, $hariDenganTransaksi); // Minimal 1 hari
+
+        // Rata-rata per hari = total keluar / jumlah hari dengan transaksi
+        $rataRata = $totalKeluar / $hariAktif;
+
+        $maksKeluar = $penggunaan->max('jumlah');
+
+        return [
+            'total_keluar' => $totalKeluar,
+            'count_keluar' => $countKeluar,
+            'rata_rata' => max(0, round($rataRata, 2)),
+            'maks_keluar' => max(0, $maksKeluar),
+            'range_hari' => $rangeHari,
+            'hari_aktif' => $hariAktif
+        ];
+    }
+
+    public function hitungParameterStok()
+    {
+        $statistik = $this->hitungStatistikPenggunaan(30);
+
+        // Jika belum ada data penggunaan atau rata-rata 0, return semua 0
+        if ($statistik['total_keluar'] == 0 || $statistik['rata_rata'] == 0) {
+            return [
+                'safety_stock' => 0,
+                'min' => 0,
+                'max' => 0,
+                'rop' => 0,
+                'statistik' => $statistik
+            ];
+        }
+
+        $T = $statistik['rata_rata']; // Penggunaan rata-rata per hari
+        $LT = $this->lead_time; // Lead time dalam hari
+        $Maks = $statistik['maks_keluar']; // Penggunaan maksimum per hari
+
+        // Safety Stock = (Pemakaian Maksimum - Rata-rata) × Lead Time
+        $SS = max(0, ($Maks - $T) * $LT);
+
+        // Minimal Stock = (Rata-rata × Lead Time) + Safety Stock
+        $Min = ($T * $LT) + $SS;
+
+        // Maksimal Stock = 2 * (Rata-rata × Lead Time) + Safety Stock
+        $Max = 2 * ($T * $LT) + $SS;
+
+        // Reorder Point = Max Stock - Min Stock
+        $ROP = $Max - $Min;
+
+        // Bulatkan semua nilai ke integer
+        return [
+            'safety_stock' => (int) round($SS),
+            'min' => (int) round($Min),
+            'max' => (int) round($Max),
+            'rop' => (int) round($ROP),
+            'statistik' => $statistik
+        ];
+    }
+
+    public function updateParameterStok()
+    {
+        $parameters = $this->hitungParameterStok();
+
+        $this->update([
+            'safety_stock' => $parameters['safety_stock'],
+            'min' => $parameters['min'],
+            'max' => $parameters['max'],
+            'rop' => $parameters['rop']
+        ]);
+
+        return $parameters;
+    }
+
+    public function sudahAdaPenggunaan()
+    {
+        // Cek di tabel penggunaan_bahan_baku
+        $adaPenggunaan = $this->penggunaan()->where('jumlah', '>', 0)->exists();
+
+        // Jika tidak ada, cek di detail penjualan
+        if (!$adaPenggunaan) {
+            $adaPenggunaan = $this->detailPenjualan()->where('jumlah', '>', 0)->exists();
+        }
+
+        return $adaPenggunaan;
+    }
+
     public function isPerluPembelian()
     {
-        return $this->stok <= $this->min;
+        return $this->min > 0 && $this->stok <= $this->min;
     }
 
     public function isStokTidakAman()
     {
-        return $this->stok <= $this->min;
+        return $this->safety_stock > 0 && $this->stok <= $this->safety_stock;
     }
 
     public function getStatusStokAttribute()
     {
-        if ($this->stok <= $this->min) {
-            return '<span class="badge badge-danger">Stok Tidak Aman</span>';
-        } elseif ($this->stok <= $this->safety_stock) {
+        if ($this->min > 0 && $this->stok <= $this->min) {
+            return '<span class="badge badge-danger">Perlu Pembelian</span>';
+        } elseif ($this->safety_stock > 0 && $this->stok <= $this->safety_stock) {
             return '<span class="badge badge-warning">Stok Menipis</span>';
         } else {
-            return '<span class="badge badge-success">Stok Aman</span>';
+            return '<span class="badge badge-success">Aman</span>';
         }
     }
 
     public function jumlahPemesananRekomendasi()
     {
-        if ($this->isPerluPembelian()) {
+        if ($this->isPerluPembelian() && $this->max > 0) {
             $quantity = $this->max - $this->stok;
             return max(0, $quantity);
         }
@@ -89,12 +229,18 @@ class BahanBaku extends Model
 
     public function scopePerluPembelian($query)
     {
-        return $query->whereColumn('stok', '<=', 'min');
+        return $query->where(function ($q) {
+            $q->whereColumn('stok', '<=', 'min')
+                ->where('min', '>', 0);
+        });
     }
 
     public function scopeStokTidakAman($query)
     {
-        return $query->whereColumn('stok', '<=', 'min');
+        return $query->where(function ($q) {
+            $q->whereColumn('stok', '<=', 'min')
+                ->where('min', '>', 0);
+        });
     }
 
     public function getFotoUrlAttribute()
@@ -133,7 +279,21 @@ class BahanBaku extends Model
         return null;
     }
 
-    public function jualSebagaiProduk($jumlah)
+    // Method untuk menambah stok dari pembelian
+    public function tambahStok($jumlah)
+    {
+        $this->stok += $jumlah;
+        $this->save();
+
+        // Update parameter stok setelah penambahan jika sudah ada penggunaan
+        if ($this->sudahAdaPenggunaan()) {
+            $this->updateParameterStok();
+        }
+
+        return $this;
+    }
+
+    public function kurangiStok($jumlah)
     {
         if ($this->stok < $jumlah) {
             throw new \Exception("Stok bahan baku {$this->nama} tidak mencukupi");
@@ -142,105 +302,22 @@ class BahanBaku extends Model
         $this->stok -= $jumlah;
         $this->save();
 
-        return $this->harga_jual * $jumlah;
+        // Update parameter stok setelah pengurangan jika sudah ada penggunaan
+        if ($this->sudahAdaPenggunaan()) {
+            $this->updateParameterStok();
+        }
+
+        return $this;
     }
 
     public function kembalikanStok($jumlah)
     {
         $this->stok += $jumlah;
         $this->save();
-    }
 
-    // Method untuk menghitung safety stock, min, max, rop secara otomatis
-    public function hitungParameterStok()
-    {
-        // Ambil data penjualan 1 bulan terakhir
-        $satuBulanLalu = now()->subMonth();
-
-        $dataPenjualan = $this->detailPenjualan()
-            ->whereHas('penjualan', function ($query) use ($satuBulanLalu) {
-                $query->where('created_at', '>=', $satuBulanLalu);
-            })
-            ->selectRaw('SUM(jumlah) as total_keluar, COUNT(DISTINCT DATE(created_at)) as count_hari')
-            ->first();
-
-        $totalKeluar = $dataPenjualan->total_keluar ?? 0;
-        $countHari = $dataPenjualan->count_hari ?: 1; // Minimal 1 hari untuk menghindari division by zero
-
-        // Hitung penggunaan rata-rata per hari
-        $penggunaanRataRata = $totalKeluar / $countHari;
-
-        // Hitung penggunaan rata-rata per periode (dalam contoh: per hari)
-        $T = round($penggunaanRataRata);
-
-        // Ambil lead time (dalam hari)
-        $LT = $this->lead_time ?: 2; // Default 2 hari jika tidak diisi
-
-        // Hitung pemakaian maksimum (ambil dari data historis)
-        $pemakaianMaksimum = $this->detailPenjualan()
-            ->whereHas('penjualan', function ($query) use ($satuBulanLalu) {
-                $query->where('created_at', '>=', $satuBulanLalu);
-            })
-            ->selectRaw('DATE(created_at) as tanggal, SUM(jumlah) as total_harian')
-            ->groupBy('tanggal')
-            ->orderByDesc('total_harian')
-            ->value('total_harian') ?? ($T * 2); // Default 2x rata-rata jika tidak ada data
-
-        // Hitung Safety Stock
-        $SS = ($pemakaianMaksimum - $T) * $LT;
-        $SS = max(0, round($SS)); // Pastikan tidak negatif
-
-        // Hitung Minimal Stock
-        $minStock = ($T * $LT) + $SS;
-
-        // Hitung Maksimal Stock
-        $maxStock = 2 * ($T * $LT) + $SS;
-
-        // Hitung Reorder Point
-        $ROP = $maxStock - $minStock;
-
-        // Update data ke model
-        $this->update([
-            'safety_stock' => $SS,
-            'min' => $minStock,
-            'max' => $maxStock,
-            'rop' => $ROP
-        ]);
-
-        return [
-            'safety_stock' => $SS,
-            'min' => $minStock,
-            'max' => $maxStock,
-            'rop' => $ROP,
-            'penggunaan_rata_rata' => $T,
-            'pemakaian_maksimum' => $pemakaianMaksimum,
-            'lead_time' => $LT
-        ];
-    }
-
-    // Method untuk mendapatkan statistik penggunaan
-    public function getStatistikPenggunaan()
-    {
-        $satuBulanLalu = now()->subMonth();
-
-        $statistik = $this->detailPenjualan()
-            ->whereHas('penjualan', function ($query) use ($satuBulanLalu) {
-                $query->where('created_at', '>=', $satuBulanLalu);
-            })
-            ->selectRaw('
-                SUM(jumlah) as total_keluar,
-                COUNT(DISTINCT DATE(created_at)) as count_hari,
-                MAX(jumlah) as max_keluar_satu_kali,
-                AVG(jumlah) as avg_keluar_per_transaksi
-            ')
-            ->first();
-
-        return [
-            'total_keluar' => $statistik->total_keluar ?? 0,
-            'count_hari' => $statistik->count_hari ?? 0,
-            'max_keluar_satu_kali' => $statistik->max_keluar_satu_kali ?? 0,
-            'avg_keluar_per_transaksi' => $statistik->avg_keluar_per_transaksi ?? 0,
-            'penggunaan_rata_rata_per_hari' => $statistik->total_keluar / max($statistik->count_hari, 1)
-        ];
+        // Update parameter stok setelah pengembalian jika sudah ada penggunaan
+        if ($this->sudahAdaPenggunaan()) {
+            $this->updateParameterStok();
+        }
     }
 }

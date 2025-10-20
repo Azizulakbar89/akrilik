@@ -11,56 +11,54 @@ class BahanBakuOwnerController extends Controller
 {
     public function index()
     {
-        $bahanBaku = BahanBaku::all();
-        return view('owner.bahan-baku.index', compact('bahanBaku'));
-    }
-
-    public function create()
-    {
-        return view('owner.bahan-baku.create');
-    }
-
-    public function store(Request $request)
-    {
-        $request->validate([
-            'nama' => 'required|string|max:255',
-            'satuan' => 'required|string|max:50',
-            'harga_beli' => 'required|numeric|min:0',
-            'harga_jual' => 'required|numeric|min:0',
-            'stok' => 'required|numeric|min:0',
-            'safety_stock' => 'required|numeric|min:0',
-            'rop' => 'required|numeric|min:0',
-            'min' => 'required|numeric|min:0',
-            'max' => 'required|numeric|min:0',
-            'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
-
-        try {
-            $data = $request->all();
-
-            if ($request->hasFile('foto')) {
-                $fotoPath = $request->file('foto')->store('bahan-baku', 'public');
-                $data['foto'] = $fotoPath;
+        $bahanBaku = BahanBaku::all()->map(function ($bahan) {
+            if ($bahan->sudahAdaPenggunaan()) {
+                $parameters = $bahan->updateParameterStok();
+                $bahan->statistik = $parameters['statistik'];
+            } else {
+                $bahan->statistik = [
+                    'total_keluar' => 0,
+                    'count_keluar' => 0,
+                    'rata_rata' => 0,
+                    'maks_keluar' => 0,
+                    'range_hari' => 30,
+                    'hari_aktif' => 0
+                ];
             }
+            return $bahan;
+        });
 
-            BahanBaku::create($data);
-
-            return redirect()->route('owner.bahan-baku.index')
-                ->with('success', 'Bahan baku berhasil ditambahkan!');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Gagal menambahkan bahan baku: ' . $e->getMessage())
-                ->withInput();
-        }
+        return view('owner.bahan-baku.index', compact('bahanBaku'));
     }
 
     public function show($id)
     {
         try {
             $bahanBaku = BahanBaku::findOrFail($id);
+
+            if ($bahanBaku->sudahAdaPenggunaan()) {
+                $parameters = $bahanBaku->hitungParameterStok();
+            } else {
+                $parameters = [
+                    'safety_stock' => 0,
+                    'min' => 0,
+                    'max' => 0,
+                    'rop' => 0,
+                    'statistik' => [
+                        'total_keluar' => 0,
+                        'count_keluar' => 0,
+                        'rata_rata' => 0,
+                        'maks_keluar' => 0,
+                        'range_hari' => 30,
+                        'hari_aktif' => 0
+                    ]
+                ];
+            }
+
             return response()->json([
                 'status' => 'success',
-                'data' => $bahanBaku
+                'data' => $bahanBaku,
+                'parameters' => $parameters
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -70,72 +68,73 @@ class BahanBakuOwnerController extends Controller
         }
     }
 
-    public function edit($id)
+    // Method untuk melihat detail perhitungan
+    public function getCalculationDetail($id)
     {
         try {
             $bahanBaku = BahanBaku::findOrFail($id);
-            return view('owner.bahan-baku.edit', compact('bahanBaku'));
-        } catch (\Exception $e) {
-            return redirect()->route('owner.bahan-baku.index')
-                ->with('error', 'Bahan baku tidak ditemukan!');
-        }
-    }
 
-    public function update(Request $request, $id)
-    {
-        $request->validate([
-            'nama' => 'required|string|max:255',
-            'satuan' => 'required|string|max:50',
-            'harga_beli' => 'required|numeric|min:0',
-            'harga_jual' => 'required|numeric|min:0',
-            'stok' => 'required|numeric|min:0',
-            'safety_stock' => 'required|numeric|min:0',
-            'rop' => 'required|numeric|min:0',
-            'min' => 'required|numeric|min:0',
-            'max' => 'required|numeric|min:0',
-            'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
+            if ($bahanBaku->sudahAdaPenggunaan()) {
+                $parameters = $bahanBaku->hitungParameterStok();
+                $statistik = $parameters['statistik'];
 
-        try {
-            $bahanBaku = BahanBaku::findOrFail($id);
-            $data = $request->all();
-
-            if ($request->hasFile('foto')) {
-                if ($bahanBaku->foto) {
-                    Storage::disk('public')->delete($bahanBaku->foto);
-                }
-
-                $fotoPath = $request->file('foto')->store('bahan-baku', 'public');
-                $data['foto'] = $fotoPath;
+                $calculationDetail = [
+                    'bahan_baku' => $bahanBaku->nama,
+                    'lead_time' => $bahanBaku->lead_time . ' hari',
+                    'statistik_penggunaan' => [
+                        'total_keluar' => $statistik['total_keluar'],
+                        'count_keluar' => $statistik['count_keluar'],
+                        'rata_rata_per_hari' => $statistik['rata_rata'],
+                        'maks_keluar_per_hari' => $statistik['maks_keluar'],
+                        'range_hari' => $statistik['range_hari'],
+                        'hari_aktif' => $statistik['hari_aktif']
+                    ],
+                    'perhitungan' => [
+                        'safety_stock' => "({$statistik['maks_keluar']} - {$statistik['rata_rata']}) × {$bahanBaku->lead_time} = {$parameters['safety_stock']}",
+                        'min_stock' => "({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['min']}",
+                        'max_stock' => "2 × ({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['max']}",
+                        'rop' => "{$parameters['max']} - {$parameters['min']} = {$parameters['rop']}"
+                    ],
+                    'hasil' => $parameters,
+                    'memiliki_data' => true
+                ];
+            } else {
+                $calculationDetail = [
+                    'bahan_baku' => $bahanBaku->nama,
+                    'lead_time' => $bahanBaku->lead_time . ' hari',
+                    'statistik_penggunaan' => [
+                        'total_keluar' => 0,
+                        'count_keluar' => 0,
+                        'rata_rata_per_hari' => 0,
+                        'maks_keluar_per_hari' => 0,
+                        'range_hari' => 30,
+                        'hari_aktif' => 0
+                    ],
+                    'perhitungan' => [
+                        'safety_stock' => "Belum ada data penggunaan",
+                        'min_stock' => "Belum ada data penggunaan",
+                        'max_stock' => "Belum ada data penggunaan",
+                        'rop' => "Belum ada data penggunaan"
+                    ],
+                    'hasil' => [
+                        'safety_stock' => 0,
+                        'min' => 0,
+                        'max' => 0,
+                        'rop' => 0
+                    ],
+                    'memiliki_data' => false
+                ];
             }
 
-            $bahanBaku->update($data);
-
-            return redirect()->route('owner.bahan-baku.index')
-                ->with('success', 'Bahan baku berhasil diperbarui!');
+            return response()->json([
+                'status' => 'success',
+                'data' => $calculationDetail
+            ], 200);
         } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Gagal memperbarui bahan baku: ' . $e->getMessage())
-                ->withInput();
-        }
-    }
-
-    public function destroy($id)
-    {
-        try {
-            $bahanBaku = BahanBaku::findOrFail($id);
-
-            if ($bahanBaku->foto) {
-                Storage::disk('public')->delete($bahanBaku->foto);
-            }
-
-            $bahanBaku->delete();
-
-            return redirect()->route('owner.bahan-baku.index')
-                ->with('success', 'Bahan baku berhasil dihapus!');
-        } catch (\Exception $e) {
-            return redirect()->route('owner.bahan-baku.index')
-                ->with('error', 'Gagal menghapus bahan baku: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
         }
     }
 }
