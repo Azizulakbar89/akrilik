@@ -53,7 +53,7 @@ class PenjualanController extends Controller
                 if ($item['jenis_item'] == 'produk') {
                     $produk = Produk::findOrFail($item['item_id']);
 
-                    // Validasi stok produk saja
+                    // Validasi stok produk
                     if ($produk->stok < $item['jumlah']) {
                         return response()->json([
                             'status' => 'error',
@@ -118,14 +118,39 @@ class PenjualanController extends Controller
                 'tanggal' => now()
             ]);
 
+            // Array untuk menyimpan bahan baku yang perlu diupdate parameternya
+            $bahanBakuToUpdate = [];
+
             foreach ($items as $item) {
                 DetailPenjualan::create(array_merge($item, ['penjualan_id' => $penjualan->id]));
 
                 if ($item['jenis_item'] == 'produk') {
                     $produk = Produk::find($item['produk_id']);
-
                     $produk->stok -= $item['jumlah'];
                     $produk->save();
+
+                    // Untuk penjualan produk, kurangi stok bahan baku dari komposisi
+                    foreach ($produk->komposisi as $komposisi) {
+                        $bahanBaku = $komposisi->bahanBaku;
+                        $kebutuhan = $komposisi->jumlah * $item['jumlah'];
+
+                        // Kurangi stok bahan baku
+                        $bahanBaku->stok -= $kebutuhan;
+                        $bahanBaku->save();
+
+                        // Catat penggunaan bahan baku untuk produksi
+                        PenggunaanBahanBaku::create([
+                            'bahan_baku_id' => $bahanBaku->id,
+                            'jumlah' => $kebutuhan,
+                            'tanggal' => now(),
+                            'keterangan' => 'Penjualan produk: ' . $produk->nama . ' (x' . $item['jumlah'] . ')'
+                        ]);
+
+                        // Tambahkan ke list untuk update parameter
+                        if (!in_array($bahanBaku->id, $bahanBakuToUpdate)) {
+                            $bahanBakuToUpdate[] = $bahanBaku->id;
+                        }
+                    }
                 } else {
                     $bahanBaku = BahanBaku::find($item['bahan_baku_id']);
 
@@ -141,7 +166,17 @@ class PenjualanController extends Controller
                         'keterangan' => 'Penjualan langsung bahan baku'
                     ]);
 
-                    // Update parameter stok bahan baku
+                    // Tambahkan ke list untuk update parameter
+                    if (!in_array($bahanBaku->id, $bahanBakuToUpdate)) {
+                        $bahanBakuToUpdate[] = $bahanBaku->id;
+                    }
+                }
+            }
+
+            // Update parameter stok untuk semua bahan baku yang terpengaruh
+            foreach ($bahanBakuToUpdate as $bahanBakuId) {
+                $bahanBaku = BahanBaku::find($bahanBakuId);
+                if ($bahanBaku) {
                     $bahanBaku->updateParameterStok();
                 }
             }
@@ -219,12 +254,38 @@ class PenjualanController extends Controller
 
             $penjualan = Penjualan::with('detailPenjualan')->findOrFail($id);
 
+            // Array untuk menyimpan bahan baku yang perlu diupdate parameternya
+            $bahanBakuToUpdate = [];
+
             foreach ($penjualan->detailPenjualan as $detail) {
                 if ($detail->jenis_item == 'produk') {
                     $produk = Produk::find($detail->produk_id);
                     if ($produk) {
                         $produk->stok += $detail->jumlah;
                         $produk->save();
+
+                        // Kembalikan stok bahan baku dari komposisi produk
+                        foreach ($produk->komposisi as $komposisi) {
+                            $bahanBaku = $komposisi->bahanBaku;
+                            $kebutuhan = $komposisi->jumlah * $detail->jumlah;
+
+                            // Kembalikan stok bahan baku
+                            $bahanBaku->stok += $kebutuhan;
+                            $bahanBaku->save();
+
+                            // Catat pengembalian sebagai penggunaan negatif
+                            PenggunaanBahanBaku::create([
+                                'bahan_baku_id' => $bahanBaku->id,
+                                'jumlah' => -$kebutuhan,
+                                'tanggal' => now(),
+                                'keterangan' => 'Pembatalan penjualan produk: ' . $produk->nama . ' (x' . $detail->jumlah . ')'
+                            ]);
+
+                            // Tambahkan ke list untuk update parameter
+                            if (!in_array($bahanBaku->id, $bahanBakuToUpdate)) {
+                                $bahanBakuToUpdate[] = $bahanBaku->id;
+                            }
+                        }
                     }
                 } else {
                     $bahanBaku = BahanBaku::find($detail->bahan_baku_id);
@@ -241,9 +302,19 @@ class PenjualanController extends Controller
                             'keterangan' => 'Pembatalan penjualan bahan baku'
                         ]);
 
-                        // Update parameter stok
-                        $bahanBaku->updateParameterStok();
+                        // Tambahkan ke list untuk update parameter
+                        if (!in_array($bahanBaku->id, $bahanBakuToUpdate)) {
+                            $bahanBakuToUpdate[] = $bahanBaku->id;
+                        }
                     }
+                }
+            }
+
+            // Update parameter stok untuk semua bahan baku yang terpengaruh
+            foreach ($bahanBakuToUpdate as $bahanBakuId) {
+                $bahanBaku = BahanBaku::find($bahanBakuId);
+                if ($bahanBaku) {
+                    $bahanBaku->updateParameterStok();
                 }
             }
 
@@ -306,6 +377,21 @@ class PenjualanController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Item tidak ditemukan: ' . $e->getMessage()
+            ], 404);
+        }
+    }
+
+    // Method baru untuk print nota
+    public function printNota($id)
+    {
+        try {
+            $penjualan = Penjualan::with('detailPenjualan')->findOrFail($id);
+
+            return view('admin.penjualan.nota', compact('penjualan'));
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data tidak ditemukan: ' . $e->getMessage()
             ], 404);
         }
     }

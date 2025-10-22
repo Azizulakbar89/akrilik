@@ -53,37 +53,20 @@ class ProdukOwnerController extends Controller
                 $data['foto'] = $path;
             }
 
-            foreach ($request->komposisi as $komp) {
-                $bahanBaku = BahanBaku::find($komp['bahan_baku_id']);
-                $kebutuhan = $komp['jumlah'] * $request->stok;
-
-                if ($bahanBaku->stok < $kebutuhan) {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Stok bahan baku ' . $bahanBaku->nama . ' tidak mencukupi. Stok tersedia: ' . $bahanBaku->stok . ', Kebutuhan: ' . $kebutuhan
-                    ], 422);
-                }
-            }
-
             $produk = Produk::create($data);
-
             foreach ($request->komposisi as $komp) {
                 KomposisiBahanBaku::create([
                     'produk_id' => $produk->id,
                     'bahan_baku_id' => $komp['bahan_baku_id'],
                     'jumlah' => $komp['jumlah']
                 ]);
-
-                $bahanBaku = BahanBaku::find($komp['bahan_baku_id']);
-                $bahanBaku->stok -= ($komp['jumlah'] * $request->stok);
-                $bahanBaku->save();
             }
 
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Produk berhasil ditambahkan dan stok bahan baku telah dikurangi'
+                'message' => 'Produk berhasil ditambahkan'
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -149,22 +132,6 @@ class ProdukOwnerController extends Controller
                 $data['foto'] = $path;
             }
 
-            $stokDifference = $request->stok - $produk->stok;
-
-            if ($stokDifference > 0) {
-                foreach ($request->komposisi as $komp) {
-                    $bahanBaku = BahanBaku::find($komp['bahan_baku_id']);
-                    $kebutuhan = $komp['jumlah'] * $stokDifference;
-
-                    if ($bahanBaku->stok < $kebutuhan) {
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => 'Stok bahan baku ' . $bahanBaku->nama . ' tidak mencukupi untuk penambahan stok. Stok tersedia: ' . $bahanBaku->stok . ', Kebutuhan: ' . $kebutuhan
-                        ], 422);
-                    }
-                }
-            }
-
             $produk->update($data);
 
             $produk->komposisi()->delete();
@@ -174,19 +141,13 @@ class ProdukOwnerController extends Controller
                     'bahan_baku_id' => $komp['bahan_baku_id'],
                     'jumlah' => $komp['jumlah']
                 ]);
-
-                if ($stokDifference != 0) {
-                    $bahanBaku = BahanBaku::find($komp['bahan_baku_id']);
-                    $bahanBaku->stok -= ($komp['jumlah'] * $stokDifference);
-                    $bahanBaku->save();
-                }
             }
 
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Produk berhasil diupdate dan stok bahan baku telah disesuaikan'
+                'message' => 'Produk berhasil diupdate'
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -200,13 +161,9 @@ class ProdukOwnerController extends Controller
     public function destroy($id)
     {
         try {
-            $produk = Produk::findOrFail($id);
+            DB::beginTransaction();
 
-            foreach ($produk->komposisi as $komposisi) {
-                $bahanBaku = $komposisi->bahanBaku;
-                $bahanBaku->stok += ($komposisi->jumlah * $produk->stok);
-                $bahanBaku->save();
-            }
+            $produk = Produk::findOrFail($id);
 
             if ($produk->foto) {
                 Storage::disk('public')->delete($produk->foto);
@@ -214,11 +171,14 @@ class ProdukOwnerController extends Controller
 
             $produk->delete();
 
+            DB::commit();
+
             return response()->json([
                 'status' => 'success',
-                'message' => 'Produk berhasil dihapus dan stok bahan baku telah dikembalikan'
+                'message' => 'Produk berhasil dihapus'
             ], 200);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()

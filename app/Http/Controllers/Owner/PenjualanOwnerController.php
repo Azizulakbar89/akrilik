@@ -181,4 +181,18 @@ class PenjualanOwnerController extends Controller
             ], 404);
         }
     }
+
+    public function printNota($id)
+    {
+        try {
+            $penjualan = Penjualan::with('detailPenjualan')->findOrFail($id);
+
+            return view('owner.penjualan.nota', compact('penjualan'));
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data tidak ditemukan: ' . $e->getMessage()
+            ], 404);
+        }
+    }
 }

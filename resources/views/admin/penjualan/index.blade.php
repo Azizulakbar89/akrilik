@@ -271,6 +271,9 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                    <button type="button" class="btn btn-success" id="printNotaBtn">
+                        <i class="fa fa-print"></i> Print Nota
+                    </button>
                 </div>
             </div>
         </div>
@@ -311,6 +314,29 @@
         .detail-summary strong {
             color: #333;
         }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            .nota-print,
+            .nota-print * {
+                visibility: visible;
+            }
+
+            .nota-print {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 20px;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
     </style>
 @endpush
 
@@ -320,6 +346,7 @@
             let itemCounter = 0;
             let currentItems = [];
             let komposisiCounter = 1;
+            let currentPenjualanId = null;
 
             $('.bahan-baku-select').select2({
                 placeholder: "Pilih Bahan Baku",
@@ -691,6 +718,7 @@
 
             $('.view-penjualan').click(function() {
                 const id = $(this).data('id');
+                currentPenjualanId = id;
 
                 $.get('{{ url('admin/penjualan') }}/' + id, function(response) {
                     if (response.status === 'success') {
@@ -748,6 +776,12 @@
                         $('#detailPenjualanModal').modal('show');
                     }
                 });
+            });
+
+            $('#printNotaBtn').click(function() {
+                if (currentPenjualanId) {
+                    window.open('{{ url('admin/penjualan') }}/' + currentPenjualanId + '/print', '_blank');
+                }
             });
 
             $('.delete-penjualan').click(function() {

@@ -7,7 +7,8 @@
     <title>Laporan Pembelian - {{ date('d-m-Y') }}</title>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
             margin: 0;
             padding: 20px;
             color: #333;
@@ -15,40 +16,41 @@
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             border-bottom: 2px solid #333;
-            padding-bottom: 20px;
+            padding-bottom: 10px;
         }
 
         .header h1 {
             margin: 0;
-            font-size: 24px;
-            color: #333;
+            font-size: 18px;
         }
 
         .header p {
             margin: 5px 0;
-            font-size: 14px;
         }
 
-        .info-periode {
+        .info {
+            margin-bottom: 15px;
             background-color: #f8f9fa;
             padding: 10px;
             border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-            font-size: 12px;
+            margin-bottom: 15px;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ddd;
         }
 
         th,
         td {
-            border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
         }
@@ -74,7 +76,7 @@
         .footer {
             margin-top: 30px;
             text-align: right;
-            font-size: 12px;
+            font-size: 10px;
         }
 
         .no-data {
@@ -119,9 +121,10 @@
             {{ \Carbon\Carbon::parse($request->tanggal_akhir)->translatedFormat('d F Y') }}</p>
     </div>
 
-    <div class="info-periode">
-        <strong>Tanggal Cetak:</strong> {{ date('d-m-Y H:i:s') }} |
-        <strong>Total Data:</strong> {{ $pembelian->count() }} transaksi
+    <div class="info">
+        <p><strong>Tanggal Cetak:</strong> {{ date('d-m-Y H:i:s') }}</p>
+        <p><strong>Total Data:</strong> {{ $pembelian->count() }} transaksi</p>
+        <p><strong>Total Pembelian:</strong> Rp {{ number_format($totalPembelian, 0, ',', '.') }}</p>
     </div>
 
     @if ($pembelian->isEmpty())
@@ -130,6 +133,7 @@
             <p>Tidak ada data pembelian berhasil pada periode yang dipilih.</p>
         </div>
     @else
+        <h3>Data Transaksi Pembelian</h3>
         <table>
             <thead>
                 <tr>
@@ -165,6 +169,55 @@
                 </tr>
             </tfoot>
         </table>
+
+        @if ($supplierTerbanyak->count() > 0)
+            <h3>Supplier Terbanyak</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Nama Supplier</th>
+                        <th>Jumlah Transaksi</th>
+                        <th>Total Pembelian</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($supplierTerbanyak as $key => $item)
+                        <tr>
+                            <td class="text-center">{{ $key + 1 }}</td>
+                            <td>{{ $item->supplier->nama ?? 'Supplier Tidak Ditemukan' }}</td>
+                            <td class="text-center">{{ $item->jumlah_transaksi }}</td>
+                            <td class="text-right">Rp {{ number_format($item->total_pembelian, 0, ',', '.') }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+
+        @if ($bahanBakuTerbanyak->count() > 0)
+            <h3>Bahan Baku Terbanyak Dibeli</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Nama Bahan Baku</th>
+                        <th>Jumlah Dibeli</th>
+                        <th>Total Pembelian</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($bahanBakuTerbanyak as $key => $item)
+                        <tr>
+                            <td class="text-center">{{ $key + 1 }}</td>
+                            <td>{{ $item->bahanBaku->nama ?? 'Bahan Baku Tidak Ditemukan' }}</td>
+                            <td class="text-center">{{ $item->total_dibeli }} {{ $item->bahanBaku->satuan ?? '' }}
+                            </td>
+                            <td class="text-right">Rp {{ number_format($item->total_pembelian, 0, ',', '.') }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
 
         @foreach ($pembelian as $index => $item)
             <div style="page-break-inside: avoid; margin-bottom: 20px;">

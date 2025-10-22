@@ -56,7 +56,13 @@ class Produk extends Model
             $bahanBaku->stok -= $kebutuhan;
             $bahanBaku->save();
 
-            // Update parameter stok bahan baku
+            PenggunaanBahanBaku::create([
+                'bahan_baku_id' => $bahanBaku->id,
+                'jumlah' => $kebutuhan,
+                'tanggal' => now(),
+                'keterangan' => 'Produksi produk: ' . $this->nama . ' (x' . $jumlah . ')'
+            ]);
+
             $bahanBaku->updateParameterStok();
         }
     }
@@ -70,7 +76,13 @@ class Produk extends Model
             $bahanBaku->stok += $kebutuhan;
             $bahanBaku->save();
 
-            // Update parameter stok bahan baku
+            PenggunaanBahanBaku::create([
+                'bahan_baku_id' => $bahanBaku->id,
+                'jumlah' => -$kebutuhan,
+                'tanggal' => now(),
+                'keterangan' => 'Pembatalan produksi produk: ' . $this->nama . ' (x' . $jumlah . ')'
+            ]);
+
             $bahanBaku->updateParameterStok();
         }
     }
@@ -126,17 +138,14 @@ class Produk extends Model
         $this->save();
     }
 
-    // Method untuk produksi produk (tambah stok dengan mengurangi bahan baku)
     public function produksi($jumlah)
     {
         if (!$this->bisaDiproduksi($jumlah)) {
             throw new \Exception("Bahan baku tidak mencukupi untuk memproduksi {$jumlah} {$this->nama}");
         }
 
-        // Kurangi stok bahan baku
         $this->kurangiStokBahanBaku($jumlah);
 
-        // Tambah stok produk
         $this->tambahStok($jumlah);
 
         return $this;

@@ -13,7 +13,6 @@ return new class extends Migration
             $table->string('nama');
             $table->string('satuan');
             $table->decimal('harga', 15, 2);
-            $table->integer('stok')->default(0);
             $table->string('foto')->nullable();
             $table->timestamps();
         });

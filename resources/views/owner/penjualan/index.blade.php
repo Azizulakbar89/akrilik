@@ -95,6 +95,9 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                    <button type="button" class="btn btn-success" id="printNotaBtn">
+                        <i class="fa fa-print"></i> Print Nota
+                    </button>
                 </div>
             </div>
         </div>
@@ -170,14 +173,40 @@
         .info-box.bg-info {
             border-left-color: #17a2b8;
         }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            .nota-print,
+            .nota-print * {
+                visibility: visible;
+            }
+
+            .nota-print {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 20px;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
     </style>
 @endpush
 
 @push('scripts')
     <script>
         $(document).ready(function() {
+            let currentPenjualanId = null;
+
             $('.view-penjualan').click(function() {
                 const id = $(this).data('id');
+                currentPenjualanId = id;
 
                 $.get('{{ url('owner/penjualan') }}/' + id, function(response) {
                     if (response.status === 'success') {
@@ -235,6 +264,12 @@
                         $('#detailPenjualanModal').modal('show');
                     }
                 });
+            });
+
+            $('#printNotaBtn').click(function() {
+                if (currentPenjualanId) {
+                    window.open('{{ url('owner/penjualan') }}/' + currentPenjualanId + '/print', '_blank');
+                }
             });
 
             function numberFormat(number) {

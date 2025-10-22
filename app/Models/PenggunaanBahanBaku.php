@@ -18,8 +18,8 @@ class PenggunaanBahanBaku extends Model
     ];
 
     protected $casts = [
-        'tanggal' => 'date',
-        'jumlah' => 'integer'
+        'jumlah' => 'integer',
+        'tanggal' => 'date'
     ];
 
     public function bahanBaku()
@@ -27,15 +27,18 @@ class PenggunaanBahanBaku extends Model
         return $this->belongsTo(BahanBaku::class, 'bahan_baku_id');
     }
 
-    // Scope untuk penggunaan positif (pengurangan stok)
-    public function scopePenggunaan($query)
+    public function getJumlahFormattedAttribute()
     {
-        return $query->where('jumlah', '>', 0);
+        return number_format($this->jumlah, 0, ',', '.');
     }
 
-    // Scope untuk pengembalian (penambahan stok)
-    public function scopePengembalian($query)
+    public function getJenisAttribute()
     {
-        return $query->where('jumlah', '<', 0);
+        return $this->jumlah > 0 ? 'Penggunaan' : 'Pengembalian';
+    }
+
+    public function getJenisClassAttribute()
+    {
+        return $this->jumlah > 0 ? 'text-danger' : 'text-success';
     }
 }

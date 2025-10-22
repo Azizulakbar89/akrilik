@@ -75,7 +75,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         Route::post('/', [PenjualanController::class, 'store'])->name('store');
         Route::get('/{id}', [PenjualanController::class, 'show'])->name('show');
         Route::delete('/{id}', [PenjualanController::class, 'destroy'])->name('destroy');
-        Route::get('/get-item-info', [PenjualanController::class, 'getItemInfo'])->name('get-item-info');
+        Route::get('/{id}/print', [PenjualanController::class, 'printNota'])->name('print-nota'); // TAMBAHKAN INI
+        Route::post('/get-item-info', [PenjualanController::class, 'getItemInfo'])->name('get-item-info');
     });
 });
 
@@ -98,7 +99,6 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
         Route::post('/{pembelian}/approve', [PembelianOwnerController::class, 'approve'])->name('approve');
         Route::post('/{pembelian}/reject', [PembelianOwnerController::class, 'reject'])->name('reject');
         Route::post('/rekomendasi/create', [PembelianOwnerController::class, 'createFromRekomendasi'])->name('rekomendasi.create');
-
         Route::get('/laporan/print', [PembelianOwnerController::class, 'laporan'])->name('laporan');
     });
 
@@ -107,6 +107,7 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
         Route::get('/laporan', [PenjualanOwnerController::class, 'laporan'])->name('laporan');
         Route::get('/generate-pdf', [PenjualanOwnerController::class, 'generatePDF'])->name('generate-pdf');
         Route::get('/{penjualan}', [PenjualanOwnerController::class, 'show'])->name('show');
+        Route::get('/{penjualan}/print', [PenjualanOwnerController::class, 'printNota'])->name('print-nota');
     });
 });
 

@@ -70,39 +70,45 @@ class BahanBaku extends Model
     {
         $startDate = now()->subDays($rangeHari)->startOfDay();
 
-        // Cek data penggunaan dari tabel penggunaan_bahan_baku
-        $penggunaan = $this->penggunaan()
+        // Gabungkan data penggunaan dari semua sumber
+        $penggunaanData = collect();
+
+        // 1. Data dari tabel penggunaan_bahan_baku (baik positif maupun negatif)
+        $penggunaanBahanBaku = $this->penggunaan()
             ->where('created_at', '>=', $startDate)
+            ->where('jumlah', '>', 0) // Hanya ambil yang positif (penggunaan)
+            ->get();
+
+        $penggunaanData = $penggunaanData->merge($penggunaanBahanBaku);
+
+        // 2. Data dari detail penjualan bahan baku langsung
+        $penjualanLangsung = $this->detailPenjualan()
+            ->whereHas('penjualan', function ($query) use ($startDate) {
+                $query->where('created_at', '>=', $startDate);
+            })
             ->where('jumlah', '>', 0)
             ->get();
 
-        // Jika belum ada data penggunaan, coba dari detail penjualan
-        if ($penggunaan->isEmpty()) {
-            $penggunaan = $this->detailPenjualan()
-                ->whereHas('penjualan', function ($query) use ($startDate) {
-                    $query->where('created_at', '>=', $startDate);
-                })
-                ->where('jumlah', '>', 0)
-                ->get();
-        }
+        $penggunaanData = $penggunaanData->merge($penjualanLangsung);
 
-        // Jika masih belum ada data, return default 0
-        if ($penggunaan->isEmpty()) {
+        // Jika belum ada data penggunaan sama sekali, return default 0
+        if ($penggunaanData->isEmpty()) {
             return [
                 'total_keluar' => 0,
                 'count_keluar' => 0,
                 'rata_rata' => 0,
                 'maks_keluar' => 0,
                 'range_hari' => $rangeHari,
-                'hari_aktif' => 0
+                'hari_aktif' => 0,
+                'sumber_data' => 'Tidak ada data'
             ];
         }
 
-        $totalKeluar = $penggunaan->sum('jumlah');
-        $countKeluar = $penggunaan->count();
+        $totalKeluar = $penggunaanData->sum('jumlah');
+        $countKeluar = $penggunaanData->count();
 
         // Hitung jumlah hari aktual dengan transaksi
-        $hariDenganTransaksi = $penggunaan->groupBy(function ($item) {
+        $hariDenganTransaksi = $penggunaanData->groupBy(function ($item) {
             return $item->created_at->format('Y-m-d');
         })->count();
 
@@ -111,7 +117,7 @@ class BahanBaku extends Model
         // Rata-rata per hari = total keluar / jumlah hari dengan transaksi
         $rataRata = $totalKeluar / $hariAktif;
 
-        $maksKeluar = $penggunaan->max('jumlah');
+        $maksKeluar = $penggunaanData->max('jumlah');
 
         return [
             'total_keluar' => $totalKeluar,
@@ -119,7 +125,8 @@ class BahanBaku extends Model
             'rata_rata' => max(0, round($rataRata, 2)),
             'maks_keluar' => max(0, $maksKeluar),
             'range_hari' => $rangeHari,
-            'hari_aktif' => $hariAktif
+            'hari_aktif' => $hariAktif,
+            'sumber_data' => 'Penggunaan & Penjualan'
         ];
     }
 
@@ -139,7 +146,7 @@ class BahanBaku extends Model
         }
 
         $T = $statistik['rata_rata']; // Penggunaan rata-rata per hari
-        $LT = $this->lead_time; // Lead time dalam hari
+        $LT = max(1, $this->lead_time); // Lead time dalam hari (minimal 1)
         $Maks = $statistik['maks_keluar']; // Penggunaan maksimum per hari
 
         // Safety Stock = (Pemakaian Maksimum - Rata-rata) × Lead Time
@@ -151,8 +158,8 @@ class BahanBaku extends Model
         // Maksimal Stock = 2 * (Rata-rata × Lead Time) + Safety Stock
         $Max = 2 * ($T * $LT) + $SS;
 
-        // Reorder Point = Max Stock - Min Stock
-        $ROP = $Max - $Min;
+        // Reorder Point = Minimal Stock
+        $ROP = $Min;
 
         // Bulatkan semua nilai ke integer
         return [
@@ -285,7 +292,6 @@ class BahanBaku extends Model
         $this->stok += $jumlah;
         $this->save();
 
-        // Update parameter stok setelah penambahan jika sudah ada penggunaan
         if ($this->sudahAdaPenggunaan()) {
             $this->updateParameterStok();
         }
@@ -302,7 +308,6 @@ class BahanBaku extends Model
         $this->stok -= $jumlah;
         $this->save();
 
-        // Update parameter stok setelah pengurangan jika sudah ada penggunaan
         if ($this->sudahAdaPenggunaan()) {
             $this->updateParameterStok();
         }
@@ -315,7 +320,6 @@ class BahanBaku extends Model
         $this->stok += $jumlah;
         $this->save();
 
-        // Update parameter stok setelah pengembalian jika sudah ada penggunaan
         if ($this->sudahAdaPenggunaan()) {
             $this->updateParameterStok();
         }

@@ -960,7 +960,7 @@
 
                 Swal.fire({
                     title: 'Apakah Anda yakin?',
-                    text: 'Data yang dihapus tidak dapat dikembalikan! Stok bahan baku akan dikembalikan.',
+                    text: 'Data yang dihapus tidak dapat dikembalikan!',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#d33',
