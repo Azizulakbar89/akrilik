@@ -43,13 +43,16 @@
                             <th>Nama Produk</th>
                             <th>Satuan</th>
                             <th>Harga</th>
-                            <th>Stok</th>
                             <th>Komposisi Bahan Baku</th>
+                            <th>Status Produksi</th>
                             <th class="datatable-nosort">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($produk as $index => $p)
+                            @php
+                                $bisaDiproduksi = $p->bisaDiproduksi(1);
+                            @endphp
                             <tr>
                                 <td class="table-plus">{{ $index + 1 }}</td>
                                 <td>
@@ -66,7 +69,6 @@
                                 <td>{{ $p->nama }}</td>
                                 <td>{{ $p->satuan }}</td>
                                 <td>Rp {{ number_format($p->harga, 0, ',', '.') }}</td>
-                                <td>{{ $p->stok }}</td>
                                 <td>
                                     @if ($p->komposisi->count() > 0)
                                         <button class="btn btn-sm btn-outline-info show-komposisi-btn"
@@ -75,6 +77,13 @@
                                         </button>
                                     @else
                                         <span class="badge badge-warning">Belum ada komposisi</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($bisaDiproduksi)
+                                        <span class="badge badge-success">Bisa Diproduksi</span>
+                                    @else
+                                        <span class="badge badge-danger">Bahan Baku Kurang</span>
                                     @endif
                                 </td>
                                 <td>
@@ -147,18 +156,10 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-12">
                                     <div class="form-group">
                                         <label>Harga</label>
                                         <input type="number" step="0.01" class="form-control" name="harga" required>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Stok</label>
-                                        <input type="number" class="form-control" name="stok" value="0"
-                                            required>
                                         <div class="invalid-feedback"></div>
                                     </div>
                                 </div>
@@ -253,19 +254,11 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-12">
                                     <div class="form-group">
                                         <label>Harga</label>
                                         <input type="number" step="0.01" class="form-control" name="harga"
                                             id="edit_harga" required>
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Stok</label>
-                                        <input type="number" class="form-control" name="stok" id="edit_stok"
-                                            required>
                                         <div class="invalid-feedback"></div>
                                     </div>
                                 </div>
@@ -327,14 +320,22 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Stok</label>
-                                        <p id="show_stok" class="form-control-plaintext"></p>
+                                        <label>Status Produksi</label>
+                                        <p id="show_status" class="form-control-plaintext"></p>
                                     </div>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>Harga</label>
                                 <p id="show_harga" class="form-control-plaintext font-weight-bold text-success"></p>
+                            </div>
+                            <div class="form-group">
+                                <label>HPP (Harga Pokok Produksi)</label>
+                                <p id="show_hpp" class="form-control-plaintext"></p>
+                            </div>
+                            <div class="form-group">
+                                <label>Margin</label>
+                                <p id="show_margin" class="form-control-plaintext"></p>
                             </div>
                         </div>
                     </div>
@@ -373,6 +374,7 @@
                                     <th>Jumlah</th>
                                     <th>Satuan</th>
                                     <th>Stok Tersedia</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody id="komposisi_list">
@@ -415,6 +417,11 @@
             padding: 10px;
             border-radius: 5px;
             background-color: #f8f9fa;
+        }
+
+        .status-badge {
+            font-size: 0.75em;
+            padding: 0.25em 0.6em;
         }
     </style>
 @endpush
@@ -590,14 +597,12 @@
                             $('#show_satuan').text(data.satuan || '-');
                             $('#show_harga').text(data.harga ? 'Rp ' + parseFloat(data.harga)
                                 .toLocaleString('id-ID') : '-');
-                            $('#show_stok').text(data.stok || '0');
 
-                            $('#show_foto').html(data.foto ?
-                                `<img src="{{ asset('storage') }}/${data.foto}" alt="Foto Produk" style="max-width: 200px; height: auto; border-radius: 5px;">` :
-                                '<div style="width: 200px; height: 200px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; border-radius: 5px;"><i class="fas fa-image" style="font-size: 48px; color: #6c757d;"></i></div>'
-                            );
+                            // Hitung HPP, Margin, dan Status
+                            var hpp = 0;
+                            var bisaDiproduksi = true;
+                            var komposisiHtml = '';
 
-                            let komposisiHtml = '';
                             if (data.komposisi && data.komposisi.length > 0) {
                                 komposisiHtml = `
                                 <table class="table table-striped">
@@ -607,19 +612,39 @@
                                             <th>Nama Bahan Baku</th>
                                             <th>Jumlah</th>
                                             <th>Satuan</th>
+                                            <th>Harga Beli</th>
+                                            <th>Subtotal HPP</th>
                                             <th>Stok Tersedia</th>
+                                            <th>Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                            `;
+                                `;
+
                                 data.komposisi.forEach((komp, index) => {
+                                    var subtotal = komp.bahan_baku.harga_beli * komp
+                                        .jumlah;
+                                    hpp += subtotal;
+
+                                    var cukupStok = komp.bahan_baku.stok >= komp.jumlah;
+                                    if (!cukupStok) {
+                                        bisaDiproduksi = false;
+                                    }
+
                                     komposisiHtml += `
                                     <tr>
                                         <td>${index + 1}</td>
                                         <td>${komp.bahan_baku.nama}</td>
                                         <td>${komp.jumlah}</td>
                                         <td>${komp.bahan_baku.satuan}</td>
+                                        <td>Rp ${parseFloat(komp.bahan_baku.harga_beli).toLocaleString('id-ID')}</td>
+                                        <td>Rp ${parseFloat(subtotal).toLocaleString('id-ID')}</td>
                                         <td>${komp.bahan_baku.stok}</td>
+                                        <td>
+                                            <span class="badge ${cukupStok ? 'badge-success' : 'badge-danger'} status-badge">
+                                                ${cukupStok ? 'Cukup' : 'Kurang'}
+                                            </span>
+                                        </td>
                                     </tr>
                                 `;
                                 });
@@ -627,7 +652,24 @@
                             } else {
                                 komposisiHtml =
                                     '<p class="text-muted">Belum ada komposisi bahan baku</p>';
+                                bisaDiproduksi = false;
                             }
+
+                            var margin = data.harga - hpp;
+                            var marginPersen = hpp > 0 ? ((margin / hpp) * 100).toFixed(2) : 0;
+
+                            $('#show_hpp').text('Rp ' + hpp.toLocaleString('id-ID'));
+                            $('#show_margin').text('Rp ' + margin.toLocaleString('id-ID') +
+                                ' (' + marginPersen + '%)');
+                            $('#show_status').html(
+                                `<span class="badge ${bisaDiproduksi ? 'badge-success' : 'badge-danger'}">${bisaDiproduksi ? 'Bisa Diproduksi' : 'Bahan Baku Kurang'}</span>`
+                            );
+
+                            $('#show_foto').html(data.foto ?
+                                `<img src="{{ asset('storage') }}/${data.foto}" alt="Foto Produk" style="max-width: 200px; height: auto; border-radius: 5px;">` :
+                                '<div style="width: 200px; height: 200px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; border-radius: 5px;"><i class="fas fa-image" style="font-size: 48px; color: #6c757d;"></i></div>'
+                            );
+
                             $('#show_komposisi').html(komposisiHtml);
 
                             $('#showProdukModal').modal('show');
@@ -679,6 +721,7 @@
 
                             if (data.komposisi && data.komposisi.length > 0) {
                                 data.komposisi.forEach((komp, index) => {
+                                    var cukupStok = komp.bahan_baku.stok >= komp.jumlah;
                                     komposisiHtml += `
                                     <tr>
                                         <td>${index + 1}</td>
@@ -686,12 +729,17 @@
                                         <td>${komp.jumlah}</td>
                                         <td>${komp.bahan_baku.satuan}</td>
                                         <td>${komp.bahan_baku.stok}</td>
+                                        <td>
+                                            <span class="badge ${cukupStok ? 'badge-success' : 'badge-danger'} status-badge">
+                                                ${cukupStok ? 'Cukup' : 'Kurang'}
+                                            </span>
+                                        </td>
                                     </tr>
                                 `;
                                 });
                             } else {
                                 komposisiHtml =
-                                    '<tr><td colspan="5" class="text-center">Belum ada komposisi bahan baku</td></tr>';
+                                    '<tr><td colspan="6" class="text-center">Belum ada komposisi bahan baku</td></tr>';
                             }
 
                             $('#komposisi_list').html(komposisiHtml);
@@ -740,7 +788,6 @@
                             $('#edit_nama').val(data.nama);
                             $('#edit_satuan').val(data.satuan).trigger('change');
                             $('#edit_harga').val(data.harga);
-                            $('#edit_stok').val(data.stok);
 
                             $('#current_foto').html(data.foto ?
                                 `<p>Foto saat ini:</p><img src="{{ asset('storage') }}/${data.foto}" alt="Foto Produk" style="max-width: 100px; height: auto; border-radius: 5px; margin-top: 5px;">` :

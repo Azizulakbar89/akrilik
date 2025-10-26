@@ -26,6 +26,13 @@ class Penjualan extends Model
         'tanggal' => 'date'
     ];
 
+    protected $appends = [
+        'total_formatted',
+        'bayar_formatted',
+        'kembalian_formatted',
+        'tanggal_formatted'
+    ];
+
     public function detailPenjualan()
     {
         return $this->hasMany(DetailPenjualan::class, 'penjualan_id');
@@ -53,5 +60,20 @@ class Penjualan extends Model
     public function getKembalianFormattedAttribute()
     {
         return 'Rp ' . number_format($this->kembalian, 0, ',', '.');
+    }
+
+    public function getTanggalFormattedAttribute()
+    {
+        return \Carbon\Carbon::parse($this->tanggal)->format('d/m/Y H:i');
+    }
+
+    public function cekKetersediaanItems()
+    {
+        foreach ($this->detailPenjualan as $detail) {
+            if (!$detail->cekKetersediaan()) {
+                return false;
+            }
+        }
+        return true;
     }
 }

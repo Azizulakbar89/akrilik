@@ -27,6 +27,12 @@ class DetailPenjualan extends Model
         'sub_total' => 'decimal:2'
     ];
 
+    protected $appends = [
+        'harga_sat_formatted',
+        'sub_total_formatted',
+        'nama_item'
+    ];
+
     public function penjualan()
     {
         return $this->belongsTo(Penjualan::class, 'penjualan_id');
@@ -60,5 +66,29 @@ class DetailPenjualan extends Model
             return $this->bahanBaku->nama;
         }
         return $this->nama_produk;
+    }
+
+    public function prosesPenjualan()
+    {
+        if ($this->jenis_item == 'produk' && $this->produk) {
+            $this->produk->prosesPenjualan($this->jumlah);
+        }
+    }
+
+    public function batalkanPenjualan()
+    {
+        if ($this->jenis_item == 'produk' && $this->produk) {
+            $this->produk->batalkanPenjualan($this->jumlah);
+        }
+    }
+
+    public function cekKetersediaan()
+    {
+        if ($this->jenis_item == 'produk' && $this->produk) {
+            return $this->produk->bisaDiproduksi($this->jumlah);
+        } elseif ($this->jenis_item == 'bahan_baku' && $this->bahanBaku) {
+            return $this->bahanBaku->stok >= $this->jumlah;
+        }
+        return false;
     }
 }

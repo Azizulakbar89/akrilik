@@ -32,7 +32,6 @@ class ProdukController extends Controller
             'nama' => 'required|string|max:255',
             'satuan' => 'required|string|max:50',
             'harga' => 'required|numeric|min:0',
-            'stok' => 'required|integer|min:0',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'komposisi' => 'required|array|min:1',
             'komposisi.*.bahan_baku_id' => 'required|exists:bahan_baku,id',
@@ -50,7 +49,7 @@ class ProdukController extends Controller
         try {
             DB::beginTransaction();
 
-            $data = $request->only(['nama', 'satuan', 'harga', 'stok']);
+            $data = $request->only(['nama', 'satuan', 'harga']);
 
             if ($request->hasFile('foto')) {
                 $file = $request->file('foto');
@@ -115,7 +114,6 @@ class ProdukController extends Controller
             'nama' => 'required|string|max:255',
             'satuan' => 'required|string|max:50',
             'harga' => 'required|numeric|min:0',
-            'stok' => 'required|integer|min:0',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'komposisi' => 'required|array|min:1',
             'komposisi.*.bahan_baku_id' => 'required|exists:bahan_baku,id',
@@ -133,7 +131,7 @@ class ProdukController extends Controller
         try {
             DB::beginTransaction();
 
-            $data = $request->only(['nama', 'satuan', 'harga', 'stok']);
+            $data = $request->only(['nama', 'satuan', 'harga']);
 
             if ($request->hasFile('foto')) {
                 if ($produk->foto) {

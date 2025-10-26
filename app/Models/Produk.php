@@ -15,13 +15,11 @@ class Produk extends Model
         'nama',
         'satuan',
         'harga',
-        'stok',
         'foto'
     ];
 
     protected $casts = [
-        'harga' => 'decimal:2',
-        'stok' => 'integer'
+        'harga' => 'decimal:2'
     ];
 
     public function komposisi()
@@ -60,10 +58,12 @@ class Produk extends Model
                 'bahan_baku_id' => $bahanBaku->id,
                 'jumlah' => $kebutuhan,
                 'tanggal' => now(),
-                'keterangan' => 'Produksi produk: ' . $this->nama . ' (x' . $jumlah . ')'
+                'keterangan' => 'Penjualan produk: ' . $this->nama . ' (x' . $jumlah . ')'
             ]);
 
-            $bahanBaku->updateParameterStok();
+            if (method_exists($bahanBaku, 'updateParameterStok')) {
+                $bahanBaku->updateParameterStok();
+            }
         }
     }
 
@@ -80,10 +80,12 @@ class Produk extends Model
                 'bahan_baku_id' => $bahanBaku->id,
                 'jumlah' => -$kebutuhan,
                 'tanggal' => now(),
-                'keterangan' => 'Pembatalan produksi produk: ' . $this->nama . ' (x' . $jumlah . ')'
+                'keterangan' => 'Pembatalan penjualan produk: ' . $this->nama . ' (x' . $jumlah . ')'
             ]);
 
-            $bahanBaku->updateParameterStok();
+            if (method_exists($bahanBaku, 'updateParameterStok')) {
+                $bahanBaku->updateParameterStok();
+            }
         }
     }
 
@@ -122,32 +124,48 @@ class Produk extends Model
         return 0;
     }
 
-    public function kurangiStok($jumlah)
-    {
-        if ($this->stok < $jumlah) {
-            throw new \Exception("Stok produk {$this->nama} tidak mencukupi");
-        }
-
-        $this->stok -= $jumlah;
-        $this->save();
-    }
-
-    public function tambahStok($jumlah)
-    {
-        $this->stok += $jumlah;
-        $this->save();
-    }
-
-    public function produksi($jumlah)
+    public function prosesPenjualan($jumlah)
     {
         if (!$this->bisaDiproduksi($jumlah)) {
             throw new \Exception("Bahan baku tidak mencukupi untuk memproduksi {$jumlah} {$this->nama}");
         }
 
         $this->kurangiStokBahanBaku($jumlah);
-
-        $this->tambahStok($jumlah);
-
         return $this;
+    }
+
+    public function batalkanPenjualan($jumlah)
+    {
+        $this->kembalikanStokBahanBaku($jumlah);
+        return $this;
+    }
+
+    // Method untuk mendapatkan detail status produksi
+    public function getStatusProduksi($jumlah)
+    {
+        $status = [
+            'bisa_diproduksi' => true,
+            'detail' => []
+        ];
+
+        foreach ($this->komposisi as $komposisi) {
+            $bahanBaku = $komposisi->bahanBaku;
+            $kebutuhan = $komposisi->jumlah * $jumlah;
+            $cukup = $bahanBaku->stok >= $kebutuhan;
+
+            $status['detail'][] = [
+                'bahan_baku' => $bahanBaku->nama,
+                'kebutuhan' => $kebutuhan,
+                'stok_tersedia' => $bahanBaku->stok,
+                'cukup' => $cukup,
+                'satuan' => $bahanBaku->satuan
+            ];
+
+            if (!$cukup) {
+                $status['bisa_diproduksi'] = false;
+            }
+        }
+
+        return $status;
     }
 }

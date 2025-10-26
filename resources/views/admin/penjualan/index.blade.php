@@ -25,8 +25,8 @@
                 <div class="card-box mb-30">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h4 class="text-blue h4">Transaksi Penjualan</h4>
-                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addProductModal">
-                            <i class="fa fa-plus"></i> Tambah Produk Baru
+                        <button type="button" class="btn btn-primary" id="addItemBtn">
+                            <i class="fa fa-plus"></i> Tambah Item
                         </button>
                     </div>
                     <div class="card-body">
@@ -50,29 +50,42 @@
                                         </tr>
                                     </thead>
                                     <tbody id="itemsBody">
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">Belum ada item</td>
+                                        </tr>
                                     </tbody>
                                     <tfoot>
                                         <tr>
                                             <td colspan="4" class="text-right"><strong>Total</strong></td>
                                             <td colspan="2"><strong id="totalAmount">Rp 0</strong></td>
                                         </tr>
+                                        <tr>
+                                            <td colspan="4" class="text-right"><strong>Bayar</strong></td>
+                                            <td colspan="2"><strong id="bayarAmount">Rp 0</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="4" class="text-right"><strong>Kembalian</strong></td>
+                                            <td colspan="2"><strong id="kembalianAmount">Rp 0</strong></td>
+                                        </tr>
                                     </tfoot>
                                 </table>
                             </div>
 
-                            <button type="button" class="btn btn-success mb-3" id="addItemBtn">
-                                <i class="fa fa-plus"></i> Tambah Item
-                            </button>
-
-                            <div class="row">
-                                <div class="col-md-6">
+                            <div class="row mt-3">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="total">Total</label>
+                                        <input type="text" class="form-control" id="total" readonly value="Rp 0">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="bayar">Bayar</label>
                                         <input type="number" class="form-control" id="bayar" name="bayar"
                                             min="0" step="1000" required>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="kembalian">Kembalian</label>
                                         <input type="text" class="form-control" id="kembalian" readonly value="Rp 0">
@@ -80,7 +93,7 @@
                                 </div>
                             </div>
 
-                            <button type="submit" class="btn btn-primary btn-lg btn-block">
+                            <button type="submit" class="btn btn-primary btn-lg btn-block mt-3">
                                 <i class="fa fa-save"></i> Simpan Penjualan
                             </button>
                         </form>
@@ -121,6 +134,10 @@
                                                             data-id="{{ $item->id }}">
                                                             <i class="dw dw-eye"></i> Lihat
                                                         </button>
+                                                        <button class="dropdown-item print-penjualan"
+                                                            data-id="{{ $item->id }}">
+                                                            <i class="dw dw-print"></i> Print
+                                                        </button>
                                                         <button class="dropdown-item delete-penjualan"
                                                             data-id="{{ $item->id }}">
                                                             <i class="dw dw-delete-3"></i> Hapus
@@ -139,6 +156,7 @@
         </div>
     </div>
 
+    <!-- Modal Tambah Item -->
     <div class="modal fade" id="addItemModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content">
@@ -169,14 +187,33 @@
                             <input type="number" class="form-control" id="jumlah" name="jumlah" min="1"
                                 required>
                         </div>
-                        <div class="form-group">
-                            <label>Stok Tersedia: <span id="stokInfo" class="badge badge-info">-</span></label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Stok Tersedia:</label>
+                                    <div id="statusInfo" class="badge badge-info">-</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Satuan:</label>
+                                    <div id="satuanInfo" class="badge badge-secondary">-</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Harga Satuan: <span id="hargaInfo" class="badge badge-success">-</span></label>
-                        </div>
-                        <div class="form-group">
-                            <label>Subtotal: <span id="subtotalInfo" class="badge badge-primary">-</span></label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Harga Satuan:</label>
+                                    <div id="hargaInfo" class="badge badge-success">Rp 0</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Subtotal:</label>
+                                    <div id="subtotalInfo" class="badge badge-primary">Rp 0</div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -188,74 +225,7 @@
         </div>
     </div>
 
-    <div class="modal fade" id="addProductModal" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Tambah Produk Baru</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <form id="productForm">
-                        @csrf
-                        <div class="form-group">
-                            <label for="nama">Nama Produk</label>
-                            <input type="text" class="form-control" id="nama" name="nama" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="satuan">Satuan</label>
-                            <input type="text" class="form-control" id="satuan" name="satuan" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="harga">Harga</label>
-                            <input type="number" class="form-control" id="harga" name="harga" min="0"
-                                required>
-                        </div>
-                        <div class="form-group">
-                            <label for="stok">Stok Awal</label>
-                            <input type="number" class="form-control" id="stok" name="stok" min="0"
-                                required>
-                        </div>
-
-                        <h5>Komposisi Bahan Baku</h5>
-                        <div id="komposisiContainer">
-                            <div class="komposisi-item row mb-2">
-                                <div class="col-md-6">
-                                    <select class="form-control bahan-baku-select" name="komposisi[0][bahan_baku_id]"
-                                        required>
-                                        <option value="">Pilih Bahan Baku</option>
-                                        @foreach ($bahanBaku as $bahan)
-                                            <option value="{{ $bahan->id }}">{{ $bahan->nama }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <input type="number" class="form-control" name="komposisi[0][jumlah]"
-                                        min="1" placeholder="Jumlah" required>
-                                </div>
-                                <div class="col-md-2">
-                                    <button type="button" class="btn btn-danger remove-komposisi" disabled>
-                                        <i class="fa fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button type="button" class="btn btn-success mb-3" id="addKomposisiBtn">
-                            <i class="fa fa-plus"></i> Tambah Bahan Baku
-                        </button>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-primary" id="saveProductBtn">Simpan Produk</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    <!-- Modal Detail Penjualan -->
     <div class="modal fade" id="detailPenjualanModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -287,10 +257,6 @@
             vertical-align: middle;
         }
 
-        .komposisi-item {
-            align-items: center;
-        }
-
         .select2-container {
             width: 100% !important;
         }
@@ -315,27 +281,13 @@
             color: #333;
         }
 
-        @media print {
-            body * {
-                visibility: hidden;
-            }
+        .item-detail {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
 
-            .nota-print,
-            .nota-print * {
-                visibility: visible;
-            }
-
-            .nota-print {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                padding: 20px;
-            }
-
-            .no-print {
-                display: none !important;
-            }
+        .item-detail:last-child {
+            border-bottom: none;
         }
     </style>
 @endpush
@@ -345,13 +297,7 @@
         $(document).ready(function() {
             let itemCounter = 0;
             let currentItems = [];
-            let komposisiCounter = 1;
             let currentPenjualanId = null;
-
-            $('.bahan-baku-select').select2({
-                placeholder: "Pilih Bahan Baku",
-                allowClear: true
-            });
 
             $('#item_id').select2({
                 placeholder: "Pilih Item",
@@ -360,113 +306,13 @@
 
             $('#addItemModal').on('hidden.bs.modal', function() {
                 $('#itemForm')[0].reset();
-                $('#stokInfo').text('-').removeClass('badge-danger badge-warning badge-success').addClass(
+                $('#statusInfo').text('-').removeClass('badge-danger badge-warning badge-success').addClass(
                     'badge-info');
-                $('#hargaInfo').text('-').removeClass('badge-success').addClass('badge-success');
-                $('#subtotalInfo').text('-').removeClass('badge-primary').addClass('badge-primary');
+                $('#hargaInfo').text('Rp 0').removeClass('badge-success').addClass('badge-success');
+                $('#subtotalInfo').text('Rp 0').removeClass('badge-primary').addClass('badge-primary');
+                $('#satuanInfo').text('-').removeClass('badge-secondary').addClass('badge-secondary');
                 $('#item_id').empty().append('<option value="">Pilih Item</option>');
                 $('#jenis_item').val('');
-            });
-
-            $('#addKomposisiBtn').click(function() {
-                const newItem = `
-                <div class="komposisi-item row mb-2">
-                    <div class="col-md-6">
-                        <select class="form-control bahan-baku-select" name="komposisi[${komposisiCounter}][bahan_baku_id]" required>
-                            <option value="">Pilih Bahan Baku</option>
-                            @foreach ($bahanBaku as $bahan)
-                            <option value="{{ $bahan->id }}">{{ $bahan->nama }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <input type="number" class="form-control" name="komposisi[${komposisiCounter}][jumlah]" min="1" placeholder="Jumlah" required>
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-danger remove-komposisi">
-                            <i class="fa fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-                $('#komposisiContainer').append(newItem);
-                $('.bahan-baku-select').last().select2();
-                komposisiCounter++;
-
-                $('.remove-komposisi').prop('disabled', false);
-            });
-
-            $(document).on('click', '.remove-komposisi', function() {
-                if ($('.komposisi-item').length > 1) {
-                    $(this).closest('.komposisi-item').remove();
-                }
-                if ($('.komposisi-item').length === 1) {
-                    $('.remove-komposisi').prop('disabled', true);
-                }
-            });
-
-            $('#saveProductBtn').click(function() {
-                const formData = new FormData($('#productForm')[0]);
-
-                $.ajax({
-                    url: '{{ route('admin.produk.store') }}',
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        if (response.status === 'success') {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Berhasil',
-                                text: response.message
-                            }).then(() => {
-                                $('#addProductModal').modal('hide');
-                                $('#productForm')[0].reset();
-                                $('#komposisiContainer').html(`
-                                <div class="komposisi-item row mb-2">
-                                    <div class="col-md-6">
-                                        <select class="form-control bahan-baku-select" name="komposisi[0][bahan_baku_id]" required>
-                                            <option value="">Pilih Bahan Baku</option>
-                                            @foreach ($bahanBaku as $bahan)
-                                            <option value="{{ $bahan->id }}">{{ $bahan->nama }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="number" class="form-control" name="komposisi[0][jumlah]" min="1" placeholder="Jumlah" required>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <button type="button" class="btn btn-danger remove-komposisi" disabled>
-                                            <i class="fa fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            `);
-                                $('.bahan-baku-select').select2();
-                                komposisiCounter = 1;
-
-                                location.reload();
-                            });
-                        }
-                    },
-                    error: function(xhr) {
-                        const response = xhr.responseJSON;
-                        let errorMessage = 'Terjadi kesalahan';
-
-                        if (response && response.errors) {
-                            errorMessage = Object.values(response.errors).join('<br>');
-                        } else if (response && response.message) {
-                            errorMessage = response.message;
-                        }
-
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Gagal',
-                            html: errorMessage
-                        });
-                    }
-                });
             });
 
             $('#addItemBtn').click(function() {
@@ -480,52 +326,61 @@
                 if (jenis === 'produk') {
                     @foreach ($produk as $item)
                         $('#item_id').append(
-                            '<option value="{{ $item->id }}" data-stok="{{ $item->stok }}" data-harga="{{ $item->harga }}" data-satuan="{{ $item->satuan }}">{{ $item->nama }} (Stok: {{ $item->stok }} {{ $item->satuan }})</option>'
+                            '<option value="{{ $item->id }}" data-harga="{{ $item->harga }}" data-satuan="{{ $item->satuan }}">{{ $item->nama }}</option>'
                         );
                     @endforeach
                 } else if (jenis === 'bahan_baku') {
                     @foreach ($bahanBaku as $item)
                         $('#item_id').append(
-                            '<option value="{{ $item->id }}" data-stok="{{ $item->stok }}" data-harga="{{ $item->harga_jual }}" data-satuan="{{ $item->satuan }}">{{ $item->nama }} (Stok: {{ $item->stok }} {{ $item->satuan }})</option>'
+                            '<option value="{{ $item->id }}" data-stok="{{ $item->stok }}" data-harga="{{ $item->harga_jual }}" data-satuan="{{ $item->satuan }}">{{ $item->nama }}</option>'
                         );
                     @endforeach
                 }
 
-                $('#stokInfo').text('-').removeClass('badge-danger badge-warning badge-success').addClass(
+                $('#statusInfo').text('-').removeClass('badge-danger badge-warning badge-success').addClass(
                     'badge-info');
-                $('#hargaInfo').text('-').removeClass('badge-success').addClass('badge-success');
-                $('#subtotalInfo').text('-').removeClass('badge-primary').addClass('badge-primary');
+                $('#hargaInfo').text('Rp 0').removeClass('badge-success').addClass('badge-success');
+                $('#subtotalInfo').text('Rp 0').removeClass('badge-primary').addClass('badge-primary');
+                $('#satuanInfo').text('-').removeClass('badge-secondary').addClass('badge-secondary');
 
                 $('#item_id').trigger('change.select2');
             });
 
             $('#item_id').change(function() {
                 const selectedOption = $(this).find('option:selected');
-                const stok = selectedOption.data('stok');
+                const jenis = $('#jenis_item').val();
                 const harga = selectedOption.data('harga');
                 const satuan = selectedOption.data('satuan');
 
-                if (stok !== undefined && harga !== undefined) {
-                    $('#stokInfo').text(stok + ' ' + satuan);
-                    if (stok <= 0) {
-                        $('#stokInfo').removeClass('badge-info badge-warning badge-success').addClass(
-                            'badge-danger');
-                    } else if (stok <= 10) {
-                        $('#stokInfo').removeClass('badge-info badge-danger badge-success').addClass(
-                            'badge-warning');
+                if (harga !== undefined) {
+                    if (jenis === 'produk') {
+                        $('#statusInfo').text('Produk - Bahan baku akan diproses saat penjualan')
+                            .removeClass('badge-danger badge-warning badge-success')
+                            .addClass('badge-info');
                     } else {
-                        $('#stokInfo').removeClass('badge-info badge-danger badge-warning').addClass(
-                            'badge-success');
+                        const stok = selectedOption.data('stok');
+                        $('#statusInfo').text(stok);
+                        if (stok <= 0) {
+                            $('#statusInfo').removeClass('badge-info badge-warning badge-success').addClass(
+                                'badge-danger');
+                        } else if (stok <= 10) {
+                            $('#statusInfo').removeClass('badge-info badge-danger badge-success').addClass(
+                                'badge-warning');
+                        } else {
+                            $('#statusInfo').removeClass('badge-info badge-danger badge-warning').addClass(
+                                'badge-success');
+                        }
                     }
 
                     $('#hargaInfo').text('Rp ' + numberFormat(harga));
-
+                    $('#satuanInfo').text(satuan);
                     calculateSubtotal();
                 } else {
-                    $('#stokInfo').text('-').removeClass('badge-danger badge-warning badge-success')
+                    $('#statusInfo').text('-').removeClass('badge-danger badge-warning badge-success')
                         .addClass('badge-info');
-                    $('#hargaInfo').text('-').removeClass('badge-success').addClass('badge-success');
-                    $('#subtotalInfo').text('-').removeClass('badge-primary').addClass('badge-primary');
+                    $('#hargaInfo').text('Rp 0').removeClass('badge-success').addClass('badge-success');
+                    $('#subtotalInfo').text('Rp 0').removeClass('badge-primary').addClass('badge-primary');
+                    $('#satuanInfo').text('-').removeClass('badge-secondary').addClass('badge-secondary');
                 }
             });
 
@@ -547,16 +402,19 @@
                 const itemId = $('#item_id').val();
                 const jumlah = $('#jumlah').val();
                 const selectedOption = $('#item_id').find('option:selected');
-                const stok = selectedOption.data('stok');
 
                 if (!jenisItem || !itemId || !jumlah) {
                     Swal.fire('Peringatan', 'Harap lengkapi semua field', 'warning');
                     return;
                 }
 
-                if (jumlah > stok) {
-                    Swal.fire('Error', 'Jumlah melebihi stok tersedia. Stok tersedia: ' + stok, 'error');
-                    return;
+                if (jenisItem === 'bahan_baku') {
+                    const stok = selectedOption.data('stok');
+                    if (jumlah > stok) {
+                        Swal.fire('Error', 'Jumlah melebihi stok tersedia. Stok tersedia: ' + stok,
+                            'error');
+                        return;
+                    }
                 }
 
                 if (jumlah <= 0) {
@@ -564,16 +422,18 @@
                     return;
                 }
 
+                const harga = parseFloat(selectedOption.data('harga'));
+                const subtotal = harga * jumlah;
+
                 const item = {
                     id: itemCounter++,
                     jenis_item: jenisItem,
                     item_id: itemId,
-                    nama: $('#item_id option:selected').text().split(' (Stok:')[
-                        0],
+                    nama: $('#item_id option:selected').text(),
                     jumlah: parseInt(jumlah),
-                    harga: parseFloat(selectedOption.data('harga')),
-                    subtotal: parseFloat($('#subtotalInfo').text().replace('Rp ', '').replace(/\./g,
-                        ''))
+                    harga: harga,
+                    subtotal: subtotal,
+                    satuan: selectedOption.data('satuan')
                 };
 
                 currentItems.push(item);
@@ -602,7 +462,7 @@
                     <tr>
                         <td>${item.jenis_item === 'produk' ? 'Produk' : 'Bahan Baku'}</td>
                         <td>${item.nama}</td>
-                        <td>${item.jumlah}</td>
+                        <td>${item.jumlah} ${item.satuan}</td>
                         <td>Rp ${numberFormat(item.harga)}</td>
                         <td>Rp ${numberFormat(item.subtotal)}</td>
                         <td>
@@ -627,6 +487,7 @@
             function updateTotal() {
                 const total = currentItems.reduce((sum, item) => sum + item.subtotal, 0);
                 $('#totalAmount').text('Rp ' + numberFormat(total));
+                $('#total').val('Rp ' + numberFormat(total));
                 calculateKembalian();
             }
 
@@ -640,6 +501,8 @@
                 const kembalian = bayar - total;
 
                 $('#kembalian').val('Rp ' + numberFormat(kembalian > 0 ? kembalian : 0));
+                $('#bayarAmount').text('Rp ' + numberFormat(bayar));
+                $('#kembalianAmount').text('Rp ' + numberFormat(kembalian > 0 ? kembalian : 0));
             }
 
             $('#penjualanForm').submit(function(e) {
@@ -682,10 +545,13 @@
                                 icon: 'success',
                                 title: 'Berhasil',
                                 html: `
-                                Penjualan berhasil disimpan!<br>
-                                Kode: ${response.data.kode_penjualan}<br>
-                                Total: Rp ${numberFormat(response.data.total)}<br>
-                                Kembalian: Rp ${numberFormat(response.data.kembalian)}
+                                <div class="text-left">
+                                    <p><strong>Penjualan berhasil disimpan!</strong></p>
+                                    <p>Kode: ${response.data.kode_penjualan}</p>
+                                    <p>Total: Rp ${numberFormat(response.data.total)}</p>
+                                    <p>Bayar: Rp ${numberFormat(response.data.bayar)}</p>
+                                    <p>Kembalian: Rp ${numberFormat(response.data.kembalian)}</p>
+                                </div>
                             `,
                                 confirmButtonText: 'OK'
                             }).then(() => {
@@ -729,7 +595,7 @@
                                 <div class="col-md-6">
                                     <p><strong>Kode Penjualan:</strong> ${penjualan.kode_penjualan}</p>
                                     <p><strong>Customer:</strong> ${penjualan.nama_customer}</p>
-                                    <p><strong>Tanggal:</strong> ${new Date(penjualan.tanggal).toLocaleDateString('id-ID')}</p>
+                                    <p><strong>Tanggal:</strong> ${penjualan.tanggal_formatted}</p>
                                 </div>
                                 <div class="col-md-6">
                                     <p><strong>Total:</strong> ${penjualan.total_formatted}</p>
@@ -778,6 +644,11 @@
                 });
             });
 
+            $('.print-penjualan').click(function() {
+                const id = $(this).data('id');
+                window.open('{{ url('admin/penjualan') }}/' + id + '/print', '_blank');
+            });
+
             $('#printNotaBtn').click(function() {
                 if (currentPenjualanId) {
                     window.open('{{ url('admin/penjualan') }}/' + currentPenjualanId + '/print', '_blank');
@@ -789,7 +660,7 @@
 
                 Swal.fire({
                     title: 'Apakah Anda yakin?',
-                    text: "Data penjualan akan dihapus dan stok akan dikembalikan!",
+                    text: "Data penjualan akan dihapus dan stok bahan baku akan dikembalikan!",
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#d33',
