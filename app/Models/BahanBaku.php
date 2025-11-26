@@ -23,6 +23,7 @@ class BahanBaku extends Model
         'min',
         'max',
         'lead_time',
+        'lead_time_max',
         'foto'
     ];
 
@@ -31,7 +32,8 @@ class BahanBaku extends Model
         'rop' => 0,
         'min' => 0,
         'max' => 0,
-        'stok' => 0
+        'stok' => 0,
+        'lead_time_max' => 1
     ];
 
     protected $casts = [
@@ -42,7 +44,8 @@ class BahanBaku extends Model
         'rop' => 'integer',
         'min' => 'integer',
         'max' => 'integer',
-        'lead_time' => 'integer'
+        'lead_time' => 'integer',
+        'lead_time_max' => 'integer'
     ];
 
     public function penggunaan()
@@ -65,7 +68,7 @@ class BahanBaku extends Model
         return $this->hasMany(DetailPembelian::class, 'bahan_baku_id');
     }
 
-    // Method untuk menghitung statistik penggunaan 30 hari terakhir - DIPERBAIKI
+    // Method untuk menghitung statistik penggunaan 30 hari terakhir
     public function hitungStatistikPenggunaan($rangeHari = 30)
     {
         $startDate = now()->subDays($rangeHari)->startOfDay();
@@ -104,20 +107,25 @@ class BahanBaku extends Model
             ];
         }
 
-        $totalKeluar = $penggunaanData->sum('jumlah');
+        // Kelompokkan data per hari untuk menghitung penjualan harian
+        $penggunaanPerHari = $penggunaanData->groupBy(function ($item) {
+            return $item->created_at->format('Y-m-d');
+        })->map(function ($items) {
+            return $items->sum('jumlah');
+        });
+
+        $totalKeluar = $penggunaanPerHari->sum();
         $countKeluar = $penggunaanData->count();
 
         // Hitung jumlah hari aktual dengan transaksi
-        $hariDenganTransaksi = $penggunaanData->groupBy(function ($item) {
-            return $item->created_at->format('Y-m-d');
-        })->count();
-
+        $hariDenganTransaksi = $penggunaanPerHari->count();
         $hariAktif = max(1, $hariDenganTransaksi); // Minimal 1 hari
 
         // Rata-rata per hari = total keluar / jumlah hari dengan transaksi
         $rataRata = $totalKeluar / $hariAktif;
 
-        $maksKeluar = $penggunaanData->max('jumlah');
+        // Maksimum per hari = nilai tertinggi dari penjumlahan per hari
+        $maksKeluar = $penggunaanPerHari->max();
 
         return [
             'total_keluar' => $totalKeluar,
@@ -126,7 +134,8 @@ class BahanBaku extends Model
             'maks_keluar' => max(0, $maksKeluar),
             'range_hari' => $rangeHari,
             'hari_aktif' => $hariAktif,
-            'sumber_data' => 'Penggunaan & Penjualan'
+            'sumber_data' => 'Penggunaan & Penjualan',
+            'penggunaan_per_hari' => $penggunaanPerHari
         ];
     }
 
@@ -146,11 +155,12 @@ class BahanBaku extends Model
         }
 
         $T = $statistik['rata_rata']; // Penggunaan rata-rata per hari
-        $LT = max(1, $this->lead_time); // Lead time dalam hari (minimal 1)
+        $LT = max(1, $this->lead_time); // Lead time rata-rata dalam hari (minimal 1)
+        $LT_max = max($LT, $this->lead_time_max); // Lead time maksimum dalam hari
         $Maks = $statistik['maks_keluar']; // Penggunaan maksimum per hari
 
-        // Safety Stock = (Pemakaian Maksimum - Rata-rata) × Lead Time
-        $SS = max(0, ($Maks - $T) * $LT);
+        // Safety Stock = (Penjualan Maksimal Harian × Lead Time Maksimum) - (Penjualan Harian Rata-rata × Lead Time Rata-rata)
+        $SS = max(0, ($Maks * $LT_max) - ($T * $LT));
 
         // Minimal Stock = (Rata-rata × Lead Time) + Safety Stock
         $Min = ($T * $LT) + $SS;
@@ -167,7 +177,13 @@ class BahanBaku extends Model
             'min' => (int) round($Min),
             'max' => (int) round($Max),
             'rop' => (int) round($ROP),
-            'statistik' => $statistik
+            'statistik' => $statistik,
+            'perhitungan' => [
+                'formula_ss' => "($Maks × $LT_max) - ($T × $LT) = $SS",
+                'formula_min' => "($T × $LT) + $SS = $Min",
+                'formula_max' => "2 × ($T × $LT) + $SS = $Max",
+                'formula_rop' => "$Min = $ROP"
+            ]
         ];
     }
 

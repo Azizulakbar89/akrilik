@@ -43,11 +43,21 @@ class BahanBakuController extends Controller
             'harga_jual' => 'required|numeric|min:0',
             'stok' => 'required|integer|min:0',
             'lead_time' => 'required|integer|min:1',
+            'lead_time_max' => 'required|integer|min:1',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
         ], [
             'nama.unique' => 'Nama bahan baku sudah ada',
-            'lead_time.min' => 'Lead time minimal 1 hari'
+            'lead_time.min' => 'Lead time rata-rata minimal 1 hari',
+            'lead_time_max.min' => 'Lead time maksimal minimal 1 hari',
+            'lead_time_max.gte' => 'Lead time maksimal harus lebih besar atau sama dengan lead time rata-rata'
         ]);
+
+        // Validasi tambahan: lead_time_max harus >= lead_time
+        $validator->after(function ($validator) use ($request) {
+            if ($request->lead_time_max < $request->lead_time) {
+                $validator->errors()->add('lead_time_max', 'Lead time maksimal harus lebih besar atau sama dengan lead time rata-rata');
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json([
@@ -66,7 +76,8 @@ class BahanBakuController extends Controller
                 'harga_beli',
                 'harga_jual',
                 'stok',
-                'lead_time'
+                'lead_time',
+                'lead_time_max'
             ]);
 
             // Default values untuk parameter stok (0)
@@ -146,11 +157,21 @@ class BahanBakuController extends Controller
             'harga_jual' => 'required|numeric|min:0',
             'stok' => 'required|integer|min:0',
             'lead_time' => 'required|integer|min:1',
+            'lead_time_max' => 'required|integer|min:1',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
         ], [
             'nama.unique' => 'Nama bahan baku sudah ada',
-            'lead_time.min' => 'Lead time minimal 1 hari'
+            'lead_time.min' => 'Lead time rata-rata minimal 1 hari',
+            'lead_time_max.min' => 'Lead time maksimal minimal 1 hari',
+            'lead_time_max.gte' => 'Lead time maksimal harus lebih besar atau sama dengan lead time rata-rata'
         ]);
+
+        // Validasi tambahan: lead_time_max harus >= lead_time
+        $validator->after(function ($validator) use ($request) {
+            if ($request->lead_time_max < $request->lead_time) {
+                $validator->errors()->add('lead_time_max', 'Lead time maksimal harus lebih besar atau sama dengan lead time rata-rata');
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json([
@@ -169,7 +190,8 @@ class BahanBakuController extends Controller
                 'harga_beli',
                 'harga_jual',
                 'stok',
-                'lead_time'
+                'lead_time',
+                'lead_time_max'
             ]);
 
             if ($request->hasFile('foto')) {
@@ -270,7 +292,8 @@ class BahanBakuController extends Controller
 
                 $calculationDetail = [
                     'bahan_baku' => $bahanBaku->nama,
-                    'lead_time' => $bahanBaku->lead_time . ' hari',
+                    'lead_time_rata_rata' => $bahanBaku->lead_time . ' hari',
+                    'lead_time_maksimum' => $bahanBaku->lead_time_max . ' hari',
                     'statistik_penggunaan' => [
                         'total_keluar' => $statistik['total_keluar'],
                         'count_keluar' => $statistik['count_keluar'],
@@ -280,10 +303,10 @@ class BahanBakuController extends Controller
                         'hari_aktif' => $statistik['hari_aktif']
                     ],
                     'perhitungan' => [
-                        'safety_stock' => "({$statistik['maks_keluar']} - {$statistik['rata_rata']}) × {$bahanBaku->lead_time} = {$parameters['safety_stock']}",
+                        'safety_stock' => "({$statistik['maks_keluar']} × {$bahanBaku->lead_time_max}) - ({$statistik['rata_rata']} × {$bahanBaku->lead_time}) = {$parameters['safety_stock']}",
                         'min_stock' => "({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['min']}",
                         'max_stock' => "2 × ({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['max']}",
-                        'rop' => "{$parameters['max']} - {$parameters['min']} = {$parameters['rop']}"
+                        'rop' => "{$parameters['min']} = {$parameters['rop']}"
                     ],
                     'hasil' => $parameters,
                     'memiliki_data' => true
@@ -291,7 +314,8 @@ class BahanBakuController extends Controller
             } else {
                 $calculationDetail = [
                     'bahan_baku' => $bahanBaku->nama,
-                    'lead_time' => $bahanBaku->lead_time . ' hari',
+                    'lead_time_rata_rata' => $bahanBaku->lead_time . ' hari',
+                    'lead_time_maksimum' => $bahanBaku->lead_time_max . ' hari',
                     'statistik_penggunaan' => [
                         'total_keluar' => 0,
                         'count_keluar' => 0,

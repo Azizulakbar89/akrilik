@@ -39,7 +39,7 @@
         </div>
         <div class="pb-20">
             <div class="table-responsive" style="overflow-x: auto;">
-                <table class="data-table table stripe hover nowrap" style="width: 100%; min-width: 1200px;">
+                <table class="data-table table stripe hover nowrap" style="width: 100%; min-width: 1300px;">
                     <thead>
                         <tr>
                             <th class="table-plus datatable-nosort">No</th>
@@ -49,7 +49,8 @@
                             <th>Harga Beli</th>
                             <th>Harga Jual</th>
                             <th>Stok</th>
-                            <th>Lead Time</th>
+                            <th>Lead Time Avg</th>
+                            <th>Lead Time Max</th>
                             <th>Safety Stock</th>
                             <th>ROP</th>
                             <th>Min</th>
@@ -79,6 +80,7 @@
                                 <td>Rp {{ number_format($bb->harga_jual, 0, ',', '.') }}</td>
                                 <td>{{ $bb->stok }}</td>
                                 <td>{{ $bb->lead_time }} hari</td>
+                                <td>{{ $bb->lead_time_max }} hari</td>
                                 <td>{{ $bb->safety_stock }}</td>
                                 <td>{{ $bb->rop }}</td>
                                 <td>{{ $bb->min }}</td>
@@ -200,11 +202,33 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Lead Time (hari)</label>
+                                        <label>Lead Time Rata-rata (hari)</label>
                                         <input type="number" class="form-control" name="lead_time" value="1"
                                             required min="1">
-                                        <small class="form-text text-muted">Waktu tunggu pesanan sampai diterima</small>
+                                        <small class="form-text text-muted">Waktu tunggu rata-rata pesanan sampai
+                                            diterima</small>
                                         <div class="invalid-feedback"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Lead Time Maksimum (hari)</label>
+                                        <input type="number" class="form-control" name="lead_time_max" value="3"
+                                            required min="1">
+                                        <small class="form-text text-muted">Waktu tunggu terlama pesanan sampai
+                                            diterima</small>
+                                        <div class="invalid-feedback"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>&nbsp;</label>
+                                        <div class="alert alert-warning mt-2">
+                                            <small><i class="fas fa-exclamation-triangle"></i> Lead Time Maksimum harus
+                                                lebih besar atau sama dengan Lead Time Rata-rata</small>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -298,11 +322,33 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Lead Time (hari)</label>
+                                        <label>Lead Time Rata-rata (hari)</label>
                                         <input type="number" class="form-control" name="lead_time" id="edit_lead_time"
                                             required min="1">
-                                        <small class="form-text text-muted">Waktu tunggu pesanan sampai diterima</small>
+                                        <small class="form-text text-muted">Waktu tunggu rata-rata pesanan sampai
+                                            diterima</small>
                                         <div class="invalid-feedback"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Lead Time Maksimum (hari)</label>
+                                        <input type="number" class="form-control" name="lead_time_max"
+                                            id="edit_lead_time_max" required min="1">
+                                        <small class="form-text text-muted">Waktu tunggu terlama pesanan sampai
+                                            diterima</small>
+                                        <div class="invalid-feedback"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>&nbsp;</label>
+                                        <div class="alert alert-warning mt-2">
+                                            <small><i class="fas fa-exclamation-triangle"></i> Lead Time Maksimum harus
+                                                lebih besar atau sama dengan Lead Time Rata-rata</small>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -375,10 +421,18 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Lead Time</label>
+                                        <label>Lead Time Rata-rata</label>
                                         <p id="show_lead_time" class="form-control-plaintext"></p>
                                     </div>
                                 </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Lead Time Maksimum</label>
+                                        <p id="show_lead_time_max" class="form-control-plaintext"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label>Status Stok</label>
@@ -499,6 +553,14 @@
             margin-top: 15px;
             border-left: 4px solid #28a745;
         }
+
+        .formula-highlight {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+            margin: 10px 0;
+        }
     </style>
 @endpush
 
@@ -544,6 +606,26 @@
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
+            });
+
+            function validateLeadTime() {
+                var leadTime = parseInt($('input[name="lead_time"]').val()) || 0;
+                var leadTimeMax = parseInt($('input[name="lead_time_max"]').val()) || 0;
+
+                if (leadTimeMax < leadTime) {
+                    $('input[name="lead_time_max"]').addClass('is-invalid');
+                    $('input[name="lead_time_max"]').siblings('.invalid-feedback').text(
+                        'Lead Time Maksimum harus lebih besar atau sama dengan Lead Time Rata-rata');
+                    return false;
+                } else {
+                    $('input[name="lead_time_max"]').removeClass('is-invalid');
+                    $('input[name="lead_time_max"]').siblings('.invalid-feedback').text('');
+                    return true;
+                }
+            }
+
+            $('input[name="lead_time"], input[name="lead_time_max"]').on('change', function() {
+                validateLeadTime();
             });
 
             $('#recalculateAllBtn').on('click', function() {
@@ -622,26 +704,26 @@
                             html += '<div class="mb-4">';
                             html += '<h5>Informasi Bahan Baku</h5>';
                             html += '<p><strong>Nama:</strong> ' + data.bahan_baku + '</p>';
-                            html += '<p><strong>Lead Time:</strong> ' + data.lead_time + '</p>';
+                            html += '<p><strong>Lead Time Rata-rata:</strong> ' + data
+                                .lead_time_rata_rata + '</p>';
+                            html += '<p><strong>Lead Time Maksimum:</strong> ' + data
+                                .lead_time_maksimum + '</p>';
                             html += '</div>';
 
                             html += '<div class="mb-4">';
                             html += '<h5>Statistik Penggunaan (30 Hari Terakhir)</h5>';
                             html += '<div class="row">';
                             html += '<div class="col-md-6"><p><strong>Total Keluar:</strong> ' +
-                                data.statistik_penggunaan.total_keluar + ' ' + data.bahan_baku +
-                                '</p></div>';
+                                data.statistik_penggunaan.total_keluar + '</p></div>';
                             html +=
                                 '<div class="col-md-6"><p><strong>Jumlah Transaksi:</strong> ' +
                                 data.statistik_penggunaan.count_keluar + ' kali</p></div>';
                             html +=
                                 '<div class="col-md-6"><p><strong>Rata-rata per Hari:</strong> ' +
-                                data.statistik_penggunaan.rata_rata_per_hari + ' ' + data
-                                .bahan_baku + '</p></div>';
+                                data.statistik_penggunaan.rata_rata_per_hari + '</p></div>';
                             html +=
                                 '<div class="col-md-6"><p><strong>Maksimum per Hari:</strong> ' +
-                                data.statistik_penggunaan.maks_keluar_per_hari + ' ' + data
-                                .bahan_baku + '</p></div>';
+                                data.statistik_penggunaan.maks_keluar_per_hari + '</p></div>';
                             if (data.statistik_penggunaan.hari_aktif !== undefined) {
                                 html +=
                                     '<div class="col-md-6"><p><strong>Hari dengan Transaksi:</strong> ' +
@@ -654,35 +736,31 @@
                             html += '<div class="mb-4">';
                             html += '<h5>Detail Perhitungan</h5>';
 
+                            // Formula baru untuk Safety Stock
+                            html += '<div class="formula-highlight">';
+                            html += '<h6>Rumus Safety Stock Baru:</h6>';
+                            html +=
+                                '<p class="mb-1"><strong>(Penjualan Maksimal Harian × Lead Time Maksimum) - (Penjualan Harian Rata-rata × Lead Time Rata-rata)</strong></p>';
+                            html += '</div>';
+
                             html += '<div class="calculation-step">';
                             html += '<h6>Safety Stock (SS)</h6>';
-                            html +=
-                                '<p class="mb-1">Rumus: (Pemakaian Maksimum - Rata-rata) × Lead Time</p>';
-                            html += '<p class="mb-0"><strong>' + data.perhitungan.safety_stock +
-                                '</strong></p>';
+                            html += '<p class="mb-1">' + data.perhitungan.safety_stock + '</p>';
                             html += '</div>';
 
                             html += '<div class="calculation-step">';
                             html += '<h6>Minimal Stock (Min)</h6>';
-                            html +=
-                                '<p class="mb-1">Rumus: (Rata-rata × Lead Time) + Safety Stock</p>';
-                            html += '<p class="mb-0"><strong>' + data.perhitungan.min_stock +
-                                '</strong></p>';
+                            html += '<p class="mb-1">' + data.perhitungan.min_stock + '</p>';
                             html += '</div>';
 
                             html += '<div class="calculation-step">';
                             html += '<h6>Maksimal Stock (Max)</h6>';
-                            html +=
-                                '<p class="mb-1">Rumus: 2 × (Rata-rata × Lead Time) + Safety Stock</p>';
-                            html += '<p class="mb-0"><strong>' + data.perhitungan.max_stock +
-                                '</strong></p>';
+                            html += '<p class="mb-1">' + data.perhitungan.max_stock + '</p>';
                             html += '</div>';
 
                             html += '<div class="calculation-step">';
                             html += '<h6>Reorder Point (ROP)</h6>';
-                            html += '<p class="mb-1">Rumus: Maksimal Stock - Minimal Stock</p>';
-                            html += '<p class="mb-0"><strong>' + data.perhitungan.rop +
-                                '</strong></p>';
+                            html += '<p class="mb-1">' + data.perhitungan.rop + '</p>';
                             html += '</div>';
                             html += '</div>';
 
@@ -754,6 +832,8 @@
                             $('#show_stok').text(data.stok || '0');
                             $('#show_lead_time').text(data.lead_time ? data.lead_time +
                                 ' hari' : '-');
+                            $('#show_lead_time_max').text(data.lead_time_max ? data
+                                .lead_time_max + ' hari' : '-');
                             $('#show_safety_stock').text(data.safety_stock || '0');
                             $('#show_rop').text(data.rop || '0');
                             $('#show_min').text(data.min || '0');
@@ -816,6 +896,7 @@
                             $('#edit_harga_jual').val(data.harga_jual);
                             $('#edit_stok').val(data.stok);
                             $('#edit_lead_time').val(data.lead_time);
+                            $('#edit_lead_time_max').val(data.lead_time_max);
 
                             $('#current_foto').html(data.foto ?
                                 `<p>Foto saat ini:</p><img src="{{ asset('storage') }}/${data.foto}" alt="Foto Bahan Baku" style="max-width: 100px; height: auto; border-radius: 5px; margin-top: 5px;">` :
@@ -839,6 +920,17 @@
 
             $('#tambahBahanBakuForm').on('submit', function(e) {
                 e.preventDefault();
+
+                // Validasi lead time sebelum submit
+                if (!validateLeadTime()) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validasi Error',
+                        text: 'Lead Time Maksimum harus lebih besar atau sama dengan Lead Time Rata-rata'
+                    });
+                    return;
+                }
+
                 var formData = new FormData(this);
 
                 Swal.fire({
@@ -902,6 +994,17 @@
 
             $('#editBahanBakuForm').on('submit', function(e) {
                 e.preventDefault();
+
+                // Validasi lead time sebelum submit
+                if (!validateLeadTime()) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validasi Error',
+                        text: 'Lead Time Maksimum harus lebih besar atau sama dengan Lead Time Rata-rata'
+                    });
+                    return;
+                }
+
                 var id = $('#edit_id').val();
                 var formData = new FormData(this);
 
