@@ -168,6 +168,7 @@
                                             <option value="pcs">pcs</option>
                                             <option value="kg">kg</option>
                                             <option value="m">m</option>
+                                            <option value="rim">rim</option>
                                         </select>
                                         <div class="invalid-feedback"></div>
                                     </div>
@@ -288,6 +289,7 @@
                                             <option value="pcs">pcs</option>
                                             <option value="kg">kg</option>
                                             <option value="m">m</option>
+                                            <option value="rim">rim</option>
                                         </select>
                                         <div class="invalid-feedback"></div>
                                     </div>

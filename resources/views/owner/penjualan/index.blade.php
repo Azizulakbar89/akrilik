@@ -25,6 +25,33 @@
             </div>
         </div>
 
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card-box">
+                    <div class="card-body">
+                        <form action="{{ route('owner.penjualan.index') }}" method="GET" class="form-inline">
+                            <div class="form-group mr-2">
+                                <label for="tanggal_awal" class="mr-2">Tanggal Awal:</label>
+                                <input type="date" name="tanggal_awal" class="form-control"
+                                    value="{{ $tanggalAwal ?? date('Y-m-01') }}">
+                            </div>
+                            <div class="form-group mr-2">
+                                <label for="tanggal_akhir" class="mr-2">Tanggal Akhir:</label>
+                                <input type="date" name="tanggal_akhir" class="form-control"
+                                    value="{{ $tanggalAkhir ?? date('Y-m-d') }}">
+                            </div>
+                            <button type="submit" class="btn btn-primary mr-2">
+                                <i class="fa fa-filter"></i> Filter
+                            </button>
+                            <a href="{{ route('owner.penjualan.index') }}" class="btn btn-secondary">
+                                <i class="fa fa-refresh"></i> Reset
+                            </a>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-12">
                 <div class="card-box mb-30">
@@ -116,13 +143,13 @@
                     <div class="modal-body">
                         <div class="form-group">
                             <label for="tanggal_awal">Tanggal Awal</label>
-                            <input type="date" name="tanggal_awal" class="form-control" value="{{ date('Y-m-01') }}"
-                                required>
+                            <input type="date" name="tanggal_awal" class="form-control"
+                                value="{{ $tanggalAwal ?? date('Y-m-01') }}" required>
                         </div>
                         <div class="form-group">
                             <label for="tanggal_akhir">Tanggal Akhir</label>
-                            <input type="date" name="tanggal_akhir" class="form-control" value="{{ date('Y-m-d') }}"
-                                required>
+                            <input type="date" name="tanggal_akhir" class="form-control"
+                                value="{{ $tanggalAkhir ?? date('Y-m-d') }}" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -195,6 +222,12 @@
             .no-print {
                 display: none !important;
             }
+        }
+
+        .badge {
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: normal;
         }
     </style>
 @endpush

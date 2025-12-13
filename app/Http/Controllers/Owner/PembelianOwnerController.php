@@ -294,7 +294,43 @@ class PembelianOwnerController extends Controller
 
         $totalPembelian = $pembelian->sum('total');
 
-        return view('owner.pembelian.laporan-print', compact('pembelian', 'totalPembelian', 'request'));
+        // TAMBAHKAN QUERY UNTUK SUPPLIER TERBANYAK
+        $supplierTerbanyak = Pembelian::select(
+            'supplier_id',
+            DB::raw('COUNT(*) as jumlah_transaksi'),
+            DB::raw('SUM(total) as total_pembelian')
+        )
+            ->with('supplier')
+            ->where('status', 'completed')
+            ->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir])
+            ->groupBy('supplier_id')
+            ->orderBy('total_pembelian', 'desc')
+            ->limit(5)
+            ->get();
+
+        // TAMBAHKAN QUERY UNTUK BAHAN BAKU TERBANYAK
+        $bahanBakuTerbanyak = DetailPembelian::select(
+            'bahan_baku_id',
+            DB::raw('SUM(jumlah) as total_dibeli'),
+            DB::raw('SUM(sub_total) as total_pembelian')
+        )
+            ->with('bahanBaku')
+            ->whereHas('pembelian', function ($query) use ($request) {
+                $query->where('status', 'completed')
+                    ->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir]);
+            })
+            ->groupBy('bahan_baku_id')
+            ->orderBy('total_dibeli', 'desc')
+            ->limit(5)
+            ->get();
+
+        return view('owner.pembelian.laporan-print', compact(
+            'pembelian',
+            'totalPembelian',
+            'supplierTerbanyak',
+            'bahanBakuTerbanyak',
+            'request'
+        ));
     }
 
     public function getStokTidakAman()

@@ -9,11 +9,13 @@
                         <h3 class="card-title">Data Pembelian</h3>
                         <div class="float-right">
                             @if ($rekomendasi->count() > 0)
-                                <button class="btn btn-success mr-2" data-toggle="modal" data-target="#modalPembelianCepat">
+                                <button class="btn btn-success mr-2" data-toggle="modal" data-target="#modalPembelianCepat"
+                                    id="btnPembelianCepat">
                                     <i class="fas fa-bolt"></i> Pembelian Cepat
                                 </button>
                             @endif
-                            <button class="btn btn-primary" data-toggle="modal" data-target="#modalTambah">
+                            <button class="btn btn-primary" data-toggle="modal" data-target="#modalTambah"
+                                id="btnTambahPembelian">
                                 <i class="fas fa-plus"></i> Tambah Pembelian
                             </button>
                         </div>
@@ -83,7 +85,7 @@
                                         </thead>
                                         <tbody>
                                             @foreach ($rekomendasi as $item)
-                                                <tr>
+                                                <tr id="rekomendasi-row-{{ $item['bahan_baku_id'] }}">
                                                     <td>{{ $item['nama'] }}</td>
                                                     <td>{{ $item['stok_sekarang'] }}</td>
                                                     <td>{{ $item['min'] }}</td>
@@ -163,6 +165,7 @@
         </div>
     </div>
 
+    <!-- Modal Pembelian Cepat -->
     <div class="modal fade" id="modalPembelianCepat">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
@@ -170,13 +173,13 @@
                     @csrf
                     <div class="modal-header">
                         <h4 class="modal-title">Pembelian Cepat dari Rekomendasi Sistem Min-Max</h4>
-                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>Supplier</label>
+                                    <label>Supplier <span class="text-danger">*</span></label>
                                     <select name="supplier_id" class="form-control" required>
                                         <option value="">Pilih Supplier</option>
                                         @foreach ($supplier as $sup)
@@ -187,7 +190,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>Tanggal</label>
+                                    <label>Tanggal <span class="text-danger">*</span></label>
                                     <input type="date" name="tanggal" class="form-control" value="{{ date('Y-m-d') }}"
                                         required>
                                 </div>
@@ -222,15 +225,17 @@
                                             <th>Jumlah Beli</th>
                                             <th>Harga Beli</th>
                                             <th>Sub Total</th>
+                                            <th width="70px">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody id="rekomendasi-items">
                                         @foreach ($rekomendasi as $item)
-                                            <tr>
-                                                <td>
+                                            <tr id="rekomendasi-row-{{ $item['bahan_baku_id'] }}">
+                                                <td class="text-center">
                                                     <input type="checkbox" name="items[]"
                                                         value="{{ $item['bahan_baku_id'] }}"
                                                         class="form-check-input item-checkbox"
+                                                        data-id="{{ $item['bahan_baku_id'] }}"
                                                         data-jumlah="{{ $item['jumlah_rekomendasi'] }}"
                                                         data-harga="{{ $item['harga_beli'] }}"
                                                         data-total="{{ $item['total_nilai'] }}" checked>
@@ -244,6 +249,13 @@
                                                 <td>Rp {{ number_format($item['harga_beli'], 0, ',', '.') }}</td>
                                                 <td class="text-primary font-weight-bold">Rp
                                                     {{ number_format($item['total_nilai'], 0, ',', '.') }}</td>
+                                                <td class="text-center">
+                                                    <button type="button"
+                                                        class="btn btn-danger btn-sm btn-remove-rekomendasi"
+                                                        data-id="{{ $item['bahan_baku_id'] }}" title="Hapus dari daftar">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -252,6 +264,7 @@
                                             <th colspan="7" class="text-right">Total Pembelian:</th>
                                             <th id="total-rekomendasi">Rp
                                                 {{ number_format($totalRekomendasi, 0, ',', '.') }}</th>
+                                            <th></th>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -267,8 +280,9 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal"
+                            id="btnBatalPembelianCepat">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitPembelianCepat">
                             <i class="fas fa-bolt"></i> Buat Pembelian Cepat
                         </button>
                     </div>
@@ -284,13 +298,13 @@
                     @csrf
                     <div class="modal-header">
                         <h4 class="modal-title">Tambah Pembelian Baru</h4>
-                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>Supplier</label>
+                                    <label>Supplier <span class="text-danger">*</span></label>
                                     <select name="supplier_id" class="form-control" required>
                                         <option value="">Pilih Supplier</option>
                                         @foreach ($supplier as $sup)
@@ -301,7 +315,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>Tanggal</label>
+                                    <label>Tanggal <span class="text-danger">*</span></label>
                                     <input type="date" name="tanggal" class="form-control"
                                         value="{{ date('Y-m-d') }}" required>
                                 </div>
@@ -309,72 +323,41 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Items Pembelian</label>
-
-                            @if ($rekomendasi->count() > 0)
-                                <div class="alert alert-info py-2">
-                                    <small>
-                                        <i class="fas fa-lightbulb"></i>
-                                        <strong>Tip:</strong> Gunakan rekomendasi sistem untuk bahan baku yang stoknya tidak
-                                        aman.
-                                        <button type="button" class="btn btn-sm btn-outline-primary ml-2"
-                                            id="btn-use-recommendation">
-                                            <i class="fas fa-magic"></i> Gunakan Rekomendasi
-                                        </button>
-                                    </small>
-                                </div>
-                            @endif
+                            <label>Items Pembelian <span class="text-danger">*</span></label>
+                            <div class="alert alert-info">
+                                <small>
+                                    <i class="fas fa-info-circle"></i> Tambah item pembelian dengan mengisi form di bawah
+                                </small>
+                            </div>
 
                             <div id="items-container">
-                                <div class="item-row row mb-2">
-                                    <div class="col-md-5">
-                                        <select name="items[0][bahan_baku_id]" class="form-control bahan-baku-select"
-                                            required>
-                                            <option value="">Pilih Bahan Baku</option>
-                                            @foreach ($bahanBaku as $bahan)
-                                                <option value="{{ $bahan->id }}"
-                                                    data-harga="{{ $bahan->harga_beli }}"
-                                                    data-stok="{{ $bahan->stok }}" data-min="{{ $bahan->min }}"
-                                                    data-max="{{ $bahan->max }}" data-satuan="{{ $bahan->satuan }}">
-                                                    {{ $bahan->nama }}
-                                                    @if ($bahan->isStokTidakAman())
-                                                        <span class="text-danger">(Stok: {{ $bahan->stok }}
-                                                            {{ $bahan->satuan }} - PERLU BELI!)</span>
-                                                    @else
-                                                        (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
-                                                    @endif
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <input type="number" name="items[0][jumlah]" class="form-control jumlah"
-                                            placeholder="Jumlah" min="1" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <input type="number" name="items[0][harga]" class="form-control harga"
-                                            placeholder="Harga" step="0.01" min="0" required>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <button type="button" class="btn btn-danger btn-remove-item" disabled>
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
                             </div>
-                            <button type="button" class="btn btn-secondary mt-2" id="btn-add-item">
-                                <i class="fas fa-plus"></i> Tambah Item
-                            </button>
+
+                            <div class="d-flex justify-content-between mt-3">
+                                <button type="button" class="btn btn-secondary" id="btn-add-item">
+                                    <i class="fas fa-plus"></i> Tambah Item Baru
+                                </button>
+
+                                <button type="button" class="btn btn-info" id="btn-use-recommendation">
+                                    <i class="fas fa-magic"></i> Gunakan Rekomendasi Sistem
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label class="h5">Total: <span id="total-display" class="text-success">Rp
-                                    0</span></label>
+                        <div class="form-group mt-4">
+                            <div class="alert alert-success">
+                                <label class="h5 mb-0">Total Pembelian:
+                                    <span id="total-display" class="font-weight-bold">Rp 0</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary">Simpan Pembelian</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal"
+                            id="btnBatalTambah">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitTambah">
+                            <i class="fas fa-save"></i> Simpan Pembelian
+                        </button>
                     </div>
                 </form>
             </div>
@@ -393,7 +376,6 @@
                     </div>
                     <div class="modal-body">
                         <div id="edit-content">
-                            <!-- Content will be loaded via AJAX -->
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -427,8 +409,13 @@
 @push('styles')
     <style>
         .item-row {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .item-row:hover {
+            background-color: #f8f9fa;
         }
 
         .badge {
@@ -439,6 +426,7 @@
         .table-sm th,
         .table-sm td {
             padding: 0.5rem;
+            vertical-align: middle;
         }
 
         .alert .table {
@@ -447,6 +435,7 @@
 
         .form-check-input {
             margin-top: 0;
+            cursor: pointer;
         }
 
         .text-success {
@@ -466,13 +455,312 @@
             background-color: #28a745;
             color: white;
         }
+
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .btn-remove-item {
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-remove-item:hover {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-remove-rekomendasi {
+            padding: 3px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-remove-rekomendasi:hover {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        #items-container {
+            min-height: 150px;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .empty-items {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+
+        .item-row-removing {
+            opacity: 0.5;
+            transform: translateX(-20px);
+        }
+
+        .modal-content {
+            border-radius: 10px;
+        }
+
+        .modal-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .form-control:focus {
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        .btn {
+            transition: all 0.3s ease;
+        }
+
+        .btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
     </style>
 @endpush
 
 @push('scripts')
     <script>
         $(document).ready(function() {
-            let itemCounter = 1;
+            console.log('Script pembelian loaded');
+
+            let itemCounter = 0;
+            let rekomendasiData = [];
+            let currentEditId = null;
+
+            initializeTambahModal();
+
+            function initializeTambahModal() {
+                console.log('Inisialisasi modal tambah');
+                $('#items-container').empty();
+                itemCounter = 0;
+
+                addEmptyItemRow();
+                calculateTotal();
+                updateRemoveButtons();
+            }
+
+            function addEmptyItemRow() {
+                const newItem = `
+                    <div class="item-row row mb-3 border-bottom pb-3" data-row-index="${itemCounter}">
+                        <div class="col-md-5">
+                            <select name="items[${itemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
+                                <option value="">Pilih Bahan Baku</option>
+                                @foreach ($bahanBaku as $bahan)
+                                <option value="{{ $bahan->id }}" 
+                                    data-harga="{{ $bahan->harga_beli }}"
+                                    data-stok="{{ $bahan->stok }}"
+                                    data-min="{{ $bahan->min }}"
+                                    data-max="{{ $bahan->max }}"
+                                    data-satuan="{{ $bahan->satuan }}">
+                                    {{ $bahan->nama }} 
+                                    @if ($bahan->isStokTidakAman())
+                                        <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
+                                    @else
+                                        (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
+                                    @endif
+                                </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" name="items[${itemCounter}][jumlah]" class="form-control jumlah" placeholder="Jumlah" min="1" required>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" name="items[${itemCounter}][harga]" class="form-control harga" placeholder="Harga" step="0.01" min="0" required>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <button type="button" class="btn btn-danger btn-sm btn-remove-item" ${itemCounter === 0 ? 'disabled' : ''}>
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                $('#items-container').append(newItem);
+                itemCounter++;
+            }
+
+            $('#btn-add-item').click(function() {
+                console.log('Tombol tambah item diklik');
+                addEmptyItemRow();
+                updateRemoveButtons();
+            });
+
+            $(document).on('click', '.btn-remove-item', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                console.log('Tombol hapus item diklik');
+
+                const $itemRow = $(this).closest('.item-row');
+                console.log('Baris ditemukan:', $itemRow.length > 0);
+                console.log('Jumlah total baris:', $('.item-row').length);
+
+                if ($('.item-row').length <= 1) {
+                    alert('Minimal harus ada satu item pembelian');
+                    return;
+                }
+
+                if (confirm('Apakah Anda yakin ingin menghapus item ini?')) {
+                    $itemRow.addClass('item-row-removing');
+
+                    setTimeout(() => {
+                        $itemRow.remove();
+                        console.log('Baris dihapus');
+
+                        reindexItemRows();
+                        calculateTotal();
+                        updateRemoveButtons();
+                    }, 300);
+                }
+            });
+
+            $(document).on('click', '.btn-remove-rekomendasi', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                console.log('Tombol hapus rekomendasi diklik');
+
+                const bahanBakuId = $(this).data('id');
+                console.log('ID bahan baku:', bahanBakuId);
+
+                if (confirm('Apakah Anda yakin ingin menghapus item ini dari daftar rekomendasi?')) {
+                    const row = $(`#rekomendasi-row-${bahanBakuId}`);
+                    console.log('Baris ditemukan:', row.length > 0);
+
+                    if (row.length > 0) {
+                        row.find('.item-checkbox').prop('checked', false);
+
+                        row.fadeOut(300, function() {
+                            $(this).remove();
+                            calculateRekomendasiTotal();
+                            updateSelectedCount();
+                            console.log('Baris rekomendasi dihapus');
+                        });
+                    }
+                }
+            });
+
+            function updateRemoveButtons() {
+                console.log('Memperbarui tombol hapus');
+                const itemRows = $('.item-row');
+                console.log('Jumlah baris:', itemRows.length);
+
+                itemRows.each(function(index) {
+                    const $removeBtn = $(this).find('.btn-remove-item');
+                    const isDisabled = itemRows.length <= 1;
+                    $removeBtn.prop('disabled', isDisabled);
+                    console.log(`Baris ${index}: tombol ${isDisabled ? 'disabled' : 'enabled'}`);
+                });
+            }
+
+            function reindexItemRows() {
+                console.log('Memulai reindex item rows');
+                itemCounter = 0;
+                $('.item-row').each(function(index) {
+                    $(this).attr('data-row-index', index);
+
+                    $(this).find('.bahan-baku-select').attr('name', `items[${index}][bahan_baku_id]`);
+                    $(this).find('.jumlah').attr('name', `items[${index}][jumlah]`);
+                    $(this).find('.harga').attr('name', `items[${index}][harga]`);
+
+                    itemCounter = index + 1;
+                });
+                console.log('Reindex selesai, itemCounter:', itemCounter);
+            }
+
+            $('#select-all').change(function() {
+                $('.item-checkbox').prop('checked', $(this).prop('checked'));
+                calculateRekomendasiTotal();
+                updateSelectedCount();
+            });
+
+            $(document).on('change', '.item-checkbox', function() {
+                calculateRekomendasiTotal();
+                updateSelectedCount();
+            });
+
+            function updateSelectedCount() {
+                const selectedCount = $('.item-checkbox:checked').length;
+                $('#selected-count').text(selectedCount + ' item terpilih');
+            }
+
+            function calculateRekomendasiTotal() {
+                let total = 0;
+                let selectedCount = 0;
+
+                $('.item-checkbox').each(function() {
+                    if ($(this).prop('checked')) {
+                        const totalValue = $(this).data('total');
+                        total += parseFloat(totalValue) || 0;
+                        selectedCount++;
+                    }
+                });
+
+                $('#total-rekomendasi').text('Rp ' + total.toLocaleString('id-ID'));
+                $('#selected-count').text(selectedCount + ' item terpilih');
+            }
+
+            $(document).on('change', '.bahan-baku-select', function() {
+                const selectedOption = $(this).find('option:selected');
+                const harga = selectedOption.data('harga');
+                const stok = selectedOption.data('stok');
+                const min = selectedOption.data('min');
+                const max = selectedOption.data('max');
+                const satuan = selectedOption.data('satuan');
+
+                if (harga) {
+                    $(this).closest('.item-row').find('.harga').val(harga);
+                }
+
+                if (stok <= min) {
+                    const rekomendasi = max - stok;
+                    $(this).closest('.item-row').find('.jumlah').val(rekomendasi);
+
+                    const jumlahInput = $(this).closest('.item-row').find('.jumlah');
+                    if (!jumlahInput.val()) {
+                        alert(
+                            `⚠️ Stok ${stok} ${satuan} (MIN: ${min} ${satuan})\nRekomendasi beli: ${rekomendasi} ${satuan}`
+                        );
+                    }
+                }
+
+                calculateTotal();
+            });
+
+            $(document).on('input', '.jumlah, .harga', function() {
+                calculateTotal();
+            });
+
+            function calculateTotal() {
+                let total = 0;
+                $('.item-row').each(function() {
+                    const jumlah = parseFloat($(this).find('.jumlah').val()) || 0;
+                    const harga = parseFloat($(this).find('.harga').val()) || 0;
+                    total += jumlah * harga;
+                });
+                $('#total-display').text('Rp ' + total.toLocaleString('id-ID'));
+            }
+
+            function calculateEditTotal() {
+                let total = 0;
+                $('#edit-items-container .item-row').each(function() {
+                    const jumlah = parseFloat($(this).find('.jumlah').val()) || 0;
+                    const harga = parseFloat($(this).find('.harga').val()) || 0;
+                    total += jumlah * harga;
+                });
+                $('#edit-total-display').text('Rp ' + total.toLocaleString('id-ID'));
+            }
 
             $('#formPembelianCepat').submit(function(e) {
                 e.preventDefault();
@@ -503,13 +791,21 @@
                     type: 'POST',
                     data: formData,
                     beforeSend: function() {
-                        $('#formPembelianCepat button[type="submit"]').prop('disabled', true)
+                        $('#btnSubmitPembelianCepat').prop('disabled', true)
                             .html('<i class="fas fa-spinner fa-spin"></i> Memproses...');
                     },
                     success: function(response) {
                         $('#modalPembelianCepat').modal('hide');
                         alert(response.success);
-                        location.reload();
+
+                        $('#formPembelianCepat')[0].reset();
+                        $('.item-checkbox').prop('checked', true);
+                        calculateRekomendasiTotal();
+                        updateSelectedCount();
+
+                        setTimeout(() => {
+                            location.reload();
+                        }, 500);
                     },
                     error: function(xhr) {
                         let errorMessage = 'Terjadi kesalahan';
@@ -519,40 +815,157 @@
                         alert(errorMessage);
                     },
                     complete: function() {
-                        $('#formPembelianCepat button[type="submit"]').prop('disabled', false)
+                        $('#btnSubmitPembelianCepat').prop('disabled', false)
                             .html('<i class="fas fa-bolt"></i> Buat Pembelian Cepat');
                     }
                 });
             });
 
-            $('#select-all').change(function() {
-                $('.item-checkbox').prop('checked', $(this).prop('checked'));
-                calculateRekomendasiTotal();
-            });
+            $('#formTambah').submit(function(e) {
+                e.preventDefault();
 
-            $(document).on('change', '.item-checkbox', function() {
-                calculateRekomendasiTotal();
-            });
-
-            function calculateRekomendasiTotal() {
-                let total = 0;
-                let selectedCount = 0;
-
-                $('.item-checkbox').each(function() {
-                    if ($(this).prop('checked')) {
-                        const totalValue = $(this).data('total');
-                        total += parseFloat(totalValue) || 0;
-                        selectedCount++;
+                let valid = false;
+                $('.bahan-baku-select').each(function() {
+                    if ($(this).val()) {
+                        valid = true;
                     }
                 });
 
-                $('#total-rekomendasi').text('Rp ' + total.toLocaleString('id-ID'));
-                $('#selected-count').text(selectedCount + ' item terpilih');
+                if (!valid) {
+                    alert('Pilih minimal satu bahan baku');
+                    return;
+                }
+
+                let allValid = true;
+                $('.item-row').each(function() {
+                    const bahanBakuId = $(this).find('.bahan-baku-select').val();
+                    const jumlah = $(this).find('.jumlah').val();
+                    const harga = $(this).find('.harga').val();
+
+                    if (bahanBakuId && (!jumlah || !harga)) {
+                        allValid = false;
+                    }
+                });
+
+                if (!allValid) {
+                    alert('Semua item yang dipilih harus memiliki jumlah dan harga');
+                    return;
+                }
+
+                $.ajax({
+                    url: '{{ route('admin.pembelian.store') }}',
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    beforeSend: function() {
+                        $('#btnSubmitTambah').prop('disabled', true).html(
+                            '<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
+                    },
+                    success: function(response) {
+                        $('#modalTambah').modal('hide');
+                        alert(response.success);
+
+                        $('#formTambah')[0].reset();
+                        initializeTambahModal();
+
+                        setTimeout(() => {
+                            location.reload();
+                        }, 500);
+                    },
+                    error: function(xhr) {
+                        let errorMessage = 'Terjadi kesalahan';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMessage = xhr.responseJSON.error;
+                        }
+                        alert(errorMessage);
+                    },
+                    complete: function() {
+                        $('#btnSubmitTambah').prop('disabled', false).html(
+                            '<i class="fas fa-save"></i> Simpan Pembelian');
+                    }
+                });
+            });
+
+            $('#btnBatalTambah').click(function() {
+                $('#modalTambah').modal('hide');
+                setTimeout(() => {
+                    $('#formTambah')[0].reset();
+                    initializeTambahModal();
+                }, 300);
+            });
+
+            $('#btnBatalPembelianCepat').click(function() {
+                $('#modalPembelianCepat').modal('hide');
+                setTimeout(() => {
+                    $('#formPembelianCepat')[0].reset();
+                    $('.item-checkbox').prop('checked', true);
+                    calculateRekomendasiTotal();
+                    updateSelectedCount();
+                }, 300);
+            });
+
+            $('#modalTambah').on('show.bs.modal', function() {
+                console.log('Modal tambah dibuka');
+                initializeTambahModal();
+
+                loadRekomendasiData();
+            });
+
+            $('#modalPembelianCepat').on('show.bs.modal', function() {
+                console.log('Modal pembelian cepat dibuka');
+                $('#select-all').prop('checked', true);
+                $('.item-checkbox').prop('checked', true);
+                calculateRekomendasiTotal();
+                updateSelectedCount();
+            });
+
+            function loadRekomendasiData() {
+                $.ajax({
+                    url: '{{ route('admin.pembelian.rekomendasi.form') }}',
+                    type: 'GET',
+                    beforeSend: function() {
+                        $('#btn-use-recommendation').prop('disabled', true)
+                            .html('<i class="fas fa-spinner fa-spin"></i> Memuat...');
+                    },
+                    success: function(response) {
+                        rekomendasiData = response.rekomendasi;
+                        console.log('Data rekomendasi dimuat:', rekomendasiData);
+                    },
+                    error: function(xhr) {
+                        console.error('Error loading rekomendasi data:', xhr);
+                        alert('Gagal memuat data rekomendasi');
+                    },
+                    complete: function() {
+                        $('#btn-use-recommendation').prop('disabled', false)
+                            .html('<i class="fas fa-magic"></i> Gunakan Rekomendasi Sistem');
+                    }
+                });
             }
 
-            $('#btn-add-item').click(function() {
+            $('#btn-use-recommendation').click(function() {
+                console.log('Tombol rekomendasi diklik');
+
+                if (rekomendasiData.length === 0) {
+                    alert('Tidak ada data rekomendasi yang tersedia');
+                    return;
+                }
+
+                $('#items-container').empty();
+                itemCounter = 0;
+
+                rekomendasiData.forEach((item, index) => {
+                    addRekomendasiRow(item);
+                });
+
+                calculateTotal();
+                updateRemoveButtons();
+
+                const itemCount = rekomendasiData.length;
+                alert(`Rekomendasi sistem telah diterapkan untuk ${itemCount} bahan baku!`);
+            });
+
+            function addRekomendasiRow(item) {
                 const newItem = `
-                    <div class="item-row row mb-2">
+                    <div class="item-row row mb-3 border-bottom pb-3" data-row-index="${itemCounter}">
                         <div class="col-md-5">
                             <select name="items[${itemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                 <option value="">Pilih Bahan Baku</option>
@@ -562,7 +975,8 @@
                                     data-stok="{{ $bahan->stok }}"
                                     data-min="{{ $bahan->min }}"
                                     data-max="{{ $bahan->max }}"
-                                    data-satuan="{{ $bahan->satuan }}">
+                                    data-satuan="{{ $bahan->satuan }}"
+                                    ${item.bahan_baku_id == {{ $bahan->id }} ? 'selected' : ''}>
                                     {{ $bahan->nama }} 
                                     @if ($bahan->isStokTidakAman())
                                         <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
@@ -574,13 +988,15 @@
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <input type="number" name="items[${itemCounter}][jumlah]" class="form-control jumlah" placeholder="Jumlah" min="1" required>
+                            <input type="number" name="items[${itemCounter}][jumlah]" class="form-control jumlah" 
+                                value="${item.jumlah_rekomendasi}" placeholder="Jumlah" min="1" required>
                         </div>
                         <div class="col-md-3">
-                            <input type="number" name="items[${itemCounter}][harga]" class="form-control harga" placeholder="Harga" step="0.01" min="0" required>
+                            <input type="number" name="items[${itemCounter}][harga]" class="form-control harga" 
+                                value="${item.harga_beli}" placeholder="Harga" step="0.01" min="0" required>
                         </div>
-                        <div class="col-md-2">
-                            <button type="button" class="btn btn-danger btn-remove-item">
+                        <div class="col-md-2 text-center">
+                            <button type="button" class="btn btn-danger btn-sm btn-remove-item">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -588,141 +1004,7 @@
                 `;
                 $('#items-container').append(newItem);
                 itemCounter++;
-                updateRemoveButtons();
-            });
-
-            $('#btn-use-recommendation').click(function() {
-                @foreach ($rekomendasi as $index => $item)
-                    @if ($index == 0)
-                        $('select[name="items[0][bahan_baku_id]"]').val('{{ $item['bahan_baku_id'] }}')
-                            .trigger('change');
-                        $('input[name="items[0][jumlah]"]').val('{{ $item['jumlah_rekomendasi'] }}');
-                    @else
-                        const newItem = `
-                            <div class="item-row row mb-2">
-                                <div class="col-md-5">
-                                    <select name="items[${itemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
-                                        <option value="">Pilih Bahan Baku</option>
-                                        @foreach ($bahanBaku as $bahan)
-                                        <option value="{{ $bahan->id }}" 
-                                            data-harga="{{ $bahan->harga_beli }}"
-                                            data-stok="{{ $bahan->stok }}"
-                                            data-min="{{ $bahan->min }}"
-                                            data-max="{{ $bahan->max }}"
-                                            data-satuan="{{ $bahan->satuan }}"
-                                            {{ $item['bahan_baku_id'] == $bahan->id ? 'selected' : '' }}>
-                                            {{ $bahan->nama }} 
-                                            @if ($bahan->isStokTidakAman())
-                                                <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
-                                            @else
-                                                (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
-                                            @endif
-                                        </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="number" name="items[${itemCounter}][jumlah]" class="form-control jumlah" 
-                                        value="{{ $item['jumlah_rekomendasi'] }}" placeholder="Jumlah" min="1" required>
-                                </div>
-                                <div class="col-md-3">
-                                    <input type="number" name="items[${itemCounter}][harga]" class="form-control harga" 
-                                        value="{{ $item['harga_beli'] }}" placeholder="Harga" step="0.01" min="0" required>
-                                </div>
-                                <div class="col-md-2">
-                                    <button type="button" class="btn btn-danger btn-remove-item">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                        $('#items-container').append(newItem);
-                        itemCounter++;
-                    @endif
-                @endforeach
-
-                updateRemoveButtons();
-                calculateTotal();
-                alert('Rekomendasi sistem telah diterapkan!');
-            });
-
-            function updateRemoveButtons() {
-                $('.btn-remove-item').prop('disabled', $('.item-row').length <= 1);
             }
-
-            $(document).on('click', '.btn-remove-item', function() {
-                if ($('.item-row').length > 1) {
-                    $(this).closest('.item-row').remove();
-                    calculateTotal();
-                    updateRemoveButtons();
-                }
-            });
-
-            $(document).on('change', '.bahan-baku-select', function() {
-                const selectedOption = $(this).find('option:selected');
-                const harga = selectedOption.data('harga');
-                const stok = selectedOption.data('stok');
-                const min = selectedOption.data('min');
-                const max = selectedOption.data('max');
-                const satuan = selectedOption.data('satuan');
-
-                if (harga) {
-                    $(this).closest('.item-row').find('.harga').val(harga);
-                }
-
-                if (stok <= min) {
-                    const rekomendasi = max - stok;
-                    alert(
-                        `⚠️ Stok ${stok} ${satuan} (MIN: ${min} ${satuan})\nRekomendasi beli: ${rekomendasi} ${satuan}`
-                    );
-                }
-
-                calculateTotal();
-            });
-
-            $(document).on('input', '.jumlah, .harga', function() {
-                calculateTotal();
-            });
-
-            function calculateTotal() {
-                let total = 0;
-                $('.item-row').each(function() {
-                    const jumlah = parseFloat($(this).find('.jumlah').val()) || 0;
-                    const harga = parseFloat($(this).find('.harga').val()) || 0;
-                    total += jumlah * harga;
-                });
-                $('#total-display').text('Rp ' + total.toLocaleString('id-ID'));
-            }
-
-            $('#formTambah').submit(function(e) {
-                e.preventDefault();
-
-                $.ajax({
-                    url: '{{ route('admin.pembelian.store') }}',
-                    type: 'POST',
-                    data: $(this).serialize(),
-                    beforeSend: function() {
-                        $('#formTambah button[type="submit"]').prop('disabled', true).html(
-                            '<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
-                    },
-                    success: function(response) {
-                        $('#modalTambah').modal('hide');
-                        alert(response.success);
-                        location.reload();
-                    },
-                    error: function(xhr) {
-                        let errorMessage = 'Terjadi kesalahan';
-                        if (xhr.responseJSON && xhr.responseJSON.error) {
-                            errorMessage = xhr.responseJSON.error;
-                        }
-                        alert(errorMessage);
-                    },
-                    complete: function() {
-                        $('#formTambah button[type="submit"]').prop('disabled', false).html(
-                            'Simpan Pembelian');
-                    }
-                });
-            });
 
             $(document).on('click', '.btn-detail', function() {
                 const id = $(this).data('id');
@@ -730,6 +1012,11 @@
                 $.ajax({
                     url: `{{ url('admin/pembelian') }}/${id}`,
                     type: 'GET',
+                    beforeSend: function() {
+                        $('#detail-content').html(
+                            '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Memuat data...</p></div>'
+                        );
+                    },
                     success: function(response) {
                         let itemsHtml = '';
                         response.detail_pembelian.forEach(item => {
@@ -786,11 +1073,16 @@
             });
 
             $(document).on('click', '.btn-edit', function() {
-                const id = $(this).data('id');
+                currentEditId = $(this).data('id');
 
                 $.ajax({
-                    url: `{{ url('admin/pembelian') }}/${id}/edit`,
+                    url: `{{ url('admin/pembelian') }}/${currentEditId}/edit`,
                     type: 'GET',
+                    beforeSend: function() {
+                        $('#edit-content').html(
+                            '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Memuat data...</p></div>'
+                        );
+                    },
                     success: function(response) {
                         if (response.error) {
                             alert(response.error);
@@ -802,24 +1094,24 @@
 
                         pembelian.detail_pembelian.forEach((item, index) => {
                             itemsHtml += `
-                                <div class="item-row row mb-2">
+                                <div class="item-row row mb-3 border-bottom pb-3" data-row-index="${index}">
                                     <div class="col-md-5">
                                         <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                             <option value="">Pilih Bahan Baku</option>
                                             ${response.bahanBaku.map(bahan => `
-                                                                <option value="${bahan.id}" 
-                                                                    data-harga="${bahan.harga_beli}"
-                                                                    data-stok="${bahan.stok}"
-                                                                    data-min="${bahan.min}"
-                                                                    data-max="${bahan.max}"
-                                                                    data-satuan="${bahan.satuan}"
-                                                                    ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
-                                                                    ${bahan.nama} 
-                                                                    ${bahan.stok <= bahan.min ? 
-                                                                        `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
-                                                                        `(Stok: ${bahan.stok} ${bahan.satuan})`}
-                                                                </option>
-                                                            `).join('')}
+                                                            <option value="${bahan.id}" 
+                                                                data-harga="${bahan.harga_beli}"
+                                                                data-stok="${bahan.stok}"
+                                                                data-min="${bahan.min}"
+                                                                data-max="${bahan.max}"
+                                                                data-satuan="${bahan.satuan}"
+                                                                ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
+                                                                ${bahan.nama} 
+                                                                ${bahan.stok <= bahan.min ? 
+                                                                    `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
+                                                                    `(Stok: ${bahan.stok} ${bahan.satuan})`}
+                                                            </option>
+                                                        `).join('')}
                                         </select>
                                     </div>
                                     <div class="col-md-2">
@@ -830,8 +1122,8 @@
                                         <input type="number" name="items[${index}][harga]" class="form-control harga" 
                                             value="${item.harga}" placeholder="Harga" step="0.01" min="0" required>
                                     </div>
-                                    <div class="col-md-2">
-                                        <button type="button" class="btn btn-danger btn-remove-item">
+                                    <div class="col-md-2 text-center">
+                                        <button type="button" class="btn btn-danger btn-sm btn-remove-item">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -849,10 +1141,10 @@
                                         <select name="supplier_id" class="form-control" required>
                                             <option value="">Pilih Supplier</option>
                                             ${response.supplier.map(sup => `
-                                                                <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
-                                                                    ${sup.nama}
-                                                                </option>
-                                                            `).join('')}
+                                                            <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
+                                                                ${sup.nama}
+                                                            </option>
+                                                        `).join('')}
                                         </select>
                                     </div>
                                 </div>
@@ -874,13 +1166,19 @@
                                 </button>
                             </div>
                             
-                            <div class="form-group">
-                                <label class="h5">Total: <span id="edit-total-display" class="text-success">Rp ${parseFloat(pembelian.total).toLocaleString('id-ID')}</span></label>
+                            <div class="form-group mt-4">
+                                <div class="alert alert-success">
+                                    <label class="h5 mb-0">Total Pembelian: 
+                                        <span id="edit-total-display" class="font-weight-bold">Rp ${parseFloat(pembelian.total).toLocaleString('id-ID')}</span>
+                                    </label>
+                                </div>
                             </div>
                         `);
 
                         $('#modalEdit').modal('show');
                         updateRemoveButtons();
+
+                        calculateEditTotal();
                     },
                     error: function(xhr) {
                         alert('Terjadi kesalahan saat memuat data edit');
@@ -888,12 +1186,52 @@
                 });
             });
 
+            $(document).on('click', '#btn-add-edit-item', function() {
+                const index = $('#edit-items-container .item-row').length;
+                const newItem = `
+                    <div class="item-row row mb-3 border-bottom pb-3" data-row-index="${index}">
+                        <div class="col-md-5">
+                            <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
+                                <option value="">Pilih Bahan Baku</option>
+                                @foreach ($bahanBaku as $bahan)
+                                <option value="{{ $bahan->id }}" 
+                                    data-harga="{{ $bahan->harga_beli }}"
+                                    data-stok="{{ $bahan->stok }}"
+                                    data-min="{{ $bahan->min }}"
+                                    data-max="{{ $bahan->max }}"
+                                    data-satuan="{{ $bahan->satuan }}">
+                                    {{ $bahan->nama }} 
+                                    @if ($bahan->isStokTidakAman())
+                                        <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
+                                    @else
+                                        (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
+                                    @endif
+                                </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" name="items[${index}][jumlah]" class="form-control jumlah" placeholder="Jumlah" min="1" required>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" name="items[${index}][harga]" class="form-control harga" placeholder="Harga" step="0.01" min="0" required>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <button type="button" class="btn btn-danger btn-sm btn-remove-item">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                $('#edit-items-container').append(newItem);
+                updateRemoveButtons();
+            });
+
             $(document).on('submit', '#formEdit', function(e) {
                 e.preventDefault();
-                const id = $('.btn-edit').data('id');
 
                 $.ajax({
-                    url: `{{ url('admin/pembelian') }}/${id}`,
+                    url: `{{ url('admin/pembelian') }}/${currentEditId}`,
                     type: 'POST',
                     data: $(this).serialize(),
                     beforeSend: function() {
@@ -917,54 +1255,6 @@
                             'Update Pembelian');
                     }
                 });
-            });
-
-            $(document).on('click', '.btn-approve', function() {
-                const id = $(this).data('id');
-                if (confirm('Apakah Anda yakin ingin menyetujui pembelian ini?')) {
-                    $.ajax({
-                        url: `{{ url('admin/pembelian') }}/${id}/approve`,
-                        type: 'POST',
-                        data: {
-                            _token: '{{ csrf_token() }}'
-                        },
-                        success: function(response) {
-                            alert(response.success);
-                            location.reload();
-                        },
-                        error: function(xhr) {
-                            let errorMessage = 'Terjadi kesalahan';
-                            if (xhr.responseJSON && xhr.responseJSON.error) {
-                                errorMessage = xhr.responseJSON.error;
-                            }
-                            alert(errorMessage);
-                        }
-                    });
-                }
-            });
-
-            $(document).on('click', '.btn-reject', function() {
-                const id = $(this).data('id');
-                if (confirm('Apakah Anda yakin ingin menolak pembelian ini?')) {
-                    $.ajax({
-                        url: `{{ url('admin/pembelian') }}/${id}/reject`,
-                        type: 'POST',
-                        data: {
-                            _token: '{{ csrf_token() }}'
-                        },
-                        success: function(response) {
-                            alert(response.success);
-                            location.reload();
-                        },
-                        error: function(xhr) {
-                            let errorMessage = 'Terjadi kesalahan';
-                            if (xhr.responseJSON && xhr.responseJSON.error) {
-                                errorMessage = xhr.responseJSON.error;
-                            }
-                            alert(errorMessage);
-                        }
-                    });
-                }
             });
 
             $(document).on('click', '.btn-delete', function() {
@@ -991,8 +1281,16 @@
                 }
             });
 
+            $(document).on('change input',
+                '#edit-items-container .bahan-baku-select, #edit-items-container .jumlah, #edit-items-container .harga',
+                function() {
+                    calculateEditTotal();
+                });
+
+            console.log('Inisialisasi awal...');
             updateRemoveButtons();
             calculateTotal();
+            updateSelectedCount();
         });
     </script>
 @endpush

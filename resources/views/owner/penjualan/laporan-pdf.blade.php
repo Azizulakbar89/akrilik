@@ -72,6 +72,22 @@
             text-align: right;
             font-size: 10px;
         }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .badge-produk {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .badge-bahan-baku {
+            background-color: #28a745;
+            color: white;
+        }
     </style>
 </head>
 
@@ -124,48 +140,36 @@
         </tfoot>
     </table>
 
-    @if ($produkTerlaris->count() > 0)
-        <h3>10 Produk Terlaris</h3>
+    @if ($top10Terlaris->count() > 0)
+        <h3>10 Item Terlaris (Produk & Bahan Baku)</h3>
         <table>
             <thead>
                 <tr>
                     <th>No</th>
-                    <th>Nama Produk</th>
+                    <th>Nama Item</th>
+                    <th>Jenis</th>
                     <th>Total Terjual</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach ($produkTerlaris as $key => $item)
+                @foreach ($top10Terlaris as $key => $item)
                     <tr>
                         <td class="text-center">{{ $key + 1 }}</td>
-                        <td>{{ $item->produk->nama ?? 'Produk Tidak Ditemukan' }}</td>
-                        <td class="text-center">{{ $item->total_terjual }}</td>
+                        <td>{{ $item->nama }}</td>
+                        <td class="text-center">
+                            @if ($item->jenis == 'produk')
+                                <span class="badge badge-produk">Produk</span>
+                            @else
+                                <span class="badge badge-bahan-baku">Bahan Baku</span>
+                            @endif
+                        </td>
+                        <td class="text-center">{{ number_format($item->total_terjual, 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
             </tbody>
         </table>
-    @endif
-
-    @if ($bahanBakuTerlaris->count() > 0)
-        <h3>10 Bahan Baku Terlaris</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>No</th>
-                    <th>Nama Bahan Baku</th>
-                    <th>Total Terjual</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($bahanBakuTerlaris as $key => $item)
-                    <tr>
-                        <td class="text-center">{{ $key + 1 }}</td>
-                        <td>{{ $item->bahanBaku->nama ?? 'Bahan Baku Tidak Ditemukan' }}</td>
-                        <td class="text-center">{{ $item->total_terjual }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
+    @else
+        <p>Tidak ada data item terlaris pada periode ini.</p>
     @endif
 
     <div class="footer">

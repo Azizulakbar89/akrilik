@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Owner;
 
 use App\Models\Penjualan;
 use App\Models\DetailPenjualan;
+use App\Models\Produk;
+use App\Models\BahanBaku;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,13 +13,50 @@ use PDF;
 
 class PenjualanOwnerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $tanggalAwal = $request->tanggal_awal ?? date('Y-m-01');
+        $tanggalAkhir = $request->tanggal_akhir ?? date('Y-m-d');
+
         $penjualan = Penjualan::with('detailPenjualan')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('owner.penjualan.index', compact('penjualan'));
+        $terlarisProduk = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+        })
+            ->where('jenis_item', 'produk')
+            ->select(
+                'produk_id as item_id',
+                DB::raw("'produk' as jenis"),
+                'nama_produk as nama',
+                DB::raw('SUM(jumlah) as total_terjual')
+            )
+            ->groupBy('produk_id', 'nama_produk');
+
+        $terlarisBahanBaku = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+        })
+            ->where('jenis_item', 'bahan_baku')
+            ->select(
+                'bahan_baku_id as item_id',
+                DB::raw("'bahan_baku' as jenis"),
+                'nama_produk as nama',
+                DB::raw('SUM(jumlah) as total_terjual')
+            )
+            ->groupBy('bahan_baku_id', 'nama_produk');
+
+        $top10Terlaris = $terlarisProduk->unionAll($terlarisBahanBaku)
+            ->orderBy('total_terjual', 'desc')
+            ->take(10)
+            ->get();
+
+        return view('owner.penjualan.index', compact(
+            'penjualan',
+            'top10Terlaris',
+            'tanggalAwal',
+            'tanggalAkhir'
+        ));
     }
 
     public function laporan(Request $request)
@@ -33,6 +72,35 @@ class PenjualanOwnerController extends Controller
         $totalPenjualan = $penjualan->sum('total');
         $totalBayar = $penjualan->sum('bayar');
         $totalKembalian = $penjualan->sum('kembalian');
+
+        $terlarisProduk = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+        })
+            ->where('jenis_item', 'produk')
+            ->select(
+                'produk_id as item_id',
+                DB::raw("'produk' as jenis"),
+                'nama_produk as nama',
+                DB::raw('SUM(jumlah) as total_terjual')
+            )
+            ->groupBy('produk_id', 'nama_produk');
+
+        $terlarisBahanBaku = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+        })
+            ->where('jenis_item', 'bahan_baku')
+            ->select(
+                'bahan_baku_id as item_id',
+                DB::raw("'bahan_baku' as jenis"),
+                'nama_produk as nama',
+                DB::raw('SUM(jumlah) as total_terjual')
+            )
+            ->groupBy('bahan_baku_id', 'nama_produk');
+
+        $top10Terlaris = $terlarisProduk->unionAll($terlarisBahanBaku)
+            ->orderBy('total_terjual', 'desc')
+            ->take(10)
+            ->get();
 
         $produkTerlaris = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
             $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
@@ -62,6 +130,7 @@ class PenjualanOwnerController extends Controller
                 'totalPenjualan',
                 'totalBayar',
                 'totalKembalian',
+                'top10Terlaris',
                 'produkTerlaris',
                 'bahanBakuTerlaris',
                 'tanggalAwal',
@@ -74,6 +143,7 @@ class PenjualanOwnerController extends Controller
             'totalPenjualan',
             'totalBayar',
             'totalKembalian',
+            'top10Terlaris',
             'produkTerlaris',
             'bahanBakuTerlaris',
             'tanggalAwal',
@@ -100,24 +170,31 @@ class PenjualanOwnerController extends Controller
         $totalBayar = $penjualan->sum('bayar');
         $totalKembalian = $penjualan->sum('kembalian');
 
-        $produkTerlaris = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+        $terlarisProduk = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
             $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
         })
             ->where('jenis_item', 'produk')
-            ->select('produk_id', DB::raw('SUM(jumlah) as total_terjual'))
-            ->groupBy('produk_id')
-            ->with('produk')
-            ->orderBy('total_terjual', 'desc')
-            ->take(10)
-            ->get();
+            ->select(
+                'produk_id as item_id',
+                DB::raw("'produk' as jenis"),
+                'nama_produk as nama',
+                DB::raw('SUM(jumlah) as total_terjual')
+            )
+            ->groupBy('produk_id', 'nama_produk');
 
-        $bahanBakuTerlaris = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+        $terlarisBahanBaku = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
             $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
         })
             ->where('jenis_item', 'bahan_baku')
-            ->select('bahan_baku_id', DB::raw('SUM(jumlah) as total_terjual'))
-            ->groupBy('bahan_baku_id')
-            ->with('bahanBaku')
+            ->select(
+                'bahan_baku_id as item_id',
+                DB::raw("'bahan_baku' as jenis"),
+                'nama_produk as nama',
+                DB::raw('SUM(jumlah) as total_terjual')
+            )
+            ->groupBy('bahan_baku_id', 'nama_produk');
+
+        $top10Terlaris = $terlarisProduk->unionAll($terlarisBahanBaku)
             ->orderBy('total_terjual', 'desc')
             ->take(10)
             ->get();
@@ -127,8 +204,7 @@ class PenjualanOwnerController extends Controller
             'totalPenjualan',
             'totalBayar',
             'totalKembalian',
-            'produkTerlaris',
-            'bahanBakuTerlaris',
+            'top10Terlaris',
             'tanggalAwal',
             'tanggalAkhir'
         ));
@@ -146,11 +222,11 @@ class PenjualanOwnerController extends Controller
                 'kode_penjualan' => $penjualan->kode_penjualan,
                 'nama_customer' => $penjualan->nama_customer,
                 'total' => $penjualan->total,
-                'total_formatted' => $penjualan->total_formatted,
+                'total_formatted' => 'Rp ' . number_format($penjualan->total, 0, ',', '.'),
                 'bayar' => $penjualan->bayar,
-                'bayar_formatted' => $penjualan->bayar_formatted,
+                'bayar_formatted' => 'Rp ' . number_format($penjualan->bayar, 0, ',', '.'),
                 'kembalian' => $penjualan->kembalian,
-                'kembalian_formatted' => $penjualan->kembalian_formatted,
+                'kembalian_formatted' => 'Rp ' . number_format($penjualan->kembalian, 0, ',', '.'),
                 'tanggal' => $penjualan->tanggal,
                 'detail_penjualan' => $penjualan->detailPenjualan->map(function ($detail) {
                     return [
@@ -161,9 +237,9 @@ class PenjualanOwnerController extends Controller
                         'jenis_item' => $detail->jenis_item,
                         'jumlah' => $detail->jumlah,
                         'harga_sat' => $detail->harga_sat,
-                        'harga_sat_formatted' => $detail->harga_sat_formatted,
+                        'harga_sat_formatted' => 'Rp ' . number_format($detail->harga_sat, 0, ',', '.'),
                         'sub_total' => $detail->sub_total,
-                        'sub_total_formatted' => $detail->sub_total_formatted,
+                        'sub_total_formatted' => 'Rp ' . number_format($detail->sub_total, 0, ',', '.'),
                         'created_at' => $detail->created_at,
                         'updated_at' => $detail->updated_at
                     ];

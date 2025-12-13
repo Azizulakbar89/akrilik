@@ -150,6 +150,7 @@
                                             <option value="unit">unit</option>
                                             <option value="set">set</option>
                                             <option value="paket">paket</option>
+                                            <option value="rim">rim</option>
                                         </select>
                                         <div class="invalid-feedback"></div>
                                     </div>
@@ -159,7 +160,8 @@
                                 <div class="col-md-12">
                                     <div class="form-group">
                                         <label>Harga</label>
-                                        <input type="number" step="0.01" class="form-control" name="harga" required>
+                                        <input type="number" step="0.01" class="form-control" name="harga"
+                                            required>
                                         <div class="invalid-feedback"></div>
                                     </div>
                                 </div>
@@ -248,6 +250,7 @@
                                             <option value="unit">unit</option>
                                             <option value="set">set</option>
                                             <option value="paket">paket</option>
+                                            <option value="rim">rim</option>
                                         </select>
                                         <div class="invalid-feedback"></div>
                                     </div>

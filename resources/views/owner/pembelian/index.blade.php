@@ -880,19 +880,19 @@
                                     <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                         <option value="">Pilih Bahan Baku</option>
                                         ${response.bahanBaku.map(bahan => `
-                                                                    <option value="${bahan.id}" 
-                                                                        data-harga="${bahan.harga_beli}"
-                                                                        data-stok="${bahan.stok}"
-                                                                        data-min="${bahan.min}"
-                                                                        data-max="${bahan.max}"
-                                                                        data-satuan="${bahan.satuan}"
-                                                                        ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
-                                                                        ${bahan.nama} 
-                                                                        ${bahan.stok <= bahan.min ? 
-                                                                            '<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>' : 
-                                                                            '(Stok: ${bahan.stok} ${bahan.satuan})'}
-                                                                    </option>
-                                                                `).join('')}
+                                                                        <option value="${bahan.id}" 
+                                                                            data-harga="${bahan.harga_beli}"
+                                                                            data-stok="${bahan.stok}"
+                                                                            data-min="${bahan.min}"
+                                                                            data-max="${bahan.max}"
+                                                                            data-satuan="${bahan.satuan}"
+                                                                            ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
+                                                                            ${bahan.nama} 
+                                                                            ${bahan.stok <= bahan.min ? 
+                                                                                '<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>' : 
+                                                                                '(Stok: ${bahan.stok} ${bahan.satuan})'}
+                                                                        </option>
+                                                                    `).join('')}
                                     </select>
                                 </div>
                                 <div class="col-md-2">
@@ -921,10 +921,10 @@
                                     <select name="supplier_id" class="form-control" required>
                                         <option value="">Pilih Supplier</option>
                                         ${response.supplier.map(sup => `
-                                                                    <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
-                                                                        ${sup.nama}
-                                                                    </option>
-                                                                `).join('')}
+                                                                        <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
+                                                                            ${sup.nama}
+                                                                        </option>
+                                                                    `).join('')}
                                     </select>
                                 </div>
                             </div>
@@ -958,18 +958,18 @@
                                     <select name="items[${editItemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                         <option value="">Pilih Bahan Baku</option>
                                         ${response.bahanBaku.map(bahan => `
-                                                                    <option value="${bahan.id}" 
-                                                                        data-harga="${bahan.harga_beli}"
-                                                                        data-stok="${bahan.stok}"
-                                                                        data-min="${bahan.min}"
-                                                                        data-max="${bahan.max}"
-                                                                        data-satuan="${bahan.satuan}">
-                                                                        ${bahan.nama} 
-                                                                        ${bahan.stok <= bahan.min ? 
-                                                                            '<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>' : 
-                                                                            '(Stok: ${bahan.stok} ${bahan.satuan})'}
-                                                                    </option>
-                                                                `).join('')}
+                                                                        <option value="${bahan.id}" 
+                                                                            data-harga="${bahan.harga_beli}"
+                                                                            data-stok="${bahan.stok}"
+                                                                            data-min="${bahan.min}"
+                                                                            data-max="${bahan.max}"
+                                                                            data-satuan="${bahan.satuan}">
+                                                                            ${bahan.nama} 
+                                                                            ${bahan.stok <= bahan.min ? 
+                                                                                '<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>' : 
+                                                                                '(Stok: ${bahan.stok} ${bahan.satuan})'}
+                                                                        </option>
+                                                                    `).join('')}
                                     </select>
                                 </div>
                                 <div class="col-md-2">

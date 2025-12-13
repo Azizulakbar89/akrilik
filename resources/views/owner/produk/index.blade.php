@@ -143,6 +143,7 @@
                                         <option value="unit">unit</option>
                                         <option value="set">set</option>
                                         <option value="paket">paket</option>
+                                        <option value="rim">rim</option>
                                     </select>
                                     <div class="invalid-feedback"></div>
                                 </div>
@@ -237,6 +238,7 @@
                                         <option value="unit">unit</option>
                                         <option value="set">set</option>
                                         <option value="paket">paket</option>
+                                        <option value="rim">rim</option>
                                     </select>
                                     <div class="invalid-feedback"></div>
                                 </div>

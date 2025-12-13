@@ -20,7 +20,6 @@ class PembelianController extends Controller
         $supplier = Supplier::all();
         $bahanBaku = BahanBaku::all();
 
-        // Ambil rekomendasi pembelian berdasarkan sistem Min-Max
         $rekomendasi = BahanBaku::perluPembelian()->get()->map(function ($bahan) {
             return $bahan->rekomendasi_pembelian;
         })->filter();
@@ -148,7 +147,10 @@ class PembelianController extends Controller
             }
 
             DB::commit();
-            return response()->json(['success' => 'Pembelian dari rekomendasi sistem Min-Max berhasil disimpan']);
+            return response()->json([
+                'success' => 'Pembelian dari rekomendasi sistem Min-Max berhasil disimpan',
+                'redirect' => route('admin.pembelian.index')
+            ]);
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
@@ -198,7 +200,6 @@ class PembelianController extends Controller
                 return response()->json(['error' => 'Pembelian hanya dapat diubah saat status menunggu persetujuan'], 403);
             }
 
-            // Hapus detail pembelian lama
             DetailPembelian::where('pembelian_id', $id)->delete();
 
             $total = 0;
@@ -206,14 +207,12 @@ class PembelianController extends Controller
                 $total += $item['jumlah'] * $item['harga'];
             }
 
-            // Update pembelian
             $pembelian->update([
                 'supplier_id' => $request->supplier_id,
                 'total' => $total,
                 'tanggal' => $request->tanggal,
             ]);
 
-            // Buat detail pembelian baru
             foreach ($request->items as $item) {
                 DetailPembelian::create([
                     'pembelian_id' => $pembelian->id,
@@ -285,7 +284,6 @@ class PembelianController extends Controller
         ]);
     }
 
-    // Method untuk mendapatkan detail perhitungan sistem Min-Max
     public function getDetailPerhitungan($id)
     {
         try {
@@ -329,5 +327,38 @@ class PembelianController extends Controller
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function getRekomendasiForForm()
+    {
+        $rekomendasi = BahanBaku::perluPembelian()->get()->map(function ($bahan) {
+            $recommendation = $bahan->rekomendasi_pembelian;
+            return [
+                'bahan_baku_id' => $bahan->id,
+                'nama' => $bahan->nama,
+                'stok_sekarang' => $bahan->stok,
+                'min' => $recommendation['min'] ?? $bahan->min,
+                'max' => $recommendation['max'] ?? $bahan->max,
+                'jumlah_rekomendasi' => $recommendation['jumlah_rekomendasi'] ?? $bahan->jumlahPemesananRekomendasi(),
+                'harga_beli' => $recommendation['harga_beli'] ?? $bahan->harga_beli,
+                'total_nilai' => $recommendation['total_nilai'] ?? $bahan->totalNilaiPemesananRekomendasi(),
+                'satuan' => $bahan->satuan,
+                'perlu_pembelian' => $bahan->isPerluPembelian()
+            ];
+        })->filter(function ($item) {
+            return $item['perlu_pembelian'] && $item['jumlah_rekomendasi'] > 0;
+        })->values();
+
+        return response()->json([
+            'rekomendasi' => $rekomendasi,
+            'total_rekomendasi' => $rekomendasi->sum('total_nilai'),
+            'jumlah_item' => $rekomendasi->count()
+        ]);
+    }
+
+    public function resetModalSession()
+    {
+        session()->forget('modal_pembelian_data');
+        return response()->json(['success' => 'Modal berhasil direset']);
     }
 }
