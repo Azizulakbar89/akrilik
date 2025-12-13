@@ -291,6 +291,7 @@
         </div>
     </div>
 
+    <!-- Modal Tambah Pembelian -->
     <div class="modal fade" id="modalTambah">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -364,6 +365,7 @@
         </div>
     </div>
 
+    <!-- Modal Edit -->
     <div class="modal fade" id="modalEdit">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -387,6 +389,7 @@
         </div>
     </div>
 
+    <!-- Modal Detail -->
     <div class="modal fade" id="modalDetail">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -536,6 +539,13 @@
             let itemCounter = 0;
             let rekomendasiData = [];
             let currentEditId = null;
+
+            // Inisialisasi CSRF token untuk AJAX
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
 
             initializeTambahModal();
 
@@ -688,6 +698,11 @@
             $(document).on('change', '.item-checkbox', function() {
                 calculateRekomendasiTotal();
                 updateSelectedCount();
+
+                // Update select-all checkbox status
+                const totalItems = $('.item-checkbox').length;
+                const checkedItems = $('.item-checkbox:checked').length;
+                $('#select-all').prop('checked', totalItems === checkedItems);
             });
 
             function updateSelectedCount() {
@@ -699,12 +714,10 @@
                 let total = 0;
                 let selectedCount = 0;
 
-                $('.item-checkbox').each(function() {
-                    if ($(this).prop('checked')) {
-                        const totalValue = $(this).data('total');
-                        total += parseFloat(totalValue) || 0;
-                        selectedCount++;
-                    }
+                $('.item-checkbox:checked').each(function() {
+                    const totalValue = $(this).data('total') || 0;
+                    total += parseFloat(totalValue) || 0;
+                    selectedCount++;
                 });
 
                 $('#total-rekomendasi').text('Rp ' + total.toLocaleString('id-ID'));
@@ -786,8 +799,11 @@
                     _token: '{{ csrf_token() }}'
                 };
 
+                console.log('Submit pembelian cepat:', formData);
+
+                // PERBAIKAN: Ganti route yang digunakan
                 $.ajax({
-                    url: '{{ route('admin.pembelian.rekomendasi.create') }}',
+                    url: '{{ route('admin.pembelian.store.from.rekomendasi') }}', // PERBAIKAN DI SINI
                     type: 'POST',
                     data: formData,
                     beforeSend: function() {
@@ -795,22 +811,27 @@
                             .html('<i class="fas fa-spinner fa-spin"></i> Memproses...');
                     },
                     success: function(response) {
+                        console.log('Success:', response);
                         $('#modalPembelianCepat').modal('hide');
                         alert(response.success);
 
-                        $('#formPembelianCepat')[0].reset();
-                        $('.item-checkbox').prop('checked', true);
-                        calculateRekomendasiTotal();
-                        updateSelectedCount();
-
-                        setTimeout(() => {
-                            location.reload();
-                        }, 500);
+                        if (response.redirect) {
+                            setTimeout(() => {
+                                window.location.href = response.redirect;
+                            }, 1000);
+                        } else {
+                            setTimeout(() => {
+                                location.reload();
+                            }, 500);
+                        }
                     },
                     error: function(xhr) {
+                        console.error('Error:', xhr);
                         let errorMessage = 'Terjadi kesalahan';
                         if (xhr.responseJSON && xhr.responseJSON.error) {
                             errorMessage = xhr.responseJSON.error;
+                        } else if (xhr.responseText) {
+                            errorMessage = xhr.responseText;
                         }
                         alert(errorMessage);
                     },
@@ -820,7 +841,6 @@
                     }
                 });
             });
-
             $('#formTambah').submit(function(e) {
                 e.preventDefault();
 
@@ -861,17 +881,16 @@
                             '<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
                     },
                     success: function(response) {
+                        console.log('Success:', response);
                         $('#modalTambah').modal('hide');
                         alert(response.success);
-
-                        $('#formTambah')[0].reset();
-                        initializeTambahModal();
 
                         setTimeout(() => {
                             location.reload();
                         }, 500);
                     },
                     error: function(xhr) {
+                        console.error('Error:', xhr);
                         let errorMessage = 'Terjadi kesalahan';
                         if (xhr.responseJSON && xhr.responseJSON.error) {
                             errorMessage = xhr.responseJSON.error;
@@ -906,7 +925,6 @@
             $('#modalTambah').on('show.bs.modal', function() {
                 console.log('Modal tambah dibuka');
                 initializeTambahModal();
-
                 loadRekomendasiData();
             });
 
@@ -919,6 +937,7 @@
             });
 
             function loadRekomendasiData() {
+                console.log('Loading rekomendasi data...');
                 $.ajax({
                     url: '{{ route('admin.pembelian.rekomendasi.form') }}',
                     type: 'GET',
@@ -927,12 +946,19 @@
                             .html('<i class="fas fa-spinner fa-spin"></i> Memuat...');
                     },
                     success: function(response) {
-                        rekomendasiData = response.rekomendasi;
-                        console.log('Data rekomendasi dimuat:', rekomendasiData);
+                        console.log('Rekomendasi data loaded:', response);
+                        if (response.rekomendasi) {
+                            rekomendasiData = response.rekomendasi;
+                            console.log('Data rekomendasi dimuat:', rekomendasiData);
+                        } else {
+                            console.error('Invalid response format:', response);
+                            rekomendasiData = [];
+                        }
                     },
                     error: function(xhr) {
                         console.error('Error loading rekomendasi data:', xhr);
                         alert('Gagal memuat data rekomendasi');
+                        rekomendasiData = [];
                     },
                     complete: function() {
                         $('#btn-use-recommendation').prop('disabled', false)
@@ -943,9 +969,12 @@
 
             $('#btn-use-recommendation').click(function() {
                 console.log('Tombol rekomendasi diklik');
+                console.log('Data available:', rekomendasiData);
 
-                if (rekomendasiData.length === 0) {
-                    alert('Tidak ada data rekomendasi yang tersedia');
+                if (!rekomendasiData || rekomendasiData.length === 0) {
+                    alert(
+                        'Tidak ada data rekomendasi yang tersedia. Pastikan ada bahan baku yang perlu pembelian.'
+                    );
                     return;
                 }
 
@@ -953,13 +982,15 @@
                 itemCounter = 0;
 
                 rekomendasiData.forEach((item, index) => {
-                    addRekomendasiRow(item);
+                    if (item && item.jumlah_rekomendasi > 0) {
+                        addRekomendasiRow(item);
+                    }
                 });
 
                 calculateTotal();
                 updateRemoveButtons();
 
-                const itemCount = rekomendasiData.length;
+                const itemCount = $('#items-container .item-row').length;
                 alert(`Rekomendasi sistem telah diterapkan untuk ${itemCount} bahan baku!`);
             });
 
@@ -1099,19 +1130,19 @@
                                         <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                             <option value="">Pilih Bahan Baku</option>
                                             ${response.bahanBaku.map(bahan => `
-                                                            <option value="${bahan.id}" 
-                                                                data-harga="${bahan.harga_beli}"
-                                                                data-stok="${bahan.stok}"
-                                                                data-min="${bahan.min}"
-                                                                data-max="${bahan.max}"
-                                                                data-satuan="${bahan.satuan}"
-                                                                ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
-                                                                ${bahan.nama} 
-                                                                ${bahan.stok <= bahan.min ? 
-                                                                    `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
-                                                                    `(Stok: ${bahan.stok} ${bahan.satuan})`}
-                                                            </option>
-                                                        `).join('')}
+                                                                        <option value="${bahan.id}" 
+                                                                            data-harga="${bahan.harga_beli}"
+                                                                            data-stok="${bahan.stok}"
+                                                                            data-min="${bahan.min}"
+                                                                            data-max="${bahan.max}"
+                                                                            data-satuan="${bahan.satuan}"
+                                                                            ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
+                                                                            ${bahan.nama} 
+                                                                            ${bahan.stok <= bahan.min ? 
+                                                                                `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
+                                                                                `(Stok: ${bahan.stok} ${bahan.satuan})`}
+                                                                        </option>
+                                                                    `).join('')}
                                         </select>
                                     </div>
                                     <div class="col-md-2">
@@ -1141,10 +1172,10 @@
                                         <select name="supplier_id" class="form-control" required>
                                             <option value="">Pilih Supplier</option>
                                             ${response.supplier.map(sup => `
-                                                            <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
-                                                                ${sup.nama}
-                                                            </option>
-                                                        `).join('')}
+                                                                        <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
+                                                                            ${sup.nama}
+                                                                        </option>
+                                                                    `).join('')}
                                         </select>
                                     </div>
                                 </div>
@@ -1239,11 +1270,13 @@
                             '<i class="fas fa-spinner fa-spin"></i> Mengupdate...');
                     },
                     success: function(response) {
+                        console.log('Success:', response);
                         $('#modalEdit').modal('hide');
                         alert(response.success);
                         location.reload();
                     },
                     error: function(xhr) {
+                        console.error('Error:', xhr);
                         let errorMessage = 'Terjadi kesalahan';
                         if (xhr.responseJSON && xhr.responseJSON.error) {
                             errorMessage = xhr.responseJSON.error;
@@ -1267,10 +1300,12 @@
                             _token: '{{ csrf_token() }}'
                         },
                         success: function(response) {
+                            console.log('Success:', response);
                             alert(response.success);
                             location.reload();
                         },
                         error: function(xhr) {
+                            console.error('Error:', xhr);
                             let errorMessage = 'Terjadi kesalahan';
                             if (xhr.responseJSON && xhr.responseJSON.error) {
                                 errorMessage = xhr.responseJSON.error;

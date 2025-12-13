@@ -258,11 +258,12 @@ class BahanBaku extends Model
         });
     }
 
+    // Perbaikan: Scope yang benar untuk stok tidak aman
     public function scopeStokTidakAman($query)
     {
         return $query->where(function ($q) {
-            $q->whereColumn('stok', '<=', 'min')
-                ->where('min', '>', 0);
+            $q->whereColumn('stok', '<=', 'safety_stock')
+                ->where('safety_stock', '>', 0);
         });
     }
 

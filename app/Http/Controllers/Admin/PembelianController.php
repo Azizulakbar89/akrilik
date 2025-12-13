@@ -20,9 +20,16 @@ class PembelianController extends Controller
         $supplier = Supplier::all();
         $bahanBaku = BahanBaku::all();
 
-        $rekomendasi = BahanBaku::perluPembelian()->get()->map(function ($bahan) {
-            return $bahan->rekomendasi_pembelian;
-        })->filter();
+        // Ambil rekomendasi pembelian
+        $rekomendasi = BahanBaku::perluPembelian()
+            ->get()
+            ->map(function ($bahan) {
+                return $bahan->rekomendasi_pembelian;
+            })
+            ->filter(function ($item) {
+                return !is_null($item) && isset($item['jumlah_rekomendasi']) && $item['jumlah_rekomendasi'] > 0;
+            })
+            ->values();
 
         $stokTidakAman = BahanBaku::stokTidakAman()->get();
 
@@ -43,9 +50,15 @@ class PembelianController extends Controller
         $supplier = Supplier::all();
         $bahanBaku = BahanBaku::all();
 
-        $rekomendasi = BahanBaku::perluPembelian()->get()->map(function ($bahan) {
-            return $bahan->rekomendasi_pembelian;
-        })->filter();
+        $rekomendasi = BahanBaku::perluPembelian()
+            ->get()
+            ->map(function ($bahan) {
+                return $bahan->rekomendasi_pembelian;
+            })
+            ->filter(function ($item) {
+                return !is_null($item) && isset($item['jumlah_rekomendasi']) && $item['jumlah_rekomendasi'] > 0;
+            })
+            ->values();
 
         return view('admin.pembelian.create', compact('supplier', 'bahanBaku', 'rekomendasi'));
     }
@@ -89,16 +102,19 @@ class PembelianController extends Controller
             return response()->json(['success' => 'Pembelian berhasil disimpan dan menunggu persetujuan']);
         } catch (\Exception $e) {
             DB::rollback();
+            \Log::error('Error storing pembelian: ' . $e->getMessage());
             return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
     }
 
-    public function createFromRekomendasi(Request $request)
+    // PERBAIKAN 1: Ubah nama method dan route
+    public function storeFromRekomendasi(Request $request)
     {
         $request->validate([
             'supplier_id' => 'required|exists:supplier,id',
             'tanggal' => 'required|date',
-            'items' => 'required|array|min:1'
+            'items' => 'required|array|min:1',
+            'items.*' => 'exists:bahan_baku,id'
         ]);
 
         DB::beginTransaction();
@@ -111,21 +127,24 @@ class PembelianController extends Controller
 
                 if ($bahanBaku->isPerluPembelian()) {
                     $jumlah = $bahanBaku->jumlahPemesananRekomendasi();
-                    $harga = $bahanBaku->harga_beli;
-                    $subTotal = $jumlah * $harga;
+                    if ($jumlah > 0) {
+                        $harga = $bahanBaku->harga_beli;
+                        $subTotal = $jumlah * $harga;
 
-                    $items[] = [
-                        'bahan_baku_id' => $bahanBakuId,
-                        'jumlah' => $jumlah,
-                        'harga' => $harga,
-                        'sub_total' => $subTotal
-                    ];
+                        $items[] = [
+                            'bahan_baku_id' => $bahanBakuId,
+                            'jumlah' => $jumlah,
+                            'harga' => $harga,
+                            'sub_total' => $subTotal
+                        ];
 
-                    $total += $subTotal;
+                        $total += $subTotal;
+                    }
                 }
             }
 
             if (empty($items)) {
+                DB::rollback();
                 return response()->json(['error' => 'Tidak ada bahan baku yang perlu pembelian'], 400);
             }
 
@@ -153,6 +172,7 @@ class PembelianController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollback();
+            \Log::error('Error creating from rekomendasi: ' . $e->getMessage());
             return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
     }
@@ -227,6 +247,7 @@ class PembelianController extends Controller
             return response()->json(['success' => 'Pembelian berhasil diupdate']);
         } catch (\Exception $e) {
             DB::rollback();
+            \Log::error('Error updating pembelian: ' . $e->getMessage());
             return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
     }
@@ -247,41 +268,99 @@ class PembelianController extends Controller
             return response()->json(['success' => 'Pembelian berhasil dihapus']);
         } catch (\Exception $e) {
             DB::rollback();
+            \Log::error('Error deleting pembelian: ' . $e->getMessage());
+            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function approve($id)
+    {
+        DB::beginTransaction();
+        try {
+            $pembelian = Pembelian::with('detailPembelian.bahanBaku')->findOrFail($id);
+
+            $pembelian->update([
+                'status' => 'completed'
+            ]);
+
+            foreach ($pembelian->detailPembelian as $detail) {
+                $bahanBaku = $detail->bahanBaku;
+                if ($bahanBaku) {
+                    $bahanBaku->tambahStok($detail->jumlah);
+                }
+            }
+
+            DB::commit();
+            return response()->json(['success' => 'Pembelian berhasil disetujui dan stok telah ditambahkan']);
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Error approving pembelian: ' . $e->getMessage());
+            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function reject($id)
+    {
+        DB::beginTransaction();
+        try {
+            $pembelian = Pembelian::findOrFail($id);
+
+            $pembelian->update([
+                'status' => 'ditolak'
+            ]);
+
+            DB::commit();
+            return response()->json(['success' => 'Pembelian berhasil ditolak']);
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Error rejecting pembelian: ' . $e->getMessage());
             return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
     }
 
     public function getStokTidakAman()
     {
-        $stokTidakAman = BahanBaku::whereColumn('stok', '<=', 'min')
-            ->select('id', 'nama', 'stok', 'min', 'max', 'satuan', 'harga_beli')
-            ->get()
-            ->map(function ($bahan) {
-                $bahan->jumlah_rekomendasi = $bahan->jumlahPemesananRekomendasi();
-                $bahan->total_nilai = $bahan->totalNilaiPemesananRekomendasi();
-                return $bahan;
-            });
+        try {
+            $stokTidakAman = BahanBaku::whereColumn('stok', '<=', 'min')
+                ->select('id', 'nama', 'stok', 'min', 'max', 'satuan', 'harga_beli')
+                ->get()
+                ->map(function ($bahan) {
+                    $bahan->jumlah_rekomendasi = $bahan->jumlahPemesananRekomendasi();
+                    $bahan->total_nilai = $bahan->totalNilaiPemesananRekomendasi();
+                    return $bahan;
+                });
 
-        return response()->json($stokTidakAman);
+            return response()->json($stokTidakAman);
+        } catch (\Exception $e) {
+            \Log::error('Error getting stok tidak aman: ' . $e->getMessage());
+            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
     }
 
     public function getRekomendasiPembelian()
     {
-        $rekomendasi = BahanBaku::perluPembelian()
-            ->get()
-            ->map(function ($bahan) {
-                return $bahan->rekomendasi_pembelian;
-            })
-            ->filter()
-            ->values();
+        try {
+            $rekomendasi = BahanBaku::perluPembelian()
+                ->get()
+                ->map(function ($bahan) {
+                    return $bahan->rekomendasi_pembelian;
+                })
+                ->filter(function ($item) {
+                    return !is_null($item) && isset($item['jumlah_rekomendasi']) && $item['jumlah_rekomendasi'] > 0;
+                })
+                ->values();
 
-        $totalRekomendasi = $rekomendasi->sum('total_nilai');
+            $totalRekomendasi = $rekomendasi->sum('total_nilai');
 
-        return response()->json([
-            'rekomendasi' => $rekomendasi,
-            'total_rekomendasi' => $totalRekomendasi,
-            'jumlah_item' => $rekomendasi->count()
-        ]);
+            return response()->json([
+                'rekomendasi' => $rekomendasi,
+                'total_rekomendasi' => $totalRekomendasi,
+                'jumlah_item' => $rekomendasi->count()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error getting rekomendasi pembelian: ' . $e->getMessage());
+            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
     }
 
     public function getDetailPerhitungan($id)
@@ -322,6 +401,7 @@ class PembelianController extends Controller
                 'data' => $calculationDetail
             ], 200);
         } catch (\Exception $e) {
+            \Log::error('Error getting detail perhitungan: ' . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
@@ -331,29 +411,40 @@ class PembelianController extends Controller
 
     public function getRekomendasiForForm()
     {
-        $rekomendasi = BahanBaku::perluPembelian()->get()->map(function ($bahan) {
-            $recommendation = $bahan->rekomendasi_pembelian;
-            return [
-                'bahan_baku_id' => $bahan->id,
-                'nama' => $bahan->nama,
-                'stok_sekarang' => $bahan->stok,
-                'min' => $recommendation['min'] ?? $bahan->min,
-                'max' => $recommendation['max'] ?? $bahan->max,
-                'jumlah_rekomendasi' => $recommendation['jumlah_rekomendasi'] ?? $bahan->jumlahPemesananRekomendasi(),
-                'harga_beli' => $recommendation['harga_beli'] ?? $bahan->harga_beli,
-                'total_nilai' => $recommendation['total_nilai'] ?? $bahan->totalNilaiPemesananRekomendasi(),
-                'satuan' => $bahan->satuan,
-                'perlu_pembelian' => $bahan->isPerluPembelian()
-            ];
-        })->filter(function ($item) {
-            return $item['perlu_pembelian'] && $item['jumlah_rekomendasi'] > 0;
-        })->values();
+        try {
+            $rekomendasi = BahanBaku::perluPembelian()
+                ->get()
+                ->map(function ($bahan) {
+                    $recommendation = $bahan->rekomendasi_pembelian;
+                    if (!$recommendation || !isset($recommendation['jumlah_rekomendasi']) || $recommendation['jumlah_rekomendasi'] <= 0) {
+                        return null;
+                    }
 
-        return response()->json([
-            'rekomendasi' => $rekomendasi,
-            'total_rekomendasi' => $rekomendasi->sum('total_nilai'),
-            'jumlah_item' => $rekomendasi->count()
-        ]);
+                    return [
+                        'bahan_baku_id' => $bahan->id,
+                        'nama' => $bahan->nama,
+                        'stok_sekarang' => $bahan->stok,
+                        'min' => $recommendation['min'] ?? $bahan->min,
+                        'max' => $recommendation['max'] ?? $bahan->max,
+                        'jumlah_rekomendasi' => $recommendation['jumlah_rekomendasi'] ?? $bahan->jumlahPemesananRekomendasi(),
+                        'harga_beli' => $recommendation['harga_beli'] ?? $bahan->harga_beli,
+                        'total_nilai' => $recommendation['total_nilai'] ?? $bahan->totalNilaiPemesananRekomendasi(),
+                        'satuan' => $bahan->satuan,
+                        'perlu_pembelian' => $bahan->isPerluPembelian()
+                    ];
+                })
+                ->filter()
+                ->values();
+
+            return response()->json([
+                'rekomendasi' => $rekomendasi,
+                'total_rekomendasi' => $rekomendasi->sum('total_nilai'),
+                'jumlah_item' => $rekomendasi->count()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error getting rekomendasi for form: ' . $e->getMessage());
+            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
     }
 
     public function resetModalSession()

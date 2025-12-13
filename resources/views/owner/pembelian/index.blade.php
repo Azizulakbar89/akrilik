@@ -202,7 +202,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>Supplier</label>
+                                    <label>Supplier <span class="text-danger">*</span></label>
                                     <select name="supplier_id" class="form-control" required>
                                         <option value="">Pilih Supplier</option>
                                         @foreach ($supplier as $sup)
@@ -213,7 +213,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>Tanggal</label>
+                                    <label>Tanggal <span class="text-danger">*</span></label>
                                     <input type="date" name="tanggal" class="form-control" value="{{ date('Y-m-d') }}"
                                         required>
                                 </div>
@@ -316,7 +316,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>Supplier</label>
+                                    <label>Supplier <span class="text-danger">*</span></label>
                                     <select name="supplier_id" class="form-control" required>
                                         <option value="">Pilih Supplier</option>
                                         @foreach ($supplier as $sup)
@@ -327,7 +327,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>Tanggal</label>
+                                    <label>Tanggal <span class="text-danger">*</span></label>
                                     <input type="date" name="tanggal" class="form-control"
                                         value="{{ date('Y-m-d') }}" required>
                                 </div>
@@ -335,7 +335,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Items Pembelian</label>
+                            <label>Items Pembelian <span class="text-danger">*</span></label>
 
                             @if ($rekomendasi->count() > 0)
                                 <div class="alert alert-info py-2">
@@ -452,18 +452,19 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <form action="{{ route('owner.pembelian.laporan') }}" method="GET" target="_blank">
+                    @csrf
                     <div class="modal-header">
                         <h4 class="modal-title">Print Laporan Pembelian Berhasil</h4>
                         <button type="button" class="close" data-dismiss="modal">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label>Tanggal Awal</label>
+                            <label>Tanggal Awal <span class="text-danger">*</span></label>
                             <input type="date" name="tanggal_awal" class="form-control" value="{{ date('Y-m-01') }}"
                                 required>
                         </div>
                         <div class="form-group">
-                            <label>Tanggal Akhir</label>
+                            <label>Tanggal Akhir <span class="text-danger">*</span></label>
                             <input type="date" name="tanggal_akhir" class="form-control" value="{{ date('Y-m-d') }}"
                                 required>
                         </div>
@@ -476,6 +477,7 @@
             </div>
         </div>
     </div>
+
     <div class="modal fade" id="modalKonfirmasi" tabindex="-1" role="dialog">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -500,6 +502,7 @@
         .item-row {
             border-bottom: 1px solid #eee;
             padding-bottom: 10px;
+            margin-bottom: 10px;
         }
 
         .badge {
@@ -537,6 +540,17 @@
             background-color: #28a745;
             color: white;
         }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        #total-display,
+        #edit-total-display {
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
     </style>
 @endpush
 
@@ -544,7 +558,16 @@
     <script>
         $(document).ready(function() {
             let itemCounter = 1;
+            let currentEditId = null;
 
+            // Inisialisasi CSRF token untuk AJAX
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
+
+            // Form Pembelian Cepat
             $('#formPembelianCepat').submit(function(e) {
                 e.preventDefault();
 
@@ -569,8 +592,9 @@
                     _token: '{{ csrf_token() }}'
                 };
 
+                // PERBAIKAN: Gunakan route yang benar untuk owner
                 $.ajax({
-                    url: '{{ route('owner.pembelian.rekomendasi.create') }}',
+                    url: '{{ route('owner.pembelian.store.from.rekomendasi') }}', // Route yang sudah diperbaiki
                     type: 'POST',
                     data: formData,
                     beforeSend: function() {
@@ -580,12 +604,20 @@
                     success: function(response) {
                         $('#modalPembelianCepat').modal('hide');
                         showAlert('success', response.success);
-                        setTimeout(() => location.reload(), 1500);
+                        if (response.redirect) {
+                            setTimeout(() => {
+                                window.location.href = response.redirect;
+                            }, 1500);
+                        } else {
+                            setTimeout(() => location.reload(), 1500);
+                        }
                     },
                     error: function(xhr) {
                         let errorMessage = 'Terjadi kesalahan';
                         if (xhr.responseJSON && xhr.responseJSON.error) {
                             errorMessage = xhr.responseJSON.error;
+                        } else if (xhr.responseText) {
+                            errorMessage = xhr.responseText;
                         }
                         showAlert('error', errorMessage);
                     },
@@ -596,31 +628,38 @@
                 });
             });
 
+            // Select All Checkbox
             $('#select-all').change(function() {
                 $('.item-checkbox').prop('checked', $(this).prop('checked'));
                 calculateRekomendasiTotal();
+                updateSelectedCount();
             });
 
             $(document).on('change', '.item-checkbox', function() {
                 calculateRekomendasiTotal();
+                updateSelectedCount();
             });
+
+            function updateSelectedCount() {
+                const selectedCount = $('.item-checkbox:checked').length;
+                $('#selected-count').text(selectedCount + ' item terpilih');
+            }
 
             function calculateRekomendasiTotal() {
                 let total = 0;
                 let selectedCount = 0;
 
-                $('.item-checkbox').each(function() {
-                    if ($(this).prop('checked')) {
-                        const totalValue = $(this).data('total');
-                        total += parseFloat(totalValue) || 0;
-                        selectedCount++;
-                    }
+                $('.item-checkbox:checked').each(function() {
+                    const totalValue = $(this).data('total');
+                    total += parseFloat(totalValue) || 0;
+                    selectedCount++;
                 });
 
                 $('#total-rekomendasi').text('Rp ' + total.toLocaleString('id-ID'));
                 $('#selected-count').text(selectedCount + ' item terpilih');
             }
 
+            // Tambah Item Baru
             $('#btn-add-item').click(function() {
                 const newItem = `
                 <div class="item-row row mb-2">
@@ -662,14 +701,14 @@
                 updateRemoveButtons();
             });
 
+            // Gunakan Rekomendasi
             $('#btn-use-recommendation').click(function() {
-                @foreach ($rekomendasi as $index => $item)
-                    @if ($index == 0)
-                        // Update item pertama
-                        $('select[name="items[0][bahan_baku_id]"]').val('{{ $item['bahan_baku_id'] }}')
-                            .trigger('change');
-                        $('input[name="items[0][jumlah]"]').val('{{ $item['jumlah_rekomendasi'] }}');
-                    @else
+                @if ($rekomendasi->count() > 0)
+                    // Kosongkan container terlebih dahulu
+                    $('#items-container').empty();
+                    itemCounter = 0;
+
+                    @foreach ($rekomendasi as $item)
                         const newItem = `
                         <div class="item-row row mb-2">
                             <div class="col-md-5">
@@ -710,16 +749,22 @@
                     `;
                         $('#items-container').append(newItem);
                         itemCounter++;
-                    @endif
-                @endforeach
+                    @endforeach
 
-                updateRemoveButtons();
-                calculateTotal();
-                showAlert('success', 'Rekomendasi sistem telah diterapkan!');
+                    updateRemoveButtons();
+                    calculateTotal();
+                    showAlert('success',
+                        'Rekomendasi sistem telah diterapkan untuk {{ $rekomendasi->count() }} bahan baku!'
+                    );
+                @endif
             });
 
             function updateRemoveButtons() {
-                $('.btn-remove-item').prop('disabled', $('.item-row').length <= 1);
+                const itemRows = $('.item-row');
+                itemRows.each(function(index) {
+                    const $removeBtn = $(this).find('.btn-remove-item');
+                    $removeBtn.prop('disabled', itemRows.length <= 1);
+                });
             }
 
             $(document).on('click', '.btn-remove-item', function() {
@@ -744,9 +789,15 @@
 
                 if (stok <= min) {
                     const rekomendasi = max - stok;
-                    showAlert('warning',
-                        `Stok ${stok} ${satuan} (MIN: ${min} ${satuan})\nRekomendasi beli: ${rekomendasi} ${satuan}`
-                    );
+                    $(this).closest('.item-row').find('.jumlah').val(rekomendasi);
+
+                    // Tampilkan alert hanya jika jumlah belum diisi
+                    const jumlahInput = $(this).closest('.item-row').find('.jumlah');
+                    if (!jumlahInput.val()) {
+                        showAlert('warning',
+                            `⚠️ Stok ${stok} ${satuan} (MIN: ${min} ${satuan})\nRekomendasi beli: ${rekomendasi} ${satuan}`
+                        );
+                    }
                 }
 
                 calculateTotal();
@@ -766,8 +817,39 @@
                 $('#total-display').text('Rp ' + total.toLocaleString('id-ID'));
             }
 
+            // Form Tambah Pembelian
             $('#formTambah').submit(function(e) {
                 e.preventDefault();
+
+                // Validasi minimal satu item
+                let hasValidItem = false;
+                $('.bahan-baku-select').each(function() {
+                    if ($(this).val()) {
+                        hasValidItem = true;
+                    }
+                });
+
+                if (!hasValidItem) {
+                    showAlert('error', 'Pilih minimal satu bahan baku');
+                    return;
+                }
+
+                // Validasi semua item yang dipilih harus lengkap
+                let allValid = true;
+                $('.item-row').each(function() {
+                    const bahanBakuId = $(this).find('.bahan-baku-select').val();
+                    const jumlah = $(this).find('.jumlah').val();
+                    const harga = $(this).find('.harga').val();
+
+                    if (bahanBakuId && (!jumlah || !harga)) {
+                        allValid = false;
+                    }
+                });
+
+                if (!allValid) {
+                    showAlert('error', 'Semua item yang dipilih harus memiliki jumlah dan harga');
+                    return;
+                }
 
                 $.ajax({
                     url: '{{ route('owner.pembelian.store') }}',
@@ -796,12 +878,18 @@
                 });
             });
 
+            // Detail Pembelian
             $(document).on('click', '.btn-detail', function() {
                 const id = $(this).data('id');
 
                 $.ajax({
                     url: `{{ url('owner/pembelian') }}/${id}`,
                     type: 'GET',
+                    beforeSend: function() {
+                        $('#detail-content').html(
+                            '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Memuat data...</p></div>'
+                        );
+                    },
                     success: function(response) {
                         let itemsHtml = '';
                         response.detail_pembelian.forEach(item => {
@@ -857,12 +945,18 @@
                 });
             });
 
+            // Edit Pembelian
             $(document).on('click', '.btn-edit', function() {
-                const id = $(this).data('id');
+                currentEditId = $(this).data('id');
 
                 $.ajax({
-                    url: `{{ url('owner/pembelian') }}/${id}/edit`,
+                    url: `{{ url('owner/pembelian') }}/${currentEditId}/edit`,
                     type: 'GET',
+                    beforeSend: function() {
+                        $('#edit-content').html(
+                            '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Memuat data...</p></div>'
+                        );
+                    },
                     success: function(response) {
                         if (response.error) {
                             showAlert('error', response.error);
@@ -871,28 +965,28 @@
 
                         const pembelian = response.pembelian;
                         let itemsHtml = '';
-                        let editItemCounter = pembelian.detail_pembelian.length;
+                        let editItemCounter = 0;
 
                         pembelian.detail_pembelian.forEach((item, index) => {
                             itemsHtml += `
-                            <div class="item-row row mb-2">
+                            <div class="item-row row mb-2" data-row-index="${index}">
                                 <div class="col-md-5">
                                     <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                         <option value="">Pilih Bahan Baku</option>
                                         ${response.bahanBaku.map(bahan => `
-                                                                        <option value="${bahan.id}" 
-                                                                            data-harga="${bahan.harga_beli}"
-                                                                            data-stok="${bahan.stok}"
-                                                                            data-min="${bahan.min}"
-                                                                            data-max="${bahan.max}"
-                                                                            data-satuan="${bahan.satuan}"
-                                                                            ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
-                                                                            ${bahan.nama} 
-                                                                            ${bahan.stok <= bahan.min ? 
-                                                                                '<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>' : 
-                                                                                '(Stok: ${bahan.stok} ${bahan.satuan})'}
-                                                                        </option>
-                                                                    `).join('')}
+                                                            <option value="${bahan.id}" 
+                                                                data-harga="${bahan.harga_beli}"
+                                                                data-stok="${bahan.stok}"
+                                                                data-min="${bahan.min}"
+                                                                data-max="${bahan.max}"
+                                                                data-satuan="${bahan.satuan}"
+                                                                ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
+                                                                ${bahan.nama} 
+                                                                ${bahan.stok <= bahan.min ? 
+                                                                    `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
+                                                                    `(Stok: ${bahan.stok} ${bahan.satuan})`}
+                                                            </option>
+                                                        `).join('')}
                                     </select>
                                 </div>
                                 <div class="col-md-2">
@@ -910,10 +1004,11 @@
                                 </div>
                             </div>
                         `;
+                            editItemCounter = index + 1;
                         });
 
                         $('#edit-content').html(`
-                        <input type="hidden" id="edit-id" value="${id}">
+                        <input type="hidden" id="edit-id" value="${currentEditId}">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -921,10 +1016,10 @@
                                     <select name="supplier_id" class="form-control" required>
                                         <option value="">Pilih Supplier</option>
                                         ${response.supplier.map(sup => `
-                                                                        <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
-                                                                            ${sup.nama}
-                                                                        </option>
-                                                                    `).join('')}
+                                                            <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
+                                                                ${sup.nama}
+                                                            </option>
+                                                        `).join('')}
                                     </select>
                                 </div>
                             </div>
@@ -951,25 +1046,26 @@
                         </div>
                     `);
 
-                        $('#btn-add-edit-item').click(function() {
+                        // Event untuk menambah item di edit form
+                        $('#btn-add-edit-item').off('click').on('click', function() {
                             const newItem = `
-                            <div class="item-row row mb-2">
+                            <div class="item-row row mb-2" data-row-index="${editItemCounter}">
                                 <div class="col-md-5">
                                     <select name="items[${editItemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                         <option value="">Pilih Bahan Baku</option>
                                         ${response.bahanBaku.map(bahan => `
-                                                                        <option value="${bahan.id}" 
-                                                                            data-harga="${bahan.harga_beli}"
-                                                                            data-stok="${bahan.stok}"
-                                                                            data-min="${bahan.min}"
-                                                                            data-max="${bahan.max}"
-                                                                            data-satuan="${bahan.satuan}">
-                                                                            ${bahan.nama} 
-                                                                            ${bahan.stok <= bahan.min ? 
-                                                                                '<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>' : 
-                                                                                '(Stok: ${bahan.stok} ${bahan.satuan})'}
-                                                                        </option>
-                                                                    `).join('')}
+                                                            <option value="${bahan.id}" 
+                                                                data-harga="${bahan.harga_beli}"
+                                                                data-stok="${bahan.stok}"
+                                                                data-min="${bahan.min}"
+                                                                data-max="${bahan.max}"
+                                                                data-satuan="${bahan.satuan}">
+                                                                ${bahan.nama} 
+                                                                ${bahan.stok <= bahan.min ? 
+                                                                    `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
+                                                                    `(Stok: ${bahan.stok} ${bahan.satuan})`}
+                                                            </option>
+                                                        `).join('')}
                                     </select>
                                 </div>
                                 <div class="col-md-2">
@@ -988,27 +1084,52 @@
                             $('#edit-items-container').append(newItem);
                             editItemCounter++;
                             updateEditRemoveButtons();
+                            attachEditEventListeners();
                         });
 
                         function updateEditRemoveButtons() {
-                            $('#edit-items-container .btn-remove-item').prop('disabled',
-                                $('#edit-items-container .item-row').length <= 1);
+                            const itemRows = $('#edit-items-container .item-row');
+                            itemRows.each(function(index) {
+                                const $removeBtn = $(this).find('.btn-remove-item');
+                                $removeBtn.prop('disabled', itemRows.length <= 1);
+                            });
                         }
 
-                        $(document).on('click', '#edit-items-container .btn-remove-item',
-                            function() {
-                                if ($('#edit-items-container .item-row').length > 1) {
-                                    $(this).closest('.item-row').remove();
-                                    calculateEditTotal();
-                                    updateEditRemoveButtons();
-                                }
-                            });
+                        function attachEditEventListeners() {
+                            // Hapus item
+                            $(document).off('click', '#edit-items-container .btn-remove-item')
+                                .on('click', '#edit-items-container .btn-remove-item',
+                                    function() {
+                                        if ($('#edit-items-container .item-row').length > 1) {
+                                            $(this).closest('.item-row').remove();
+                                            calculateEditTotal();
+                                            updateEditRemoveButtons();
+                                        }
+                                    });
 
-                        $(document).on('input',
-                            '#edit-items-container .jumlah, #edit-items-container .harga',
-                            function() {
-                                calculateEditTotal();
-                            });
+                            // Input jumlah/harga
+                            $(document).off('input',
+                                '#edit-items-container .jumlah, #edit-items-container .harga'
+                            ).on('input',
+                                '#edit-items-container .jumlah, #edit-items-container .harga',
+                                function() {
+                                    calculateEditTotal();
+                                });
+
+                            // Change bahan baku
+                            $(document).off('change',
+                                '#edit-items-container .bahan-baku-select').on('change',
+                                '#edit-items-container .bahan-baku-select',
+                                function() {
+                                    const selectedOption = $(this).find('option:selected');
+                                    const harga = selectedOption.data('harga');
+                                    if (harga) {
+                                        $(this).closest('.item-row').find('.harga').val(
+                                            harga);
+                                    }
+                                    calculateEditTotal();
+                                });
+                        }
 
                         function calculateEditTotal() {
                             let total = 0;
@@ -1023,17 +1144,8 @@
                                 'id-ID'));
                         }
 
-                        $(document).on('change', '#edit-items-container .bahan-baku-select',
-                            function() {
-                                const selectedOption = $(this).find('option:selected');
-                                const harga = selectedOption.data('harga');
-                                if (harga) {
-                                    $(this).closest('.item-row').find('.harga').val(harga);
-                                }
-                                calculateEditTotal();
-                            });
-
                         updateEditRemoveButtons();
+                        attachEditEventListeners();
                         calculateEditTotal();
                         $('#modalEdit').modal('show');
                     },
@@ -1043,6 +1155,7 @@
                 });
             });
 
+            // Update Pembelian
             $('#formEdit').submit(function(e) {
                 e.preventDefault();
                 const id = $('#edit-id').val();
@@ -1074,6 +1187,7 @@
                 });
             });
 
+            // Modal Konfirmasi
             function showConfirmationModal(message, callback) {
                 $('#konfirmasi-pesan').text(message);
                 $('#modalKonfirmasi').modal('show');
@@ -1084,6 +1198,7 @@
                 });
             }
 
+            // Approve Pembelian
             $(document).on('click', '.btn-approve', function() {
                 const id = $(this).data('id');
                 showConfirmationModal('Apakah Anda yakin ingin menyetujui pembelian ini?', function() {
@@ -1093,6 +1208,9 @@
                         data: {
                             _token: '{{ csrf_token() }}'
                         },
+                        beforeSend: function() {
+                            showAlert('info', 'Memproses persetujuan...');
+                        },
                         success: function(response) {
                             showAlert('success', response.success);
                             setTimeout(() => location.reload(), 1500);
@@ -1108,6 +1226,7 @@
                 });
             });
 
+            // Reject Pembelian
             $(document).on('click', '.btn-reject', function() {
                 const id = $(this).data('id');
                 showConfirmationModal('Apakah Anda yakin ingin menolak pembelian ini?', function() {
@@ -1117,6 +1236,9 @@
                         data: {
                             _token: '{{ csrf_token() }}'
                         },
+                        beforeSend: function() {
+                            showAlert('info', 'Memproses penolakan...');
+                        },
                         success: function(response) {
                             showAlert('success', response.success);
                             setTimeout(() => location.reload(), 1500);
@@ -1132,6 +1254,7 @@
                 });
             });
 
+            // Delete Pembelian
             $(document).on('click', '.btn-delete', function() {
                 const id = $(this).data('id');
                 showConfirmationModal('Apakah Anda yakin ingin menghapus pembelian ini?', function() {
@@ -1141,6 +1264,9 @@
                         data: {
                             _token: '{{ csrf_token() }}'
                         },
+                        beforeSend: function() {
+                            showAlert('info', 'Memproses penghapusan...');
+                        },
                         success: function(response) {
                             showAlert('success', response.success);
                             setTimeout(() => location.reload(), 1500);
@@ -1156,27 +1282,85 @@
                 });
             });
 
+            // Fungsi untuk menampilkan alert
             function showAlert(type, message) {
                 const alertClass = type === 'success' ? 'alert-success' :
                     type === 'error' ? 'alert-danger' :
                     type === 'warning' ? 'alert-warning' : 'alert-info';
 
+                const icon = type === 'success' ? 'fa-check-circle' :
+                    type === 'error' ? 'fa-exclamation-circle' :
+                    type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle';
+
                 const alertHtml = `
                 <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                    <i class="fas ${icon} mr-2"></i>
                     ${message}
                     <button type="button" class="close" data-dismiss="alert">&times;</button>
                 </div>
             `;
 
+                // Hapus alert sebelumnya
+                $('.alert-dismissible').alert('close');
+
+                // Tambah alert baru
                 $('.card').before(alertHtml);
 
+                // Auto close setelah 5 detik
                 setTimeout(() => {
-                    $('.alert').alert('close');
+                    $('.alert-dismissible').alert('close');
                 }, 5000);
             }
 
+            // Inisialisasi awal
             updateRemoveButtons();
             calculateTotal();
+            calculateRekomendasiTotal();
+            updateSelectedCount();
+
+            // Reset modal saat ditutup
+            $('#modalTambah').on('hidden.bs.modal', function() {
+                $('#formTambah')[0].reset();
+                $('#items-container').html(`
+                    <div class="item-row row mb-2">
+                        <div class="col-md-5">
+                            <select name="items[0][bahan_baku_id]" class="form-control bahan-baku-select" required>
+                                <option value="">Pilih Bahan Baku</option>
+                                @foreach ($bahanBaku as $bahan)
+                                    <option value="{{ $bahan->id }}"
+                                        data-harga="{{ $bahan->harga_beli }}"
+                                        data-stok="{{ $bahan->stok }}" data-min="{{ $bahan->min }}"
+                                        data-max="{{ $bahan->max }}" data-satuan="{{ $bahan->satuan }}">
+                                        {{ $bahan->nama }}
+                                        @if ($bahan->stok <= $bahan->min)
+                                            <span class="text-danger">(Stok: {{ $bahan->stok }}
+                                                {{ $bahan->satuan }} - PERLU BELI!)</span>
+                                        @else
+                                            (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
+                                        @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" name="items[0][jumlah]" class="form-control jumlah"
+                                placeholder="Jumlah" min="1" required>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" name="items[0][harga]" class="form-control harga"
+                                placeholder="Harga" step="0.01" min="0" required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-danger btn-remove-item" disabled>
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+                itemCounter = 1;
+                updateRemoveButtons();
+                calculateTotal();
+            });
         });
     </script>
 @endpush
