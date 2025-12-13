@@ -100,31 +100,32 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
     Route::resource('produk', ProdukOwnerController::class);
     Route::resource('supplier', SupplierOwnerController::class);
 
-    // PERBAIKAN: Route pembelian untuk owner yang lebih lengkap
+    // Routes untuk Owner Pembelian
     Route::prefix('pembelian')->name('pembelian.')->group(function () {
         Route::get('/', [PembelianOwnerController::class, 'index'])->name('index');
         Route::get('/create', [PembelianOwnerController::class, 'create'])->name('create');
         Route::post('/', [PembelianOwnerController::class, 'store'])->name('store');
-        Route::get('/{pembelian}', [PembelianOwnerController::class, 'show'])->name('show');
-        Route::get('/{pembelian}/edit', [PembelianOwnerController::class, 'edit'])->name('edit');
-        Route::put('/{pembelian}', [PembelianOwnerController::class, 'update'])->name('update');
-        Route::delete('/{pembelian}', [PembelianOwnerController::class, 'destroy'])->name('destroy');
-        Route::post('/{pembelian}/approve', [PembelianOwnerController::class, 'approve'])->name('approve');
-        Route::post('/{pembelian}/reject', [PembelianOwnerController::class, 'reject'])->name('reject');
 
-        // PERBAIKAN: Ganti createFromRekomendasi menjadi storeFromRekomendasi untuk konsistensi
-        Route::post('/store-from-rekomendasi', [PembelianOwnerController::class, 'storeFromRekomendasi'])->name('store.from.rekomendasi');
+        // Pembelian cepat
+        Route::post('/pembelian-cepat', [PembelianOwnerController::class, 'storePembelianCepat'])->name('store.pembelian.cepat');
 
-        // PERBAIKAN: Tambahkan route untuk createFromRekomendasi (POST)
-        Route::post('/create-from-rekomendasi', [PembelianOwnerController::class, 'createFromRekomendasi'])->name('create.from.rekomendasi');
+        // Pembelian dari rekomendasi
+        Route::post('/rekomendasi', [PembelianOwnerController::class, 'storeRekomendasi'])->name('store.rekomendasi');
 
+        // Get rekomendasi data untuk modal
+        Route::get('/get-rekomendasi-data', [PembelianOwnerController::class, 'getRekomendasiData'])->name('get.rekomendasi.data');
+
+        Route::get('/{id}', [PembelianOwnerController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [PembelianOwnerController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [PembelianOwnerController::class, 'update'])->name('update');
+        Route::delete('/{id}', [PembelianOwnerController::class, 'destroy'])->name('destroy');
+
+        // Aksi khusus
+        Route::post('/{id}/approve', [PembelianOwnerController::class, 'approve'])->name('approve');
+        Route::post('/{id}/reject', [PembelianOwnerController::class, 'reject'])->name('reject');
+
+        // Laporan
         Route::get('/laporan/print', [PembelianOwnerController::class, 'laporan'])->name('laporan');
-
-        // PERBAIKAN: Tambahkan API routes untuk owner
-        Route::get('/api/stok-tidak-aman', [PembelianOwnerController::class, 'getStokTidakAman'])->name('api.stok-tidak-aman');
-        Route::get('/api/rekomendasi', [PembelianOwnerController::class, 'getRekomendasiPembelian'])->name('api.rekomendasi');
-        Route::get('/api/rekomendasi-for-form', [PembelianOwnerController::class, 'getRekomendasiForForm'])->name('api.rekomendasi.form');
-        Route::get('/api/perhitungan/{id}', [PembelianOwnerController::class, 'getDetailPerhitungan'])->name('api.perhitungan');
     });
 
     Route::prefix('penjualan')->name('penjualan.')->group(function () {
