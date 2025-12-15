@@ -52,6 +52,87 @@
             </div>
         </div>
 
+        <!-- Statistik -->
+        <div class="row mb-3">
+            <!-- 10 Produk Terlaris -->
+            <div class="col-md-6">
+                <div class="card-box">
+                    <div class="card-header">
+                        <h4 class="text-blue h4">10 Produk Terlaris</h4>
+                        <p class="text-muted">Periode: {{ $tanggalAwal }} s/d {{ $tanggalAkhir }}</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Nama Produk</th>
+                                        <th>Jumlah Terjual</th>
+                                        <th>Total Pendapatan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($produkTerlaris as $index => $produk)
+                                        <tr>
+                                            <td>{{ $index + 1 }}</td>
+                                            <td>{{ $produk['nama'] }}</td>
+                                            <td>{{ $produk['total_terjual'] }} {{ $produk['satuan'] }}</td>
+                                            <td>Rp {{ number_format($produk['total_pendapatan'], 0, ',', '.') }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="text-center">Tidak ada data produk terjual</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 10 Bahan Baku Terlaris -->
+            <div class="col-md-6">
+                <div class="card-box">
+                    <div class="card-header">
+                        <h4 class="text-blue h4">10 Bahan Baku Terlaris</h4>
+                        <p class="text-muted">Periode: {{ $tanggalAwal }} s/d {{ $tanggalAkhir }}</p>
+                        <small class="text-muted">*Termasuk dari penjualan produk</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Nama Bahan Baku</th>
+                                        <th>Jumlah Digunakan</th>
+                                        <th>Satuan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($bahanBakuTerlaris as $index => $bahan)
+                                        <tr>
+                                            <td>{{ $index + 1 }}</td>
+                                            <td>{{ $bahan['nama'] }}</td>
+                                            <td>{{ $bahan['total_penggunaan'] }}</td>
+                                            <td>{{ $bahan['satuan'] }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="text-center">Tidak ada data bahan baku digunakan</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Transaksi -->
         <div class="row">
             <div class="col-12">
                 <div class="card-box mb-30">
@@ -107,6 +188,7 @@
         </div>
     </div>
 
+    <!-- Modals -->
     <div class="modal fade" id="detailPenjualanModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -117,8 +199,7 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <div id="detailContent">
-                    </div>
+                    <div id="detailContent"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
@@ -134,7 +215,7 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Print Generate</h5>
+                    <h5 class="modal-title">Print Laporan</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -201,29 +282,6 @@
             border-left-color: #17a2b8;
         }
 
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-
-            .nota-print,
-            .nota-print * {
-                visibility: visible;
-            }
-
-            .nota-print {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                padding: 20px;
-            }
-
-            .no-print {
-                display: none !important;
-            }
-        }
-
         .badge {
             padding: 5px 10px;
             font-size: 12px;
@@ -273,7 +331,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                    `;
+                        `;
 
                         penjualan.detail_penjualan.forEach(detail => {
                             detailHtml += `
@@ -304,10 +362,6 @@
                     window.open('{{ url('owner/penjualan') }}/' + currentPenjualanId + '/print', '_blank');
                 }
             });
-
-            function numberFormat(number) {
-                return new Intl.NumberFormat('id-ID').format(number);
-            }
         });
     </script>
 @endpush

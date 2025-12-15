@@ -6,6 +6,7 @@ use App\Models\Penjualan;
 use App\Models\DetailPenjualan;
 use App\Models\Produk;
 use App\Models\BahanBaku;
+use App\Models\KomposisiBahanBaku;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,44 +20,128 @@ class PenjualanOwnerController extends Controller
         $tanggalAkhir = $request->tanggal_akhir ?? date('Y-m-d');
 
         $penjualan = Penjualan::with('detailPenjualan')
+            ->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir])
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $terlarisProduk = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
-            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
-        })
+        // Query untuk 10 produk terlaris berdasarkan jumlah penjualan
+        $produkTerlaris = DetailPenjualan::select(
+            'produk_id',
+            DB::raw('SUM(jumlah) as total_terjual'),
+            DB::raw('SUM(sub_total) as total_pendapatan')
+        )
+            ->whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+                $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+            })
             ->where('jenis_item', 'produk')
-            ->select(
-                'produk_id as item_id',
-                DB::raw("'produk' as jenis"),
-                'nama_produk as nama',
-                DB::raw('SUM(jumlah) as total_terjual')
-            )
-            ->groupBy('produk_id', 'nama_produk');
-
-        $terlarisBahanBaku = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
-            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
-        })
-            ->where('jenis_item', 'bahan_baku')
-            ->select(
-                'bahan_baku_id as item_id',
-                DB::raw("'bahan_baku' as jenis"),
-                'nama_produk as nama',
-                DB::raw('SUM(jumlah) as total_terjual')
-            )
-            ->groupBy('bahan_baku_id', 'nama_produk');
-
-        $top10Terlaris = $terlarisProduk->unionAll($terlarisBahanBaku)
+            ->groupBy('produk_id')
             ->orderBy('total_terjual', 'desc')
             ->take(10)
-            ->get();
+            ->get()
+            ->map(function ($item) {
+                $produk = Produk::find($item->produk_id);
+                return [
+                    'id' => $item->produk_id,
+                    'nama' => $produk ? $produk->nama : 'Produk Tidak Ditemukan',
+                    'total_terjual' => $item->total_terjual,
+                    'total_pendapatan' => $item->total_pendapatan,
+                    'satuan' => $produk ? $produk->satuan : '-'
+                ];
+            });
+
+        // Query untuk 10 bahan baku terlaris (diambil dari penjualan produk yang mengandung bahan baku tersebut)
+        $bahanBakuTerlaris = $this->getBahanBakuTerlaris($tanggalAwal, $tanggalAkhir);
 
         return view('owner.penjualan.index', compact(
             'penjualan',
-            'top10Terlaris',
+            'produkTerlaris',
+            'bahanBakuTerlaris',
             'tanggalAwal',
             'tanggalAkhir'
         ));
+    }
+
+    private function getBahanBakuTerlaris($tanggalAwal, $tanggalAkhir)
+    {
+        // Langkah 1: Ambil semua produk yang terjual dalam periode tersebut
+        $produkTerjual = DetailPenjualan::select(
+            'produk_id',
+            DB::raw('SUM(jumlah) as total_produk_terjual')
+        )
+            ->whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+                $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+            })
+            ->where('jenis_item', 'produk')
+            ->groupBy('produk_id')
+            ->get();
+
+        // Langkah 2: Hitung penggunaan bahan baku berdasarkan komposisi produk
+        $bahanBakuUsage = [];
+
+        foreach ($produkTerjual as $produk) {
+            $komposisi = KomposisiBahanBaku::where('produk_id', $produk->produk_id)
+                ->with('bahanBaku')
+                ->get();
+
+            foreach ($komposisi as $item) {
+                if ($item->bahanBaku) {
+                    $bahanBakuId = $item->bahan_baku_id;
+                    $jumlahPenggunaan = $item->jumlah * $produk->total_produk_terjual;
+
+                    if (!isset($bahanBakuUsage[$bahanBakuId])) {
+                        $bahanBakuUsage[$bahanBakuId] = [
+                            'bahan_baku' => $item->bahanBaku,
+                            'total_penggunaan' => 0
+                        ];
+                    }
+
+                    $bahanBakuUsage[$bahanBakuId]['total_penggunaan'] += $jumlahPenggunaan;
+                }
+            }
+        }
+
+        // Langkah 3: Tambahkan bahan baku yang terjual langsung
+        $bahanBakuLangsung = DetailPenjualan::select(
+            'bahan_baku_id',
+            DB::raw('SUM(jumlah) as total_terjual_langsung')
+        )
+            ->whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+                $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+            })
+            ->where('jenis_item', 'bahan_baku')
+            ->groupBy('bahan_baku_id')
+            ->get();
+
+        foreach ($bahanBakuLangsung as $item) {
+            $bahanBaku = BahanBaku::find($item->bahan_baku_id);
+            if ($bahanBaku) {
+                if (!isset($bahanBakuUsage[$item->bahan_baku_id])) {
+                    $bahanBakuUsage[$item->bahan_baku_id] = [
+                        'bahan_baku' => $bahanBaku,
+                        'total_penggunaan' => 0
+                    ];
+                }
+                $bahanBakuUsage[$item->bahan_baku_id]['total_penggunaan'] += $item->total_terjual_langsung;
+            }
+        }
+
+        // Langkah 4: Urutkan dan ambil 10 teratas
+        usort($bahanBakuUsage, function ($a, $b) {
+            return $b['total_penggunaan'] <=> $a['total_penggunaan'];
+        });
+
+        $top10 = array_slice($bahanBakuUsage, 0, 10);
+
+        // Format hasil
+        return collect($top10)->map(function ($item) {
+            return [
+                'id' => $item['bahan_baku']->id,
+                'nama' => $item['bahan_baku']->nama,
+                'total_penggunaan' => $item['total_penggunaan'],
+                'satuan' => $item['bahan_baku']->satuan,
+                'harga_beli' => $item['bahan_baku']->harga_beli
+            ];
+        });
     }
 
     public function laporan(Request $request)
@@ -73,56 +158,34 @@ class PenjualanOwnerController extends Controller
         $totalBayar = $penjualan->sum('bayar');
         $totalKembalian = $penjualan->sum('kembalian');
 
-        $terlarisProduk = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
-            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
-        })
+        // Query untuk 10 produk terlaris
+        $produkTerlaris = DetailPenjualan::select(
+            'produk_id',
+            DB::raw('SUM(jumlah) as total_terjual'),
+            DB::raw('SUM(sub_total) as total_pendapatan')
+        )
+            ->whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+                $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+            })
             ->where('jenis_item', 'produk')
-            ->select(
-                'produk_id as item_id',
-                DB::raw("'produk' as jenis"),
-                'nama_produk as nama',
-                DB::raw('SUM(jumlah) as total_terjual')
-            )
-            ->groupBy('produk_id', 'nama_produk');
-
-        $terlarisBahanBaku = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
-            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
-        })
-            ->where('jenis_item', 'bahan_baku')
-            ->select(
-                'bahan_baku_id as item_id',
-                DB::raw("'bahan_baku' as jenis"),
-                'nama_produk as nama',
-                DB::raw('SUM(jumlah) as total_terjual')
-            )
-            ->groupBy('bahan_baku_id', 'nama_produk');
-
-        $top10Terlaris = $terlarisProduk->unionAll($terlarisBahanBaku)
-            ->orderBy('total_terjual', 'desc')
-            ->take(10)
-            ->get();
-
-        $produkTerlaris = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
-            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
-        })
-            ->where('jenis_item', 'produk')
-            ->select('produk_id', DB::raw('SUM(jumlah) as total_terjual'))
             ->groupBy('produk_id')
-            ->with('produk')
             ->orderBy('total_terjual', 'desc')
             ->take(10)
-            ->get();
+            ->get()
+            ->map(function ($item) {
+                $produk = Produk::find($item->produk_id);
+                return [
+                    'id' => $item->produk_id,
+                    'nama' => $produk ? $produk->nama : 'Produk Tidak Ditemukan',
+                    'total_terjual' => $item->total_terjual,
+                    'total_pendapatan' => $item->total_pendapatan,
+                    'satuan' => $produk ? $produk->satuan : '-',
+                    'harga' => $produk ? $produk->harga : 0
+                ];
+            });
 
-        $bahanBakuTerlaris = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
-            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
-        })
-            ->where('jenis_item', 'bahan_baku')
-            ->select('bahan_baku_id', DB::raw('SUM(jumlah) as total_terjual'))
-            ->groupBy('bahan_baku_id')
-            ->with('bahanBaku')
-            ->orderBy('total_terjual', 'desc')
-            ->take(10)
-            ->get();
+        // Query untuk 10 bahan baku terlaris
+        $bahanBakuTerlaris = $this->getBahanBakuTerlaris($tanggalAwal, $tanggalAkhir);
 
         if ($request->has('print')) {
             return view('owner.penjualan.laporan-print', compact(
@@ -130,7 +193,6 @@ class PenjualanOwnerController extends Controller
                 'totalPenjualan',
                 'totalBayar',
                 'totalKembalian',
-                'top10Terlaris',
                 'produkTerlaris',
                 'bahanBakuTerlaris',
                 'tanggalAwal',
@@ -143,7 +205,6 @@ class PenjualanOwnerController extends Controller
             'totalPenjualan',
             'totalBayar',
             'totalKembalian',
-            'top10Terlaris',
             'produkTerlaris',
             'bahanBakuTerlaris',
             'tanggalAwal',
@@ -170,41 +231,42 @@ class PenjualanOwnerController extends Controller
         $totalBayar = $penjualan->sum('bayar');
         $totalKembalian = $penjualan->sum('kembalian');
 
-        $terlarisProduk = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
-            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
-        })
+        // Query untuk 10 produk terlaris
+        $produkTerlaris = DetailPenjualan::select(
+            'produk_id',
+            DB::raw('SUM(jumlah) as total_terjual'),
+            DB::raw('SUM(sub_total) as total_pendapatan')
+        )
+            ->whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
+                $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+            })
             ->where('jenis_item', 'produk')
-            ->select(
-                'produk_id as item_id',
-                DB::raw("'produk' as jenis"),
-                'nama_produk as nama',
-                DB::raw('SUM(jumlah) as total_terjual')
-            )
-            ->groupBy('produk_id', 'nama_produk');
-
-        $terlarisBahanBaku = DetailPenjualan::whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir) {
-            $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
-        })
-            ->where('jenis_item', 'bahan_baku')
-            ->select(
-                'bahan_baku_id as item_id',
-                DB::raw("'bahan_baku' as jenis"),
-                'nama_produk as nama',
-                DB::raw('SUM(jumlah) as total_terjual')
-            )
-            ->groupBy('bahan_baku_id', 'nama_produk');
-
-        $top10Terlaris = $terlarisProduk->unionAll($terlarisBahanBaku)
+            ->groupBy('produk_id')
             ->orderBy('total_terjual', 'desc')
             ->take(10)
-            ->get();
+            ->get()
+            ->map(function ($item) {
+                $produk = Produk::find($item->produk_id);
+                return [
+                    'id' => $item->produk_id,
+                    'nama' => $produk ? $produk->nama : 'Produk Tidak Ditemukan',
+                    'total_terjual' => $item->total_terjual,
+                    'total_pendapatan' => $item->total_pendapatan,
+                    'satuan' => $produk ? $produk->satuan : '-',
+                    'harga' => $produk ? $produk->harga : 0
+                ];
+            });
+
+        // Query untuk 10 bahan baku terlaris
+        $bahanBakuTerlaris = $this->getBahanBakuTerlaris($tanggalAwal, $tanggalAkhir);
 
         $pdf = PDF::loadView('owner.penjualan.laporan-pdf', compact(
             'penjualan',
             'totalPenjualan',
             'totalBayar',
             'totalKembalian',
-            'top10Terlaris',
+            'produkTerlaris',
+            'bahanBakuTerlaris',
             'tanggalAwal',
             'tanggalAkhir'
         ));

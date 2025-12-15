@@ -762,6 +762,7 @@
 
                             html += '<div class="calculation-step">';
                             html += '<h6>Reorder Point (ROP)</h6>';
+                            html += '<p class="mb-1">Rumus baru: Max - Min</p>';
                             html += '<p class="mb-1">' + data.perhitungan.rop + '</p>';
                             html += '</div>';
                             html += '</div>';

@@ -210,7 +210,6 @@
         }
 
         @media print {
-
             body {
                 padding: 0.3cm 0.5cm !important;
                 margin: 0 !important;
@@ -270,10 +269,13 @@
 
 <body>
     <div class="header">
-        <h1>LAPORAN PEMBELIAN BERHASIL</h1>
+        <h1>LAPORAN PEMBELIAN @if ($status && $status !== 'semua')
+                - {{ strtoupper(str_replace('_', ' ', $status)) }}
+            @endif
+        </h1>
         <p>Sistem Manajemen Inventory</p>
-        <p>Periode: {{ \Carbon\Carbon::parse($request->tanggal_awal)->translatedFormat('d F Y') }} -
-            {{ \Carbon\Carbon::parse($request->tanggal_akhir)->translatedFormat('d F Y') }}</p>
+        <p>Periode: {{ \Carbon\Carbon::parse($tanggal_awal)->translatedFormat('d F Y') }} -
+            {{ \Carbon\Carbon::parse($tanggal_akhir)->translatedFormat('d F Y') }}</p>
     </div>
 
     <div class="info">
@@ -285,7 +287,7 @@
     @if ($pembelian->isEmpty())
         <div class="no-data">
             <h3>Tidak Ada Data Pembelian</h3>
-            <p>Tidak ada data pembelian berhasil pada periode yang dipilih.</p>
+            <p>Tidak ada data pembelian pada periode yang dipilih.</p>
         </div>
     @else
         <h3>Ringkasan Transaksi Pembelian</h3>
@@ -306,13 +308,19 @@
                     @foreach ($pembelian as $index => $item)
                         <tr class="{{ $loop->even ? 'alternate-row' : '' }}">
                             <td class="text-center">{{ $index + 1 }}</td>
-                            <td>{{ $item->kode_pembelian ?? 'PB-' . $item->id }}</td>
+                            <td>{{ $item->kode_pembelian ?? 'PB-' . str_pad($item->id, 5, '0', STR_PAD_LEFT) }}</td>
                             <td>{{ $item->supplier->nama }}</td>
                             <td>{{ \Carbon\Carbon::parse($item->tanggal)->translatedFormat('d/m/Y') }}</td>
                             <td class="text-center">{{ $item->detailPembelian->count() }}</td>
                             <td class="text-right">Rp {{ number_format($item->total, 0, ',', '.') }}</td>
                             <td class="text-center">
-                                <span style="color: #28a745;">●</span>
+                                @if ($item->status == 'completed')
+                                    <span style="color: #28a745;">● Selesai</span>
+                                @elseif($item->status == 'menunggu_persetujuan')
+                                    <span style="color: #ffc107;">● Menunggu</span>
+                                @elseif($item->status == 'ditolak')
+                                    <span style="color: #dc3545;">● Ditolak</span>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
@@ -333,7 +341,8 @@
         @foreach ($pembelian as $index => $item)
             <div class="detail-section">
                 <div class="detail-header">
-                    <span>{{ $index + 1 }}. {{ $item->kode_pembelian ?? 'PB-' . $item->id }}</span>
+                    <span>{{ $index + 1 }}.
+                        {{ $item->kode_pembelian ?? 'PB-' . str_pad($item->id, 5, '0', STR_PAD_LEFT) }}</span>
                     <span>Supplier: {{ $item->supplier->nama }} | Total: Rp
                         {{ number_format($item->total, 0, ',', '.') }}</span>
                 </div>
@@ -434,20 +443,11 @@
 
     <div class="footer">
         <p>Dicetak pada: {{ date('d-m-Y H:i:s') }}</p>
-        <p>Oleh: Sistem Manajemen Inventory | Halaman 1</p>
+        <p>Oleh: Sistem Manajemen Inventory</p>
     </div>
 
     <script>
         window.onload = function() {
-            const pageHeight = 1123;
-            const contentHeight = document.body.scrollHeight;
-            const pageCount = Math.ceil(contentHeight / pageHeight);
-
-            const footer = document.querySelector('.footer p:last-child');
-            if (footer && pageCount > 1) {
-                footer.textContent = `Oleh: Sistem Manajemen Inventory | Halaman 1 dari ${pageCount}`;
-            }
-
             setTimeout(function() {
                 window.print();
             }, 500);

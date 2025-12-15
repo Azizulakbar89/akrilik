@@ -168,8 +168,8 @@ class BahanBaku extends Model
         // Maksimal Stock = 2 * (Rata-rata × Lead Time) + Safety Stock
         $Max = 2 * ($T * $LT) + $SS;
 
-        // Reorder Point = Minimal Stock
-        $ROP = $Min;
+        // Reorder Point = Max - Min (PERUBAHAN DI SINI)
+        $ROP = $Max - $Min;
 
         // Bulatkan semua nilai ke integer
         return [
@@ -182,7 +182,7 @@ class BahanBaku extends Model
                 'formula_ss' => "($Maks × $LT_max) - ($T × $LT) = $SS",
                 'formula_min' => "($T × $LT) + $SS = $Min",
                 'formula_max' => "2 × ($T × $LT) + $SS = $Max",
-                'formula_rop' => "$Min = $ROP"
+                'formula_rop' => "$Max - $Min = $ROP"
             ]
         ];
     }

@@ -369,6 +369,8 @@ class PembelianOwnerController extends Controller
         }
     }
 
+
+
     public function getRekomendasiData()
     {
         try {
@@ -411,5 +413,64 @@ class PembelianOwnerController extends Controller
                 'error' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function laporan(Request $request)
+    {
+        $request->validate([
+            'tanggal_awal' => 'required|date',
+            'tanggal_akhir' => 'required|date',
+            'status' => 'nullable|in:semua,completed,menunggu_persetujuan,ditolak'
+        ]);
+
+        $query = Pembelian::with(['supplier', 'detailPembelian.bahanBaku'])
+            ->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir])
+            ->orderBy('tanggal', 'asc');
+
+        if ($request->status && $request->status !== 'semua') {
+            $query->where('status', $request->status);
+        }
+
+        $pembelian = $query->get();
+        $totalPembelian = $pembelian->sum('total');
+
+        $supplierTerbanyak = Pembelian::select(
+            'supplier_id',
+            DB::raw('COUNT(*) as jumlah_transaksi'),
+            DB::raw('SUM(total) as total_pembelian')
+        )
+            ->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir])
+            ->where('status', 'completed')
+            ->groupBy('supplier_id')
+            ->orderByDesc('jumlah_transaksi')
+            ->limit(5)
+            ->get();
+
+        $bahanBakuTerbanyak = DetailPembelian::select(
+            'bahan_baku_id',
+            DB::raw('SUM(jumlah) as total_dibeli'),
+            DB::raw('SUM(sub_total) as total_pembelian')
+        )
+            ->whereHas('pembelian', function ($q) use ($request) {
+                $q->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir])
+                    ->where('status', 'completed');
+            })
+            ->groupBy('bahan_baku_id')
+            ->orderByDesc('total_dibeli')
+            ->limit(5)
+            ->get();
+
+        $data = [
+            'pembelian' => $pembelian,
+            'totalPembelian' => $totalPembelian,
+            'tanggal_awal' => $request->tanggal_awal,
+            'tanggal_akhir' => $request->tanggal_akhir,
+            'status' => $request->status,
+            'supplierTerbanyak' => $supplierTerbanyak,
+            'bahanBakuTerbanyak' => $bahanBakuTerbanyak,
+            'request' => $request
+        ];
+
+        return view('owner.pembelian.laporan_pdf', $data);
     }
 }

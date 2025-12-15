@@ -197,6 +197,65 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalPrintLaporan">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form id="formPrintLaporan" action="{{ route('owner.pembelian.laporan') }}" method="GET" target="_blank">
+                    <div class="modal-header">
+                        <h4 class="modal-title"><i class="fas fa-print"></i> Print Laporan Pembelian</h4>
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Tanggal Awal <span class="text-danger">*</span></label>
+                                    <input type="date" name="tanggal_awal" class="form-control"
+                                        value="{{ date('Y-m-01') }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Tanggal Akhir <span class="text-danger">*</span></label>
+                                    <input type="date" name="tanggal_akhir" class="form-control"
+                                        value="{{ date('Y-m-d') }}" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label>Status Pembelian</label>
+                                    <select name="status" class="form-control">
+                                        <option value="semua">Semua Status</option>
+                                        <option value="completed">Selesai/Disetujui</option>
+                                        <option value="menunggu_persetujuan">Menunggu Persetujuan</option>
+                                        <option value="ditolak">Ditolak</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Informasi:</strong> Laporan akan dicetak dalam format PDF dengan detail transaksi
+                            pembelian berdasarkan periode yang dipilih.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                            <i class="fas fa-times"></i> Batal
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-print"></i> Print Laporan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalPembelianCepat">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
@@ -222,8 +281,8 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label>Tanggal <span class="text-danger">*</span></label>
-                                    <input type="date" name="tanggal" class="form-control" value="{{ date('Y-m-d') }}"
-                                        required>
+                                    <input type="date" name="tanggal" class="form-control"
+                                        value="{{ date('Y-m-d') }}" required>
                                 </div>
                             </div>
                         </div>
@@ -969,19 +1028,19 @@
                                 <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                     <option value="">Pilih Bahan Baku</option>
                                     ${response.bahanBaku.map(bahan => `
-                                                    <option value="${bahan.id}" 
-                                                        data-harga="${bahan.harga_beli}"
-                                                        data-stok="${bahan.stok}"
-                                                        data-min="${bahan.min}"
-                                                        data-max="${bahan.max}"
-                                                        data-satuan="${bahan.satuan}"
-                                                        ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
-                                                        ${bahan.nama} 
-                                                        ${bahan.stok <= bahan.min ? 
-                                                            `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
-                                                            `(Stok: ${bahan.stok} ${bahan.satuan})`}
-                                                    </option>
-                                                `).join('')}
+                                                                <option value="${bahan.id}" 
+                                                                    data-harga="${bahan.harga_beli}"
+                                                                    data-stok="${bahan.stok}"
+                                                                    data-min="${bahan.min}"
+                                                                    data-max="${bahan.max}"
+                                                                    data-satuan="${bahan.satuan}"
+                                                                    ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
+                                                                    ${bahan.nama} 
+                                                                    ${bahan.stok <= bahan.min ? 
+                                                                        `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
+                                                                        `(Stok: ${bahan.stok} ${bahan.satuan})`}
+                                                                </option>
+                                                            `).join('')}
                                 </select>
                             </div>
                             <div class="col-md-2">
@@ -1016,10 +1075,10 @@
                                 <select name="supplier_id" class="form-control" required>
                                     <option value="">Pilih Supplier</option>
                                     ${response.supplier.map(sup => `
-                                                    <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
-                                                        ${sup.nama}
-                                                    </option>
-                                                `).join('')}
+                                                                <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
+                                                                    ${sup.nama}
+                                                                </option>
+                                                            `).join('')}
                                 </select>
                             </div>
                         </div>
