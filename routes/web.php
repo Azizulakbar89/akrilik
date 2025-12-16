@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\BahanBakuController;
 use App\Http\Controllers\Admin\PembelianController;
 use App\Http\Controllers\Admin\PenjualanController;
+use App\Http\Controllers\Owner\UserOwnerController;
 use App\Http\Controllers\Owner\ProdukOwnerController;
 use App\Http\Controllers\Owner\SupplierOwnerController;
 use App\Http\Controllers\Owner\BahanBakuOwnerController;
@@ -126,6 +127,14 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
 
         // Laporan
         Route::get('/laporan/print', [PembelianOwnerController::class, 'laporan'])->name('laporan');
+    });
+
+    Route::prefix('users')->name('users.')->group(function () {
+        Route::get('/', [UserOwnerController::class, 'index'])->name('index');
+        Route::post('/', [UserOwnerController::class, 'store'])->name('store');
+        Route::get('/{user}', [UserOwnerController::class, 'show'])->name('show');
+        Route::put('/{user}', [UserOwnerController::class, 'update'])->name('update');
+        Route::delete('/{user}', [UserOwnerController::class, 'destroy'])->name('destroy');
     });
 
     Route::prefix('penjualan')->name('penjualan.')->group(function () {

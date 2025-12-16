@@ -94,7 +94,7 @@
                             </div>
 
                             <button type="submit" class="btn btn-primary btn-lg btn-block mt-3">
-                                <i class="fa fa-save"></i> Simpan Penjualan
+                                <i class="fa fa-save"></i> Simpan Penjualan (Kasir: {{ Auth::user()->name }})
                             </button>
                         </form>
                     </div>
@@ -114,6 +114,7 @@
                                         <th>Kode</th>
                                         <th>Customer</th>
                                         <th>Total</th>
+                                        <th>Kasir</th>
                                         <th>Aksi</th>
                                     </tr>
                                 </thead>
@@ -123,6 +124,13 @@
                                             <td>{{ $item->kode_penjualan }}</td>
                                             <td>{{ $item->nama_customer }}</td>
                                             <td>{{ $item->total_formatted }}</td>
+                                            <td>
+                                                @if ($item->admin)
+                                                    <span class="badge badge-info">{{ $item->admin->name }}</span>
+                                                @else
+                                                    <span class="badge badge-secondary">Unknown</span>
+                                                @endif
+                                            </td>
                                             <td>
                                                 <div class="dropdown">
                                                     <a class="btn btn-link font-24 p-0 line-height-1 no-arrow dropdown-toggle"
@@ -551,6 +559,7 @@
                                     <p>Total: Rp ${numberFormat(response.data.total)}</p>
                                     <p>Bayar: Rp ${numberFormat(response.data.bayar)}</p>
                                     <p>Kembalian: Rp ${numberFormat(response.data.kembalian)}</p>
+                                    <p>Kasir: ${response.data.admin_name}</p>
                                 </div>
                             `,
                                 confirmButtonText: 'OK'
@@ -596,6 +605,7 @@
                                     <p><strong>Kode Penjualan:</strong> ${penjualan.kode_penjualan}</p>
                                     <p><strong>Customer:</strong> ${penjualan.nama_customer}</p>
                                     <p><strong>Tanggal:</strong> ${penjualan.tanggal_formatted}</p>
+                                    <p><strong>Kasir:</strong> <span class="badge badge-info">${penjualan.admin ? penjualan.admin.name : 'Unknown'}</span></p>
                                 </div>
                                 <div class="col-md-6">
                                     <p><strong>Total:</strong> ${penjualan.total_formatted}</p>

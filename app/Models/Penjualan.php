@@ -16,7 +16,8 @@ class Penjualan extends Model
         'total',
         'bayar',
         'kembalian',
-        'tanggal'
+        'tanggal',
+        'admin_id'
     ];
 
     protected $casts = [
@@ -36,6 +37,11 @@ class Penjualan extends Model
     public function detailPenjualan()
     {
         return $this->hasMany(DetailPenjualan::class, 'penjualan_id');
+    }
+
+    public function admin()
+    {
+        return $this->belongsTo(User::class, 'admin_id');
     }
 
     protected static function boot()
@@ -75,5 +81,21 @@ class Penjualan extends Model
             }
         }
         return true;
+    }
+
+    public function scopePeriode($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('tanggal', [$startDate, $endDate]);
+    }
+
+    public function scopeBulanIni($query)
+    {
+        return $query->whereMonth('tanggal', date('m'))
+            ->whereYear('tanggal', date('Y'));
+    }
+
+    public function scopeTahunIni($query)
+    {
+        return $query->whereYear('tanggal', date('Y'));
     }
 }

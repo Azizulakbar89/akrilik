@@ -331,4 +331,17 @@ class BahanBaku extends Model
             $this->updateParameterStok();
         }
     }
+
+    public function scopeWithPenggunaanBulanan($query, $year = null, $month = null)
+    {
+        if (!$year) $year = date('Y');
+        if (!$month) $month = date('m');
+
+        return $query->with(['detailPenjualan' => function ($q) use ($year, $month) {
+            $q->whereHas('penjualan', function ($q2) use ($year, $month) {
+                $q2->whereYear('tanggal', $year)
+                    ->whereMonth('tanggal', $month);
+            });
+        }]);
+    }
 }

@@ -132,6 +132,9 @@
                 <span><strong>Tanggal:</strong>
                     {{ \Carbon\Carbon::parse($penjualan->tanggal)->format('d/m/Y H:i') }}</span>
             </div>
+            <div class="info-row">
+                <span><strong>Kasir:</strong> {{ $penjualan->admin ? $penjualan->admin->name : 'Unknown' }}</span>
+            </div>
         </div>
 
         <table class="table">

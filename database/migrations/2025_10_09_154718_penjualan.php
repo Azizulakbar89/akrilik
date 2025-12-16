@@ -16,6 +16,7 @@ return new class extends Migration
             $table->decimal('bayar', 15, 2);
             $table->decimal('kembalian', 15, 2);
             $table->date('tanggal');
+            $table->foreignId('admin_id')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
         });
     }

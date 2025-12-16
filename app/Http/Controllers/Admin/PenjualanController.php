@@ -11,12 +11,13 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class PenjualanController extends Controller
 {
     public function index()
     {
-        $penjualan = Penjualan::with('detailPenjualan')->latest()->get();
+        $penjualan = Penjualan::with('detailPenjualan', 'admin')->latest()->get();
         $produk = Produk::all();
         $bahanBaku = BahanBaku::all();
 
@@ -81,7 +82,8 @@ class PenjualanController extends Controller
                 'total' => $total,
                 'bayar' => $request->bayar,
                 'kembalian' => $kembalian,
-                'tanggal' => now()
+                'tanggal' => now(),
+                'admin_id' => Auth::id()
             ]);
 
             foreach ($request->items as $item) {
@@ -136,7 +138,8 @@ class PenjualanController extends Controller
                     'kode_penjualan' => $penjualan->kode_penjualan,
                     'total' => $total,
                     'bayar' => $request->bayar,
-                    'kembalian' => $kembalian
+                    'kembalian' => $kembalian,
+                    'admin_name' => Auth::user()->name
                 ]
             ], 200);
         } catch (\Exception $e) {
@@ -151,7 +154,7 @@ class PenjualanController extends Controller
     public function show($id)
     {
         try {
-            $penjualan = Penjualan::with('detailPenjualan.produk', 'detailPenjualan.bahanBaku')->findOrFail($id);
+            $penjualan = Penjualan::with(['detailPenjualan.produk', 'detailPenjualan.bahanBaku', 'admin'])->findOrFail($id);
             return response()->json([
                 'status' => 'success',
                 'data' => $penjualan
@@ -194,7 +197,7 @@ class PenjualanController extends Controller
 
     public function printNota($id)
     {
-        $penjualan = Penjualan::with('detailPenjualan.produk', 'detailPenjualan.bahanBaku')->findOrFail($id);
+        $penjualan = Penjualan::with(['detailPenjualan.produk', 'detailPenjualan.bahanBaku', 'admin'])->findOrFail($id);
         return view('admin.penjualan.nota', compact('penjualan'));
     }
 
