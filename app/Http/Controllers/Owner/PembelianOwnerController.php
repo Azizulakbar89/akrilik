@@ -20,10 +20,11 @@ class PembelianOwnerController extends Controller
         $supplier = Supplier::all();
         $bahanBaku = BahanBaku::all();
 
+        // PERBAIKAN: Gunakan rekomendasi berdasarkan ROP
         $rekomendasi = BahanBaku::perluPembelian()
             ->get()
             ->map(function ($bahan) {
-                return $bahan->rekomendasi_pembelian;
+                return $bahan->rekomendasi_pembelian_rop;
             })
             ->filter(function ($item) {
                 return !is_null($item) && isset($item['jumlah_rekomendasi']) && $item['jumlah_rekomendasi'] > 0;
@@ -51,7 +52,7 @@ class PembelianOwnerController extends Controller
         $rekomendasi = BahanBaku::perluPembelian()
             ->get()
             ->map(function ($bahan) {
-                return $bahan->rekomendasi_pembelian;
+                return $bahan->rekomendasi_pembelian_rop;
             })
             ->filter(function ($item) {
                 return !is_null($item) && isset($item['jumlah_rekomendasi']) && $item['jumlah_rekomendasi'] > 0;
@@ -155,6 +156,7 @@ class PembelianOwnerController extends Controller
         }
     }
 
+    // PERBAIKAN: Method storeRekomendasi untuk ROP
     public function storeRekomendasi(Request $request)
     {
         $request->validate([
@@ -172,7 +174,8 @@ class PembelianOwnerController extends Controller
                 $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
 
                 if ($bahanBaku->isPerluPembelian()) {
-                    $jumlah = $bahanBaku->jumlahPemesananRekomendasi();
+                    // PERBAIKAN: Gunakan jumlah pemesanan berdasarkan ROP
+                    $jumlah = $bahanBaku->jumlahPemesananRekomendasiRop();
                     $harga = $bahanBaku->harga_beli;
 
                     if ($jumlah > 0) {
@@ -214,7 +217,7 @@ class PembelianOwnerController extends Controller
 
             DB::commit();
             return response()->json([
-                'success' => 'Pembelian dari rekomendasi berhasil disimpan',
+                'success' => 'Pembelian dari rekomendasi sistem ROP berhasil disimpan',
                 'redirect' => route('owner.pembelian.index')
             ]);
         } catch (\Exception $e) {
@@ -351,33 +354,37 @@ class PembelianOwnerController extends Controller
         }
     }
 
+    // PERBAIKAN: Method reject dengan transaction
     public function reject($id)
     {
+        DB::beginTransaction();
         try {
             $pembelian = Pembelian::findOrFail($id);
 
             if ($pembelian->status !== 'menunggu_persetujuan') {
-                return response()->json(['error' => 'Pembelian tidak dapat ditolak'], 403);
+                DB::rollback();
+                return response()->json(['error' => 'Pembelian hanya dapat ditolak saat status menunggu persetujuan'], 403);
             }
 
             $pembelian->update(['status' => 'ditolak']);
 
-            return response()->json(['success' => 'Pembelian ditolak']);
+            DB::commit();
+            return response()->json(['success' => 'Pembelian berhasil ditolak']);
         } catch (\Exception $e) {
+            DB::rollback();
             \Log::error('Error rejecting pembelian: ' . $e->getMessage());
             return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
     }
 
-
-
+    // PERBAIKAN: Method getRekomendasiData untuk ROP
     public function getRekomendasiData()
     {
         try {
             $rekomendasi = BahanBaku::perluPembelian()
                 ->get()
                 ->map(function ($bahan) {
-                    $recommendation = $bahan->rekomendasi_pembelian;
+                    $recommendation = $bahan->rekomendasi_pembelian_rop;
                     if (!$recommendation || !isset($recommendation['jumlah_rekomendasi']) || $recommendation['jumlah_rekomendasi'] <= 0) {
                         return null;
                     }
@@ -388,9 +395,10 @@ class PembelianOwnerController extends Controller
                         'stok_sekarang' => $bahan->stok,
                         'min' => $bahan->min,
                         'max' => $bahan->max,
-                        'jumlah_rekomendasi' => $bahan->jumlahPemesananRekomendasi(),
+                        'rop' => $bahan->rop,
+                        'jumlah_rekomendasi' => $bahan->jumlahPemesananRekomendasiRop(),
                         'harga_beli' => $bahan->harga_beli,
-                        'total_nilai' => $bahan->totalNilaiPemesananRekomendasi(),
+                        'total_nilai' => $bahan->totalNilaiPemesananRekomendasiRop(),
                         'satuan' => $bahan->satuan,
                         'perlu_pembelian' => $bahan->isPerluPembelian()
                     ];

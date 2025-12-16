@@ -11,7 +11,7 @@
                             @if ($rekomendasi->count() > 0)
                                 <button class="btn btn-success mr-2" data-toggle="modal" data-target="#modalPembelianCepat"
                                     id="btnPembelianCepat">
-                                    <i class="fas fa-bolt"></i> Pembelian Cepat
+                                    <i class="fas fa-bolt"></i> Pembelian Cepat (ROP)
                                 </button>
                             @endif
                             <button class="btn btn-primary" data-toggle="modal" data-target="#modalTambah"
@@ -32,25 +32,26 @@
                                             <tr>
                                                 <th>Bahan Baku</th>
                                                 <th>Stok Saat Ini</th>
-                                                <th>Stok Minimum</th>
-                                                <th>Stok Maksimum</th>
-                                                <th>Kekurangan</th>
+                                                <th>Safety Stock</th>
+                                                <th>Min</th>
+                                                <th>ROP</th>
                                                 <th>Rekomendasi Beli</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @foreach ($stokTidakAman as $bahan)
+                                                @php
+                                                    $rekomendasiBeli = $bahan->rop;
+                                                @endphp
                                                 <tr>
                                                     <td>{{ $bahan->nama }}</td>
                                                     <td>{{ $bahan->stok }} {{ $bahan->satuan }}</td>
+                                                    <td>{{ $bahan->safety_stock }} {{ $bahan->satuan }}</td>
                                                     <td>{{ $bahan->min }} {{ $bahan->satuan }}</td>
-                                                    <td>{{ $bahan->max }} {{ $bahan->satuan }}</td>
-                                                    <td class="text-danger"><strong>{{ $bahan->min - $bahan->stok }}
-                                                            {{ $bahan->satuan }}</strong></td>
+                                                    <td>{{ $bahan->rop }} {{ $bahan->satuan }}</td>
                                                     <td class="text-success">
-                                                        <strong>{{ $bahan->jumlahPemesananRekomendasi() }}
-                                                            {{ $bahan->satuan }}</strong>
+                                                        <strong>{{ $rekomendasiBeli }} {{ $bahan->satuan }}</strong>
                                                     </td>
                                                     <td>{!! $bahan->status_stok !!}</td>
                                                 </tr>
@@ -64,11 +65,11 @@
                         @if ($rekomendasi->count() > 0)
                             <div class="alert alert-info">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <h5><i class="fas fa-lightbulb"></i> Rekomendasi Pembelian (Sistem Min-Max)</h5>
+                                    <h5><i class="fas fa-lightbulb"></i> Rekomendasi Pembelian (Sistem ROP)</h5>
                                     <span class="badge badge-primary">Total: Rp
                                         {{ number_format($totalRekomendasi, 0, ',', '.') }}</span>
                                 </div>
-                                <p>Bahan baku berikut perlu dilakukan pembelian berdasarkan sistem Min-Max:</p>
+                                <p>Bahan baku berikut perlu dilakukan pembelian berdasarkan sistem ROP (Reorder Point):</p>
                                 <div class="table-responsive">
                                     <table class="table table-sm table-bordered">
                                         <thead>
@@ -77,24 +78,29 @@
                                                 <th>Stok Saat Ini</th>
                                                 <th>Min</th>
                                                 <th>Max</th>
-                                                <th>Rekomendasi Beli</th>
+                                                <th>ROP (Max-Min)</th>
                                                 <th>Harga Beli</th>
+                                                <th>Jumlah Beli</th>
                                                 <th>Sub Total</th>
                                                 <th>Satuan</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @foreach ($rekomendasi as $item)
+                                                @php
+                                                    $subTotal = $item['jumlah_rekomendasi'] * $item['harga_beli'];
+                                                @endphp
                                                 <tr id="rekomendasi-row-{{ $item['bahan_baku_id'] }}">
                                                     <td>{{ $item['nama'] }}</td>
                                                     <td>{{ $item['stok_sekarang'] }}</td>
                                                     <td>{{ $item['min'] }}</td>
                                                     <td>{{ $item['max'] }}</td>
+                                                    <td><strong class="text-primary">{{ $item['rop'] }}</strong></td>
+                                                    <td>Rp {{ number_format($item['harga_beli'], 0, ',', '.') }}</td>
                                                     <td><strong
                                                             class="text-success">{{ $item['jumlah_rekomendasi'] }}</strong>
                                                     </td>
-                                                    <td>Rp {{ number_format($item['harga_beli'], 0, ',', '.') }}</td>
-                                                    <td>Rp {{ number_format($item['total_nilai'], 0, ',', '.') }}</td>
+                                                    <td>Rp {{ number_format($subTotal, 0, ',', '.') }}</td>
                                                     <td>{{ $item['satuan'] }}</td>
                                                 </tr>
                                             @endforeach
@@ -102,7 +108,7 @@
                                         <tfoot>
                                             <tr class="table-primary">
                                                 <th colspan="6" class="text-right">Total Rekomendasi:</th>
-                                                <th colspan="2">Rp {{ number_format($totalRekomendasi, 0, ',', '.') }}
+                                                <th colspan="3">Rp {{ number_format($totalRekomendasi, 0, ',', '.') }}
                                                 </th>
                                             </tr>
                                         </tfoot>
@@ -172,7 +178,7 @@
                 <form id="formPembelianCepat">
                     @csrf
                     <div class="modal-header">
-                        <h4 class="modal-title">Pembelian Cepat dari Rekomendasi Sistem Min-Max</h4>
+                        <h4 class="modal-title">Pembelian Cepat dari Rekomendasi Sistem ROP</h4>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
                     </div>
                     <div class="modal-body">
@@ -198,7 +204,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Items Rekomendasi Pembelian</label>
+                            <label>Items Rekomendasi Pembelian (ROP)</label>
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div>
                                     <div class="form-check">
@@ -222,14 +228,18 @@
                                             <th>Stok Sekarang</th>
                                             <th>Min</th>
                                             <th>Max</th>
-                                            <th>Jumlah Beli</th>
+                                            <th>ROP</th>
                                             <th>Harga Beli</th>
+                                            <th>Jumlah Beli</th>
                                             <th>Sub Total</th>
                                             <th width="70px">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody id="rekomendasi-items">
                                         @foreach ($rekomendasi as $item)
+                                            @php
+                                                $subTotal = $item['jumlah_rekomendasi'] * $item['harga_beli'];
+                                            @endphp
                                             <tr id="rekomendasi-row-{{ $item['bahan_baku_id'] }}">
                                                 <td class="text-center">
                                                     <input type="checkbox" name="items[]"
@@ -238,17 +248,21 @@
                                                         data-id="{{ $item['bahan_baku_id'] }}"
                                                         data-jumlah="{{ $item['jumlah_rekomendasi'] }}"
                                                         data-harga="{{ $item['harga_beli'] }}"
-                                                        data-total="{{ $item['total_nilai'] }}" checked>
+                                                        data-total="{{ $subTotal }}" checked>
                                                 </td>
                                                 <td>{{ $item['nama'] }}</td>
                                                 <td>{{ $item['stok_sekarang'] }} {{ $item['satuan'] }}</td>
                                                 <td>{{ $item['min'] }}</td>
                                                 <td>{{ $item['max'] }}</td>
-                                                <td class="text-success font-weight-bold">
-                                                    {{ $item['jumlah_rekomendasi'] }} {{ $item['satuan'] }}</td>
+                                                <td class="text-primary font-weight-bold">
+                                                    {{ $item['rop'] }} {{ $item['satuan'] }}
+                                                </td>
                                                 <td>Rp {{ number_format($item['harga_beli'], 0, ',', '.') }}</td>
+                                                <td class="text-success font-weight-bold">
+                                                    {{ $item['jumlah_rekomendasi'] }} {{ $item['satuan'] }}
+                                                </td>
                                                 <td class="text-primary font-weight-bold">Rp
-                                                    {{ number_format($item['total_nilai'], 0, ',', '.') }}</td>
+                                                    {{ number_format($subTotal, 0, ',', '.') }}</td>
                                                 <td class="text-center">
                                                     <button type="button"
                                                         class="btn btn-danger btn-sm btn-remove-rekomendasi"
@@ -261,7 +275,7 @@
                                     </tbody>
                                     <tfoot class="table-success">
                                         <tr>
-                                            <th colspan="7" class="text-right">Total Pembelian:</th>
+                                            <th colspan="8" class="text-right">Total Pembelian:</th>
                                             <th id="total-rekomendasi">Rp
                                                 {{ number_format($totalRekomendasi, 0, ',', '.') }}</th>
                                             <th></th>
@@ -274,8 +288,9 @@
                         <div class="alert alert-warning">
                             <small>
                                 <i class="fas fa-info-circle"></i>
-                                <strong>Sistem Min-Max:</strong> Pembelian direkomendasikan ketika stok ≤ Min.
-                                Jumlah pembelian = Max - Stok Saat Ini.
+                                <strong>Sistem ROP (Reorder Point):</strong> Pembelian direkomendasikan ketika stok ≤ Min.
+                                Jumlah pembelian = <strong>ROP (Max - Min)</strong>. ROP sudah dihitung otomatis berdasarkan
+                                penggunaan historis.
                             </small>
                         </div>
                     </div>
@@ -327,7 +342,9 @@
                             <label>Items Pembelian <span class="text-danger">*</span></label>
                             <div class="alert alert-info">
                                 <small>
-                                    <i class="fas fa-info-circle"></i> Tambah item pembelian dengan mengisi form di bawah
+                                    <i class="fas fa-info-circle"></i> Tambah item pembelian dengan mengisi form di bawah.
+                                    Untuk bahan baku dengan stok ≤ Min, sistem akan menampilkan rekomendasi pembelian
+                                    berdasarkan ROP.
                                 </small>
                             </div>
 
@@ -340,7 +357,7 @@
                                 </button>
 
                                 <button type="button" class="btn btn-info" id="btn-use-recommendation">
-                                    <i class="fas fa-magic"></i> Gunakan Rekomendasi Sistem
+                                    <i class="fas fa-magic"></i> Gunakan Rekomendasi ROP
                                 </button>
                             </div>
                         </div>
@@ -449,6 +466,10 @@
             color: #dc3545 !important;
         }
 
+        .text-primary {
+            color: #007bff !important;
+        }
+
         .table-primary th {
             background-color: #007bff;
             color: white;
@@ -540,7 +561,6 @@
             let rekomendasiData = [];
             let currentEditId = null;
 
-            // Inisialisasi CSRF token untuk AJAX
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -571,12 +591,13 @@
                                     data-stok="{{ $bahan->stok }}"
                                     data-min="{{ $bahan->min }}"
                                     data-max="{{ $bahan->max }}"
+                                    data-rop="{{ $bahan->rop }}"
                                     data-satuan="{{ $bahan->satuan }}">
                                     {{ $bahan->nama }} 
-                                    @if ($bahan->isStokTidakAman())
-                                        <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
+                                    @if ($bahan->isPerluPembelian())
+                                        <span class="text-danger">(Stok: {{ $bahan->stok }}/Min: {{ $bahan->min }} - ROP: {{ $bahan->rop }})</span>
                                     @else
-                                        (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
+                                        (Stok: {{ $bahan->stok }}/Min: {{ $bahan->min }})
                                     @endif
                                 </option>
                                 @endforeach
@@ -699,7 +720,6 @@
                 calculateRekomendasiTotal();
                 updateSelectedCount();
 
-                // Update select-all checkbox status
                 const totalItems = $('.item-checkbox').length;
                 const checkedItems = $('.item-checkbox:checked').length;
                 $('#select-all').prop('checked', totalItems === checkedItems);
@@ -729,23 +749,20 @@
                 const harga = selectedOption.data('harga');
                 const stok = selectedOption.data('stok');
                 const min = selectedOption.data('min');
-                const max = selectedOption.data('max');
+                const rop = selectedOption.data('rop');
                 const satuan = selectedOption.data('satuan');
 
                 if (harga) {
                     $(this).closest('.item-row').find('.harga').val(harga);
                 }
 
-                if (stok <= min) {
-                    const rekomendasi = max - stok;
-                    $(this).closest('.item-row').find('.jumlah').val(rekomendasi);
-
+                if (stok <= min && rop > 0) {
                     const jumlahInput = $(this).closest('.item-row').find('.jumlah');
-                    if (!jumlahInput.val()) {
-                        alert(
-                            `⚠️ Stok ${stok} ${satuan} (MIN: ${min} ${satuan})\nRekomendasi beli: ${rekomendasi} ${satuan}`
-                        );
-                    }
+                    jumlahInput.val(rop);
+
+                    alert(
+                        `⚠️ Stok ${stok} ${satuan} ≤ Min ${min} ${satuan}\nRekomendasi beli (ROP): ${rop} ${satuan}`
+                    );
                 }
 
                 calculateTotal();
@@ -801,9 +818,8 @@
 
                 console.log('Submit pembelian cepat:', formData);
 
-                // PERBAIKAN: Ganti route yang digunakan
                 $.ajax({
-                    url: '{{ route('admin.pembelian.store.from.rekomendasi') }}', // PERBAIKAN DI SINI
+                    url: '{{ route('admin.pembelian.store.from.rekomendasi') }}',
                     type: 'POST',
                     data: formData,
                     beforeSend: function() {
@@ -841,6 +857,7 @@
                     }
                 });
             });
+
             $('#formTambah').submit(function(e) {
                 e.preventDefault();
 
@@ -962,7 +979,7 @@
                     },
                     complete: function() {
                         $('#btn-use-recommendation').prop('disabled', false)
-                            .html('<i class="fas fa-magic"></i> Gunakan Rekomendasi Sistem');
+                            .html('<i class="fas fa-magic"></i> Gunakan Rekomendasi ROP');
                     }
                 });
             }
@@ -991,7 +1008,7 @@
                 updateRemoveButtons();
 
                 const itemCount = $('#items-container .item-row').length;
-                alert(`Rekomendasi sistem telah diterapkan untuk ${itemCount} bahan baku!`);
+                alert(`Rekomendasi sistem ROP telah diterapkan untuk ${itemCount} bahan baku!`);
             });
 
             function addRekomendasiRow(item) {
@@ -1006,13 +1023,14 @@
                                     data-stok="{{ $bahan->stok }}"
                                     data-min="{{ $bahan->min }}"
                                     data-max="{{ $bahan->max }}"
+                                    data-rop="{{ $bahan->rop }}"
                                     data-satuan="{{ $bahan->satuan }}"
                                     ${item.bahan_baku_id == {{ $bahan->id }} ? 'selected' : ''}>
                                     {{ $bahan->nama }} 
-                                    @if ($bahan->isStokTidakAman())
-                                        <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
+                                    @if ($bahan->isPerluPembelian())
+                                        <span class="text-danger">(Stok: {{ $bahan->stok }}/Min: {{ $bahan->min }} - ROP: {{ $bahan->rop }})</span>
                                     @else
-                                        (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
+                                        (Stok: {{ $bahan->stok }}/Min: {{ $bahan->min }})
                                     @endif
                                 </option>
                                 @endforeach
@@ -1124,25 +1142,27 @@
                         let itemsHtml = '';
 
                         pembelian.detail_pembelian.forEach((item, index) => {
+                            const rop = item.bahan_baku.rop;
                             itemsHtml += `
                                 <div class="item-row row mb-3 border-bottom pb-3" data-row-index="${index}">
                                     <div class="col-md-5">
                                         <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                             <option value="">Pilih Bahan Baku</option>
                                             ${response.bahanBaku.map(bahan => `
-                                                                        <option value="${bahan.id}" 
-                                                                            data-harga="${bahan.harga_beli}"
-                                                                            data-stok="${bahan.stok}"
-                                                                            data-min="${bahan.min}"
-                                                                            data-max="${bahan.max}"
-                                                                            data-satuan="${bahan.satuan}"
-                                                                            ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
-                                                                            ${bahan.nama} 
-                                                                            ${bahan.stok <= bahan.min ? 
-                                                                                `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
-                                                                                `(Stok: ${bahan.stok} ${bahan.satuan})`}
-                                                                        </option>
-                                                                    `).join('')}
+                                                                                                            <option value="${bahan.id}" 
+                                                                                                                data-harga="${bahan.harga_beli}"
+                                                                                                                data-stok="${bahan.stok}"
+                                                                                                                data-min="${bahan.min}"
+                                                                                                                data-max="${bahan.max}"
+                                                                                                                data-rop="${bahan.rop}"
+                                                                                                                data-satuan="${bahan.satuan}"
+                                                                                                                ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
+                                                                                                                ${bahan.nama} 
+                                                                                                                ${bahan.stok <= bahan.min ? 
+                                                                                                                    `<span class="text-danger">(Stok: ${bahan.stok}/Min: ${bahan.min} - ROP: ${bahan.rop})</span>` : 
+                                                                                                                    `(Stok: ${bahan.stok}/Min: ${bahan.min})`}
+                                                                                                            </option>
+                                                                                                        `).join('')}
                                         </select>
                                     </div>
                                     <div class="col-md-2">
@@ -1172,10 +1192,10 @@
                                         <select name="supplier_id" class="form-control" required>
                                             <option value="">Pilih Supplier</option>
                                             ${response.supplier.map(sup => `
-                                                                        <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
-                                                                            ${sup.nama}
-                                                                        </option>
-                                                                    `).join('')}
+                                                                                                            <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
+                                                                                                                ${sup.nama}
+                                                                                                            </option>
+                                                                                                        `).join('')}
                                         </select>
                                     </div>
                                 </div>
@@ -1230,12 +1250,13 @@
                                     data-stok="{{ $bahan->stok }}"
                                     data-min="{{ $bahan->min }}"
                                     data-max="{{ $bahan->max }}"
+                                    data-rop="{{ $bahan->rop }}"
                                     data-satuan="{{ $bahan->satuan }}">
                                     {{ $bahan->nama }} 
-                                    @if ($bahan->isStokTidakAman())
-                                        <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
+                                    @if ($bahan->isPerluPembelian())
+                                        <span class="text-danger">(Stok: {{ $bahan->stok }}/Min: {{ $bahan->min }} - ROP: {{ $bahan->rop }})</span>
                                     @else
-                                        (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
+                                        (Stok: {{ $bahan->stok }}/Min: {{ $bahan->min }})
                                     @endif
                                 </option>
                                 @endforeach
@@ -1262,7 +1283,7 @@
                 e.preventDefault();
 
                 $.ajax({
-                    url: `{{ url('admin/pembelian') }}/${currentEditId}`,
+                    url: `{{ url('admin.pembelian') }}/${currentEditId}`,
                     type: 'POST',
                     data: $(this).serialize(),
                     beforeSend: function() {

@@ -68,23 +68,19 @@ class BahanBaku extends Model
         return $this->hasMany(DetailPembelian::class, 'bahan_baku_id');
     }
 
-    // Method untuk menghitung statistik penggunaan 30 hari terakhir
     public function hitungStatistikPenggunaan($rangeHari = 30)
     {
         $startDate = now()->subDays($rangeHari)->startOfDay();
 
-        // Gabungkan data penggunaan dari semua sumber
         $penggunaanData = collect();
 
-        // 1. Data dari tabel penggunaan_bahan_baku (baik positif maupun negatif)
         $penggunaanBahanBaku = $this->penggunaan()
             ->where('created_at', '>=', $startDate)
-            ->where('jumlah', '>', 0) // Hanya ambil yang positif (penggunaan)
+            ->where('jumlah', '>', 0)
             ->get();
 
         $penggunaanData = $penggunaanData->merge($penggunaanBahanBaku);
 
-        // 2. Data dari detail penjualan bahan baku langsung
         $penjualanLangsung = $this->detailPenjualan()
             ->whereHas('penjualan', function ($query) use ($startDate) {
                 $query->where('created_at', '>=', $startDate);
@@ -94,7 +90,6 @@ class BahanBaku extends Model
 
         $penggunaanData = $penggunaanData->merge($penjualanLangsung);
 
-        // Jika belum ada data penggunaan sama sekali, return default 0
         if ($penggunaanData->isEmpty()) {
             return [
                 'total_keluar' => 0,
@@ -107,7 +102,6 @@ class BahanBaku extends Model
             ];
         }
 
-        // Kelompokkan data per hari untuk menghitung penjualan harian
         $penggunaanPerHari = $penggunaanData->groupBy(function ($item) {
             return $item->created_at->format('Y-m-d');
         })->map(function ($items) {
@@ -116,15 +110,9 @@ class BahanBaku extends Model
 
         $totalKeluar = $penggunaanPerHari->sum();
         $countKeluar = $penggunaanData->count();
-
-        // Hitung jumlah hari aktual dengan transaksi
         $hariDenganTransaksi = $penggunaanPerHari->count();
-        $hariAktif = max(1, $hariDenganTransaksi); // Minimal 1 hari
-
-        // Rata-rata per hari = total keluar / jumlah hari dengan transaksi
+        $hariAktif = max(1, $hariDenganTransaksi);
         $rataRata = $totalKeluar / $hariAktif;
-
-        // Maksimum per hari = nilai tertinggi dari penjumlahan per hari
         $maksKeluar = $penggunaanPerHari->max();
 
         return [
@@ -143,7 +131,6 @@ class BahanBaku extends Model
     {
         $statistik = $this->hitungStatistikPenggunaan(30);
 
-        // Jika belum ada data penggunaan atau rata-rata 0, return semua 0
         if ($statistik['total_keluar'] == 0 || $statistik['rata_rata'] == 0) {
             return [
                 'safety_stock' => 0,
@@ -154,24 +141,16 @@ class BahanBaku extends Model
             ];
         }
 
-        $T = $statistik['rata_rata']; // Penggunaan rata-rata per hari
-        $LT = max(1, $this->lead_time); // Lead time rata-rata dalam hari (minimal 1)
-        $LT_max = max($LT, $this->lead_time_max); // Lead time maksimum dalam hari
-        $Maks = $statistik['maks_keluar']; // Penggunaan maksimum per hari
+        $T = $statistik['rata_rata'];
+        $LT = max(1, $this->lead_time);
+        $LT_max = max($LT, $this->lead_time_max);
+        $Maks = $statistik['maks_keluar'];
 
-        // Safety Stock = (Penjualan Maksimal Harian × Lead Time Maksimum) - (Penjualan Harian Rata-rata × Lead Time Rata-rata)
         $SS = max(0, ($Maks * $LT_max) - ($T * $LT));
-
-        // Minimal Stock = (Rata-rata × Lead Time) + Safety Stock
         $Min = ($T * $LT) + $SS;
-
-        // Maksimal Stock = 2 * (Rata-rata × Lead Time) + Safety Stock
         $Max = 2 * ($T * $LT) + $SS;
-
-        // Reorder Point = Max - Min (PERUBAHAN DI SINI)
         $ROP = $Max - $Min;
 
-        // Bulatkan semua nilai ke integer
         return [
             'safety_stock' => (int) round($SS),
             'min' => (int) round($Min),
@@ -203,10 +182,8 @@ class BahanBaku extends Model
 
     public function sudahAdaPenggunaan()
     {
-        // Cek di tabel penggunaan_bahan_baku
         $adaPenggunaan = $this->penggunaan()->where('jumlah', '>', 0)->exists();
 
-        // Jika tidak ada, cek di detail penjualan
         if (!$adaPenggunaan) {
             $adaPenggunaan = $this->detailPenjualan()->where('jumlah', '>', 0)->exists();
         }
@@ -216,55 +193,61 @@ class BahanBaku extends Model
 
     public function isPerluPembelian()
     {
-        return $this->min > 0 && $this->stok <= $this->min;
+        return $this->stok <= $this->min;
     }
 
     public function isStokTidakAman()
     {
-        return $this->safety_stock > 0 && $this->stok <= $this->safety_stock;
+        return $this->stok <= $this->safety_stock;
     }
 
     public function getStatusStokAttribute()
     {
-        if ($this->min > 0 && $this->stok <= $this->min) {
+        if ($this->stok <= $this->min) {
             return '<span class="badge badge-danger">Perlu Pembelian</span>';
-        } elseif ($this->safety_stock > 0 && $this->stok <= $this->safety_stock) {
+        } elseif ($this->stok <= $this->safety_stock) {
             return '<span class="badge badge-warning">Stok Menipis</span>';
         } else {
             return '<span class="badge badge-success">Aman</span>';
         }
     }
 
-    public function jumlahPemesananRekomendasi()
+    public function jumlahPemesananRekomendasiRop()
     {
-        if ($this->isPerluPembelian() && $this->max > 0) {
-            $quantity = $this->max - $this->stok;
-            return max(0, $quantity);
+        if ($this->isPerluPembelian() && $this->max > 0 && $this->rop > 0) {
+            // Jika stok ≤ min, beli sesuai ROP (ROP = Max - Min)
+            return $this->rop;
         }
         return 0;
     }
 
+    public function totalNilaiPemesananRekomendasiRop()
+    {
+        $quantity = $this->jumlahPemesananRekomendasiRop();
+        return $quantity * $this->harga_beli;
+    }
+
+    // Metode lama untuk kompatibilitas
+    public function jumlahPemesananRekomendasi()
+    {
+        return $this->jumlahPemesananRekomendasiRop();
+    }
+
     public function totalNilaiPemesananRekomendasi()
     {
-        $quantity = $this->jumlahPemesananRekomendasi();
-        return $quantity * $this->harga_beli;
+        return $this->totalNilaiPemesananRekomendasiRop();
     }
 
     public function scopePerluPembelian($query)
     {
-        return $query->where(function ($q) {
-            $q->whereColumn('stok', '<=', 'min')
-                ->where('min', '>', 0);
-        });
+        return $query->whereColumn('stok', '<=', 'min')
+            ->where('min', '>', 0);
     }
 
-    // Perbaikan: Scope yang benar untuk stok tidak aman
     public function scopeStokTidakAman($query)
     {
-        return $query->where(function ($q) {
-            $q->whereColumn('stok', '<=', 'safety_stock')
-                ->where('safety_stock', '>', 0);
-        });
+        return $query->whereColumn('stok', '<=', 'safety_stock')
+            ->where('safety_stock', '>', 0);
     }
 
     public function getFotoUrlAttribute()
@@ -285,7 +268,7 @@ class BahanBaku extends Model
         return 'Rp ' . number_format($this->harga_jual, 0, ',', '.');
     }
 
-    public function getRekomendasiPembelianAttribute()
+    public function getRekomendasiPembelianRopAttribute()
     {
         if ($this->isPerluPembelian()) {
             return [
@@ -294,16 +277,23 @@ class BahanBaku extends Model
                 'stok_sekarang' => $this->stok,
                 'min' => $this->min,
                 'max' => $this->max,
-                'jumlah_rekomendasi' => $this->jumlahPemesananRekomendasi(),
+                'rop' => $this->rop,
+                'jumlah_rekomendasi' => $this->jumlahPemesananRekomendasiRop(),
                 'harga_beli' => $this->harga_beli,
-                'total_nilai' => $this->totalNilaiPemesananRekomendasi(),
-                'satuan' => $this->satuan
+                'total_nilai' => $this->totalNilaiPemesananRekomendasiRop(),
+                'satuan' => $this->satuan,
+                'perlu_pembelian' => true
             ];
         }
         return null;
     }
 
-    // Method untuk menambah stok dari pembelian
+    // Untuk kompatibilitas
+    public function getRekomendasiPembelianAttribute()
+    {
+        return $this->getRekomendasiPembelianRopAttribute();
+    }
+
     public function tambahStok($jumlah)
     {
         $this->stok += $jumlah;

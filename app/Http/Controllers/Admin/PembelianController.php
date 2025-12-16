@@ -20,11 +20,11 @@ class PembelianController extends Controller
         $supplier = Supplier::all();
         $bahanBaku = BahanBaku::all();
 
-        // Ambil rekomendasi pembelian
+        // Ambil rekomendasi pembelian berdasarkan ROP
         $rekomendasi = BahanBaku::perluPembelian()
             ->get()
             ->map(function ($bahan) {
-                return $bahan->rekomendasi_pembelian;
+                return $bahan->rekomendasi_pembelian_rop;
             })
             ->filter(function ($item) {
                 return !is_null($item) && isset($item['jumlah_rekomendasi']) && $item['jumlah_rekomendasi'] > 0;
@@ -53,7 +53,7 @@ class PembelianController extends Controller
         $rekomendasi = BahanBaku::perluPembelian()
             ->get()
             ->map(function ($bahan) {
-                return $bahan->rekomendasi_pembelian;
+                return $bahan->rekomendasi_pembelian_rop;
             })
             ->filter(function ($item) {
                 return !is_null($item) && isset($item['jumlah_rekomendasi']) && $item['jumlah_rekomendasi'] > 0;
@@ -107,7 +107,6 @@ class PembelianController extends Controller
         }
     }
 
-    // PERBAIKAN 1: Ubah nama method dan route
     public function storeFromRekomendasi(Request $request)
     {
         $request->validate([
@@ -126,7 +125,7 @@ class PembelianController extends Controller
                 $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
 
                 if ($bahanBaku->isPerluPembelian()) {
-                    $jumlah = $bahanBaku->jumlahPemesananRekomendasi();
+                    $jumlah = $bahanBaku->jumlahPemesananRekomendasiRop();
                     if ($jumlah > 0) {
                         $harga = $bahanBaku->harga_beli;
                         $subTotal = $jumlah * $harga;
@@ -167,7 +166,7 @@ class PembelianController extends Controller
 
             DB::commit();
             return response()->json([
-                'success' => 'Pembelian dari rekomendasi sistem Min-Max berhasil disimpan',
+                'success' => 'Pembelian dari rekomendasi sistem ROP berhasil disimpan',
                 'redirect' => route('admin.pembelian.index')
             ]);
         } catch (\Exception $e) {
@@ -322,11 +321,11 @@ class PembelianController extends Controller
     {
         try {
             $stokTidakAman = BahanBaku::whereColumn('stok', '<=', 'min')
-                ->select('id', 'nama', 'stok', 'min', 'max', 'satuan', 'harga_beli')
+                ->select('id', 'nama', 'stok', 'min', 'max', 'rop', 'satuan', 'harga_beli')
                 ->get()
                 ->map(function ($bahan) {
-                    $bahan->jumlah_rekomendasi = $bahan->jumlahPemesananRekomendasi();
-                    $bahan->total_nilai = $bahan->totalNilaiPemesananRekomendasi();
+                    $bahan->jumlah_rekomendasi = $bahan->jumlahPemesananRekomendasiRop();
+                    $bahan->total_nilai = $bahan->totalNilaiPemesananRekomendasiRop();
                     return $bahan;
                 });
 
@@ -343,7 +342,7 @@ class PembelianController extends Controller
             $rekomendasi = BahanBaku::perluPembelian()
                 ->get()
                 ->map(function ($bahan) {
-                    return $bahan->rekomendasi_pembelian;
+                    return $bahan->rekomendasi_pembelian_rop;
                 })
                 ->filter(function ($item) {
                     return !is_null($item) && isset($item['jumlah_rekomendasi']) && $item['jumlah_rekomendasi'] > 0;
@@ -388,7 +387,7 @@ class PembelianController extends Controller
                 ],
                 'rekomendasi_pembelian' => [
                     'perlu_pembelian' => $bahanBaku->isPerluPembelian(),
-                    'jumlah_rekomendasi' => $bahanBaku->jumlahPemesananRekomendasi(),
+                    'jumlah_rekomendasi' => $bahanBaku->jumlahPemesananRekomendasiRop(),
                     'alasan' => $bahanBaku->isPerluPembelian() ?
                         "Stok ({$bahanBaku->stok}) ≤ Min ({$parameters['min']})" :
                         "Stok ({$bahanBaku->stok}) > Min ({$parameters['min']})"
@@ -415,7 +414,7 @@ class PembelianController extends Controller
             $rekomendasi = BahanBaku::perluPembelian()
                 ->get()
                 ->map(function ($bahan) {
-                    $recommendation = $bahan->rekomendasi_pembelian;
+                    $recommendation = $bahan->rekomendasi_pembelian_rop;
                     if (!$recommendation || !isset($recommendation['jumlah_rekomendasi']) || $recommendation['jumlah_rekomendasi'] <= 0) {
                         return null;
                     }
@@ -426,9 +425,10 @@ class PembelianController extends Controller
                         'stok_sekarang' => $bahan->stok,
                         'min' => $recommendation['min'] ?? $bahan->min,
                         'max' => $recommendation['max'] ?? $bahan->max,
-                        'jumlah_rekomendasi' => $recommendation['jumlah_rekomendasi'] ?? $bahan->jumlahPemesananRekomendasi(),
+                        'rop' => $recommendation['rop'] ?? $bahan->rop,
+                        'jumlah_rekomendasi' => $recommendation['jumlah_rekomendasi'] ?? $bahan->jumlahPemesananRekomendasiRop(),
                         'harga_beli' => $recommendation['harga_beli'] ?? $bahan->harga_beli,
-                        'total_nilai' => $recommendation['total_nilai'] ?? $bahan->totalNilaiPemesananRekomendasi(),
+                        'total_nilai' => $recommendation['total_nilai'] ?? $bahan->totalNilaiPemesananRekomendasiRop(),
                         'satuan' => $bahan->satuan,
                         'perlu_pembelian' => $bahan->isPerluPembelian()
                     ];

@@ -6,12 +6,12 @@
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Data Pembelian</h3>
+                        <h3 class="card-title">Data Pembelian (Owner)</h3>
                         <div class="float-right">
                             @if ($rekomendasi->count() > 0)
                                 <button class="btn btn-success mr-2" id="btn-pembelian-cepat"
-                                    title="Buat pembelian dari rekomendasi sistem">
-                                    <i class="fas fa-bolt"></i> Pembelian Cepat
+                                    title="Buat pembelian dari rekomendasi sistem ROP">
+                                    <i class="fas fa-bolt"></i> Pembelian Cepat ROP
                                 </button>
                             @endif
                             <button class="btn btn-primary" data-toggle="modal" data-target="#modalTambah">
@@ -34,25 +34,26 @@
                                             <tr>
                                                 <th>Bahan Baku</th>
                                                 <th>Stok Saat Ini</th>
-                                                <th>Stok Minimum</th>
-                                                <th>Stok Maksimum</th>
-                                                <th>Kekurangan</th>
+                                                <th>Min</th>
+                                                <th>ROP (Max-Min)</th>
                                                 <th>Rekomendasi Beli</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @foreach ($stokTidakAman as $bahan)
+                                                @php
+                                                    $rop = $bahan->rop;
+                                                    $rekomendasiBeli = $bahan->jumlahPemesananRekomendasiRop();
+                                                @endphp
                                                 <tr>
                                                     <td>{{ $bahan->nama }}</td>
                                                     <td>{{ $bahan->stok }} {{ $bahan->satuan }}</td>
                                                     <td>{{ $bahan->min }} {{ $bahan->satuan }}</td>
-                                                    <td>{{ $bahan->max }} {{ $bahan->satuan }}</td>
-                                                    <td class="text-danger"><strong>{{ $bahan->min - $bahan->stok }}
+                                                    <td class="text-primary"><strong>{{ $rop }}
                                                             {{ $bahan->satuan }}</strong></td>
                                                     <td class="text-success">
-                                                        <strong>{{ $bahan->jumlahPemesananRekomendasi() }}
-                                                            {{ $bahan->satuan }}</strong>
+                                                        <strong>{{ $rekomendasiBeli }} {{ $bahan->satuan }}</strong>
                                                     </td>
                                                     <td>{!! $bahan->status_stok !!}</td>
                                                 </tr>
@@ -66,16 +67,17 @@
                         @if ($rekomendasi->count() > 0)
                             <div class="alert alert-info">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <h5><i class="fas fa-lightbulb"></i> Rekomendasi Pembelian (Sistem Min-Max)</h5>
+                                    <h5><i class="fas fa-lightbulb"></i> Rekomendasi Pembelian (Sistem ROP)</h5>
                                     <div>
                                         <span class="badge badge-primary mr-2">Total: Rp
                                             {{ number_format($totalRekomendasi, 0, ',', '.') }}</span>
                                         <button class="btn btn-sm btn-success" id="btn-gunakan-rekomendasi">
-                                            <i class="fas fa-check-circle"></i> Gunakan Rekomendasi
+                                            <i class="fas fa-check-circle"></i> Gunakan Rekomendasi ROP
                                         </button>
                                     </div>
                                 </div>
-                                <p>Bahan baku berikut perlu dilakukan pembelian berdasarkan sistem Min-Max:</p>
+                                <p>Bahan baku berikut perlu dilakukan pembelian berdasarkan sistem ROP (Reorder Point = Max
+                                    - Min):</p>
                                 <div class="table-responsive">
                                     <table class="table table-sm table-bordered">
                                         <thead>
@@ -84,7 +86,8 @@
                                                 <th>Stok Saat Ini</th>
                                                 <th>Min</th>
                                                 <th>Max</th>
-                                                <th>Rekomendasi Beli</th>
+                                                <th>ROP (Max-Min)</th>
+                                                <th>Rekomendasi Beli (ROP)</th>
                                                 <th>Harga Beli</th>
                                                 <th>Sub Total</th>
                                                 <th>Satuan</th>
@@ -92,23 +95,27 @@
                                         </thead>
                                         <tbody>
                                             @foreach ($rekomendasi as $item)
+                                                @php
+                                                    $subTotal = $item['jumlah_rekomendasi'] * $item['harga_beli'];
+                                                @endphp
                                                 <tr>
                                                     <td>{{ $item['nama'] }}</td>
                                                     <td>{{ $item['stok_sekarang'] }}</td>
                                                     <td>{{ $item['min'] }}</td>
                                                     <td>{{ $item['max'] }}</td>
+                                                    <td><span class="badge badge-info">{{ $item['rop'] }}</span></td>
                                                     <td><strong
                                                             class="text-success">{{ $item['jumlah_rekomendasi'] }}</strong>
                                                     </td>
                                                     <td>Rp {{ number_format($item['harga_beli'], 0, ',', '.') }}</td>
-                                                    <td>Rp {{ number_format($item['total_nilai'], 0, ',', '.') }}</td>
+                                                    <td>Rp {{ number_format($subTotal, 0, ',', '.') }}</td>
                                                     <td>{{ $item['satuan'] }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
                                         <tfoot>
                                             <tr class="table-primary">
-                                                <th colspan="6" class="text-right">Total Rekomendasi:</th>
+                                                <th colspan="7" class="text-right">Total Rekomendasi:</th>
                                                 <th colspan="2">Rp {{ number_format($totalRekomendasi, 0, ',', '.') }}
                                                 </th>
                                             </tr>
@@ -149,7 +156,7 @@
                                                 @if ($item->status == 'menunggu_persetujuan')
                                                     <span class="badge badge-warning">Menunggu Persetujuan</span>
                                                 @elseif($item->status == 'completed')
-                                                    <span class="badge badge-success">Selesai</span>
+                                                    <span class="badge badge-success">Disetujui</span>
                                                 @elseif($item->status == 'ditolak')
                                                     <span class="badge badge-danger">Ditolak</span>
                                                 @else
@@ -197,70 +204,12 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modalPrintLaporan">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <form id="formPrintLaporan" action="{{ route('owner.pembelian.laporan') }}" method="GET" target="_blank">
-                    <div class="modal-header">
-                        <h4 class="modal-title"><i class="fas fa-print"></i> Print Laporan Pembelian</h4>
-                        <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label>Tanggal Awal <span class="text-danger">*</span></label>
-                                    <input type="date" name="tanggal_awal" class="form-control"
-                                        value="{{ date('Y-m-01') }}" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label>Tanggal Akhir <span class="text-danger">*</span></label>
-                                    <input type="date" name="tanggal_akhir" class="form-control"
-                                        value="{{ date('Y-m-d') }}" required>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label>Status Pembelian</label>
-                                    <select name="status" class="form-control">
-                                        <option value="semua">Semua Status</option>
-                                        <option value="completed">Selesai/Disetujui</option>
-                                        <option value="menunggu_persetujuan">Menunggu Persetujuan</option>
-                                        <option value="ditolak">Ditolak</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            <strong>Informasi:</strong> Laporan akan dicetak dalam format PDF dengan detail transaksi
-                            pembelian berdasarkan periode yang dipilih.
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">
-                            <i class="fas fa-times"></i> Batal
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-print"></i> Print Laporan
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
+    <!-- Modal Pembelian Cepat ROP -->
     <div class="modal fade" id="modalPembelianCepat">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title">Pembelian Cepat dari Rekomendasi Sistem</h4>
+                    <h4 class="modal-title">Pembelian Cepat dari Rekomendasi Sistem ROP</h4>
                     <button type="button" class="close" data-dismiss="modal">&times;</button>
                 </div>
                 <form id="formPembelianCepat">
@@ -281,14 +230,14 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label>Tanggal <span class="text-danger">*</span></label>
-                                    <input type="date" name="tanggal" class="form-control"
-                                        value="{{ date('Y-m-d') }}" required>
+                                    <input type="date" name="tanggal" class="form-control" value="{{ date('Y-m-d') }}"
+                                        required>
                                 </div>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label>Items Rekomendasi Pembelian</label>
+                            <label>Items Rekomendasi Pembelian Berdasarkan ROP (Max-Min)</label>
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div>
                                     <div class="form-check">
@@ -311,7 +260,8 @@
                                             <th>Stok Sekarang</th>
                                             <th>Min</th>
                                             <th>Max</th>
-                                            <th>Jumlah Beli</th>
+                                            <th>ROP (Max-Min)</th>
+                                            <th>Jumlah Beli (ROP)</th>
                                             <th>Harga Beli</th>
                                             <th>Sub Total</th>
                                         </tr>
@@ -320,7 +270,7 @@
                                     </tbody>
                                     <tfoot class="table-success">
                                         <tr>
-                                            <th colspan="7" class="text-right">Total Pembelian:</th>
+                                            <th colspan="8" class="text-right">Total Pembelian:</th>
                                             <th id="total-rekomendasi">Rp 0</th>
                                         </tr>
                                     </tfoot>
@@ -331,7 +281,7 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-bolt"></i> Buat Pembelian Cepat
+                            <i class="fas fa-bolt"></i> Buat Pembelian Cepat ROP
                         </button>
                     </div>
                 </form>
@@ -339,6 +289,7 @@
         </div>
     </div>
 
+    <!-- Modal Tambah Pembelian -->
     <div class="modal fade" id="modalTambah">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -377,10 +328,11 @@
                                 <div class="alert alert-info py-2">
                                     <small>
                                         <i class="fas fa-lightbulb"></i>
-                                        <strong>Tip:</strong> Anda dapat menggunakan rekomendasi sistem untuk mengisi items.
+                                        <strong>Tip:</strong> Anda dapat menggunakan rekomendasi sistem ROP untuk mengisi
+                                        items.
                                         <button type="button" class="btn btn-sm btn-outline-primary ml-2"
                                             id="btn-use-recommendation">
-                                            <i class="fas fa-magic"></i> Gunakan Rekomendasi
+                                            <i class="fas fa-magic"></i> Gunakan Rekomendasi ROP
                                         </button>
                                     </small>
                                 </div>
@@ -393,16 +345,22 @@
                                             required>
                                             <option value="">Pilih Bahan Baku</option>
                                             @foreach ($bahanBaku as $bahan)
+                                                @php
+                                                    $rop = $bahan->rop;
+                                                    $rekomendasiBeli = $bahan->jumlahPemesananRekomendasiRop();
+                                                @endphp
                                                 <option value="{{ $bahan->id }}"
                                                     data-harga="{{ $bahan->harga_beli }}"
                                                     data-stok="{{ $bahan->stok }}" data-min="{{ $bahan->min }}"
-                                                    data-max="{{ $bahan->max }}" data-satuan="{{ $bahan->satuan }}">
+                                                    data-max="{{ $bahan->max }}" data-rop="{{ $rop }}"
+                                                    data-rekomendasi="{{ $rekomendasiBeli }}"
+                                                    data-satuan="{{ $bahan->satuan }}">
                                                     {{ $bahan->nama }}
                                                     @if ($bahan->stok <= $bahan->min)
-                                                        <span class="text-danger">(Stok: {{ $bahan->stok }}
-                                                            {{ $bahan->satuan }} - PERLU BELI!)</span>
+                                                        <span class="text-danger">(Stok: {{ $bahan->stok }} - ROP:
+                                                            {{ $rop }})</span>
                                                     @else
-                                                        (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
+                                                        (Stok: {{ $bahan->stok }}, ROP: {{ $rop }})
                                                     @endif
                                                 </option>
                                             @endforeach
@@ -446,6 +404,7 @@
         </div>
     </div>
 
+    <!-- Modal Detail -->
     <div class="modal fade" id="modalDetail" tabindex="-1" role="dialog">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -463,6 +422,7 @@
         </div>
     </div>
 
+    <!-- Modal Edit -->
     <div class="modal fade" id="modalEdit" tabindex="-1" role="dialog">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -485,6 +445,7 @@
         </div>
     </div>
 
+    <!-- Modal Konfirmasi -->
     <div class="modal fade" id="modalKonfirmasi" tabindex="-1" role="dialog">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -499,6 +460,57 @@
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
                     <button type="button" class="btn btn-primary" id="konfirmasi-ya">Ya</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Print Laporan -->
+    <div class="modal fade" id="modalPrintLaporan">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form id="formPrintLaporan" action="{{ route('owner.pembelian.laporan') }}" method="GET"
+                    target="_blank">
+                    <div class="modal-header">
+                        <h4 class="modal-title"><i class="fas fa-print"></i> Print Laporan Pembelian</h4>
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Tanggal Awal <span class="text-danger">*</span></label>
+                                    <input type="date" name="tanggal_awal" class="form-control"
+                                        value="{{ date('Y-m-01') }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Tanggal Akhir <span class="text-danger">*</span></label>
+                                    <input type="date" name="tanggal_akhir" class="form-control"
+                                        value="{{ date('Y-m-d') }}" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label>Status Pembelian</label>
+                                    <select name="status" class="form-control">
+                                        <option value="semua">Semua Status</option>
+                                        <option value="completed">Selesai/Disetujui</option>
+                                        <option value="menunggu_persetujuan">Menunggu Persetujuan</option>
+                                        <option value="ditolak">Ditolak</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Print Laporan</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -547,6 +559,30 @@
             font-size: 12px;
             padding: 5px 10px;
         }
+
+        .rop-badge {
+            background-color: #17a2b8;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        .rop-indicator {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+
+        .alert .table {
+            margin-bottom: 0;
+        }
+
+        .form-control-plaintext {
+            background-color: transparent;
+            border: none;
+            font-weight: bold;
+        }
     </style>
 @endpush
 
@@ -574,7 +610,7 @@
                     type: 'GET',
                     beforeSend: function() {
                         $('#rekomendasi-items-body').html(
-                            '<tr><td colspan="8" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr>'
+                            '<tr><td colspan="9" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data rekomendasi ROP...</td></tr>'
                         );
                     },
                     success: function(response) {
@@ -583,25 +619,28 @@
                             let totalAll = 0;
 
                             response.rekomendasi.forEach(function(item, index) {
+                                const rop = item.rop || Math.max(0, item.max - item.min);
                                 totalAll += item.total_nilai;
+
                                 html += `
-                            <tr>
-                                <td>
-                                    <input type="checkbox" name="items[]" value="${item.bahan_baku_id}" 
-                                           class="form-check-input item-checkbox" 
-                                           data-jumlah="${item.jumlah_rekomendasi}"
-                                           data-harga="${item.harga_beli}"
-                                           data-total="${item.total_nilai}" checked>
-                                </td>
-                                <td>${item.nama}</td>
-                                <td>${item.stok_sekarang} ${item.satuan}</td>
-                                <td>${item.min}</td>
-                                <td>${item.max}</td>
-                                <td class="text-success font-weight-bold">${item.jumlah_rekomendasi} ${item.satuan}</td>
-                                <td>Rp ${parseFloat(item.harga_beli).toLocaleString('id-ID')}</td>
-                                <td class="text-primary font-weight-bold">Rp ${parseFloat(item.total_nilai).toLocaleString('id-ID')}</td>
-                            </tr>
-                        `;
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" name="items[]" value="${item.bahan_baku_id}" 
+                                                   class="form-check-input item-checkbox" 
+                                                   data-jumlah="${item.jumlah_rekomendasi}"
+                                                   data-harga="${item.harga_beli}"
+                                                   data-total="${item.total_nilai}" checked>
+                                        </td>
+                                        <td>${item.nama}</td>
+                                        <td>${item.stok_sekarang} ${item.satuan}</td>
+                                        <td>${item.min}</td>
+                                        <td>${item.max}</td>
+                                        <td><span class="rop-badge">${rop} ${item.satuan}</span></td>
+                                        <td class="text-success font-weight-bold">${item.jumlah_rekomendasi} ${item.satuan}</td>
+                                        <td>Rp ${parseFloat(item.harga_beli).toLocaleString('id-ID')}</td>
+                                        <td class="text-primary font-weight-bold">Rp ${parseFloat(item.total_nilai).toLocaleString('id-ID')}</td>
+                                    </tr>
+                                `;
                             });
 
                             $('#rekomendasi-items-body').html(html);
@@ -609,12 +648,11 @@
                             $('#selected-count').text(response.rekomendasi.length + ' item terpilih');
 
                             $('#select-all-rekomendasi').prop('checked', true);
-
                             attachRekomendasiEvents();
                         }
                     },
                     error: function(xhr) {
-                        showAlert('error', 'Gagal memuat data rekomendasi');
+                        showAlert('error', 'Gagal memuat data rekomendasi ROP');
                     }
                 });
             }
@@ -702,7 +740,7 @@
                     },
                     complete: function() {
                         $('#formPembelianCepat button[type="submit"]').prop('disabled', false)
-                            .html('<i class="fas fa-bolt"></i> Buat Pembelian Cepat');
+                            .html('<i class="fas fa-bolt"></i> Buat Pembelian Cepat ROP');
                     }
                 });
             });
@@ -712,49 +750,157 @@
                 $('#modalPembelianCepat').modal('show');
             });
 
+            $(document).on('change', '.bahan-baku-select', function() {
+                const selectedOption = $(this).find('option:selected');
+                const harga = selectedOption.data('harga');
+                const stok = selectedOption.data('stok');
+                const min = selectedOption.data('min');
+                const rop = selectedOption.data('rop');
+                const rekomendasi = selectedOption.data('rekomendasi');
+                const satuan = selectedOption.data('satuan');
+
+                if (harga) {
+                    $(this).closest('.item-row').find('.harga').val(harga);
+                }
+
+                if (stok <= min && rop > 0) {
+                    $(this).closest('.item-row').find('.jumlah').val(rekomendasi);
+
+                    showAlert('info',
+                        `Stok ${stok} ${satuan} ≤ Min ${min} ${satuan}\n` +
+                        `ROP: ${rop} ${satuan}\n` +
+                        `Rekomendasi beli: ${rekomendasi} ${satuan}`
+                    );
+                }
+
+                calculateItemSubTotal($(this).closest('.item-row'));
+                calculateTotal();
+            });
+
+            $('#btn-use-recommendation').click(function() {
+                $.ajax({
+                    url: '{{ route('owner.pembelian.get.rekomendasi.data') }}',
+                    type: 'GET',
+                    success: function(response) {
+                        if (response.success && response.rekomendasi.length > 0) {
+                            $('#items-container').empty();
+                            itemCounter = 0;
+
+                            response.rekomendasi.forEach(function(item) {
+                                const rop = item.rop || Math.max(0, item.max - item
+                                    .min);
+
+                                const newItem = `
+                                    <div class="item-row row mb-2">
+                                        <div class="col-md-4">
+                                            <select name="items[${itemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
+                                                <option value="">Pilih Bahan Baku</option>
+                                                @foreach ($bahanBaku as $bahan)
+                                                    @php
+                                                        $ropBahan = $bahan->rop;
+                                                        $rekomendasiBeli = $bahan->jumlahPemesananRekomendasiRop();
+                                                    @endphp
+                                                    <option value="{{ $bahan->id }}" 
+                                                        data-harga="{{ $bahan->harga_beli }}"
+                                                        data-stok="{{ $bahan->stok }}" 
+                                                        data-min="{{ $bahan->min }}"
+                                                        data-max="{{ $bahan->max }}" 
+                                                        data-rop="{{ $ropBahan }}"
+                                                        data-rekomendasi="{{ $rekomendasiBeli }}"
+                                                        data-satuan="{{ $bahan->satuan }}"
+                                                        ${item.bahan_baku_id == {{ $bahan->id }} ? 'selected' : ''}>
+                                                        {{ $bahan->nama }}
+                                                        @if ($bahan->stok <= $bahan->min)
+                                                            <span class="text-danger">(Stok: {{ $bahan->stok }} - ROP: {{ $ropBahan }})</span>
+                                                        @else
+                                                            (Stok: {{ $bahan->stok }}, ROP: {{ $ropBahan }})
+                                                        @endif
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <input type="number" name="items[${itemCounter}][jumlah]" class="form-control jumlah" 
+                                                value="${item.jumlah_rekomendasi}" placeholder="Jumlah" min="1" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <input type="number" name="items[${itemCounter}][harga]" class="form-control harga" 
+                                                value="${item.harga_beli}" placeholder="Harga" step="0.01" min="0" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <input type="text" class="form-control-plaintext sub-total" 
+                                                value="Rp ${parseFloat(item.total_nilai).toLocaleString('id-ID')}" readonly>
+                                        </div>
+                                        <div class="col-md-1">
+                                            <button type="button" class="btn btn-danger btn-remove-item">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                                $('#items-container').append(newItem);
+                                itemCounter++;
+                            });
+
+                            updateRemoveButtons();
+                            calculateTotal();
+                            showAlert('success', 'Rekomendasi sistem ROP telah diterapkan!');
+                        }
+                    },
+                    error: function() {
+                        showAlert('error', 'Gagal memuat rekomendasi ROP');
+                    }
+                });
+            });
+
             $('#btn-add-item').click(function() {
                 const newItem = `
-            <div class="item-row row mb-2">
-                <div class="col-md-4">
-                    <select name="items[${itemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
-                        <option value="">Pilih Bahan Baku</option>
-                        @foreach ($bahanBaku as $bahan)
-                        <option value="{{ $bahan->id }}" 
-                            data-harga="{{ $bahan->harga_beli }}"
-                            data-stok="{{ $bahan->stok }}" 
-                            data-min="{{ $bahan->min }}"
-                            data-max="{{ $bahan->max }}" 
-                            data-satuan="{{ $bahan->satuan }}">
-                            {{ $bahan->nama }}
-                            @if ($bahan->stok <= $bahan->min)
-                                <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
-                            @else
-                                (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
-                            @endif
-                        </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <input type="number" name="items[${itemCounter}][jumlah]" class="form-control jumlah" placeholder="Jumlah" min="1" required>
-                </div>
-                <div class="col-md-3">
-                    <input type="number" name="items[${itemCounter}][harga]" class="form-control harga" placeholder="Harga" step="0.01" min="0" required>
-                </div>
-                <div class="col-md-2">
-                    <input type="text" class="form-control-plaintext sub-total" value="Rp 0" readonly>
-                </div>
-                <div class="col-md-1">
-                    <button type="button" class="btn btn-danger btn-remove-item">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `;
+                    <div class="item-row row mb-2">
+                        <div class="col-md-4">
+                            <select name="items[${itemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
+                                <option value="">Pilih Bahan Baku</option>
+                                @foreach ($bahanBaku as $bahan)
+                                    @php
+                                        $rop = $bahan->rop;
+                                        $rekomendasiBeli = $bahan->jumlahPemesananRekomendasiRop();
+                                    @endphp
+                                    <option value="{{ $bahan->id }}" 
+                                        data-harga="{{ $bahan->harga_beli }}"
+                                        data-stok="{{ $bahan->stok }}" 
+                                        data-min="{{ $bahan->min }}"
+                                        data-max="{{ $bahan->max }}" 
+                                        data-rop="{{ $rop }}"
+                                        data-rekomendasi="{{ $rekomendasiBeli }}"
+                                        data-satuan="{{ $bahan->satuan }}">
+                                        {{ $bahan->nama }}
+                                        @if ($bahan->stok <= $bahan->min)
+                                            <span class="text-danger">(Stok: {{ $bahan->stok }} - ROP: {{ $rop }})</span>
+                                        @else
+                                            (Stok: {{ $bahan->stok }}, ROP: {{ $rop }})
+                                        @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" name="items[${itemCounter}][jumlah]" class="form-control jumlah" placeholder="Jumlah" min="1" required>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" name="items[${itemCounter}][harga]" class="form-control harga" placeholder="Harga" step="0.01" min="0" required>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="text" class="form-control-plaintext sub-total" value="Rp 0" readonly>
+                        </div>
+                        <div class="col-md-1">
+                            <button type="button" class="btn btn-danger btn-remove-item">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
                 $('#items-container').append(newItem);
                 itemCounter++;
                 updateRemoveButtons();
-                attachItemEvents();
             });
 
             $(document).on('click', '.btn-remove-item', function() {
@@ -770,34 +916,6 @@
                 itemRows.each(function(index) {
                     const $removeBtn = $(this).find('.btn-remove-item');
                     $removeBtn.prop('disabled', itemRows.length <= 1);
-                });
-            }
-
-            function attachItemEvents() {
-                $(document).on('change', '.bahan-baku-select', function() {
-                    const selectedOption = $(this).find('option:selected');
-                    const harga = selectedOption.data('harga');
-                    const stok = selectedOption.data('stok');
-                    const min = selectedOption.data('min');
-                    const max = selectedOption.data('max');
-                    const satuan = selectedOption.data('satuan');
-
-                    if (harga) {
-                        $(this).closest('.item-row').find('.harga').val(harga);
-                    }
-
-                    if (stok <= min) {
-                        const rekomendasi = max - stok;
-                        $(this).closest('.item-row').find('.jumlah').val(rekomendasi);
-                    }
-
-                    calculateItemSubTotal($(this).closest('.item-row'));
-                    calculateTotal();
-                });
-
-                $(document).on('input', '.jumlah, .harga', function() {
-                    calculateItemSubTotal($(this).closest('.item-row'));
-                    calculateTotal();
                 });
             }
 
@@ -818,71 +936,9 @@
                 $('#total-display').text('Rp ' + total.toLocaleString('id-ID'));
             }
 
-            $('#btn-use-recommendation').click(function() {
-                $.ajax({
-                    url: '{{ route('owner.pembelian.get.rekomendasi.data') }}',
-                    type: 'GET',
-                    success: function(response) {
-                        if (response.success && response.rekomendasi.length > 0) {
-                            $('#items-container').empty();
-                            itemCounter = 0;
-
-                            response.rekomendasi.forEach(function(item) {
-                                const newItem = `
-                            <div class="item-row row mb-2">
-                                <div class="col-md-4">
-                                    <select name="items[${itemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
-                                        <option value="">Pilih Bahan Baku</option>
-                                        @foreach ($bahanBaku as $bahan)
-                                        <option value="{{ $bahan->id }}" 
-                                            data-harga="{{ $bahan->harga_beli }}"
-                                            data-stok="{{ $bahan->stok }}" 
-                                            data-min="{{ $bahan->min }}"
-                                            data-max="{{ $bahan->max }}" 
-                                            data-satuan="{{ $bahan->satuan }}"
-                                            ${item.bahan_baku_id == {{ $bahan->id }} ? 'selected' : ''}>
-                                            {{ $bahan->nama }}
-                                            @if ($bahan->stok <= $bahan->min)
-                                                <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
-                                            @else
-                                                (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
-                                            @endif
-                                        </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="number" name="items[${itemCounter}][jumlah]" class="form-control jumlah" 
-                                        value="${item.jumlah_rekomendasi}" placeholder="Jumlah" min="1" required>
-                                </div>
-                                <div class="col-md-3">
-                                    <input type="number" name="items[${itemCounter}][harga]" class="form-control harga" 
-                                        value="${item.harga_beli}" placeholder="Harga" step="0.01" min="0" required>
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="text" class="form-control-plaintext sub-total" 
-                                        value="Rp ${parseFloat(item.total_nilai).toLocaleString('id-ID')}" readonly>
-                                </div>
-                                <div class="col-md-1">
-                                    <button type="button" class="btn btn-danger btn-remove-item">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                                $('#items-container').append(newItem);
-                                itemCounter++;
-                            });
-
-                            updateRemoveButtons();
-                            calculateTotal();
-                            showAlert('success', 'Rekomendasi sistem telah diterapkan!');
-                        }
-                    },
-                    error: function() {
-                        showAlert('error', 'Gagal memuat rekomendasi');
-                    }
-                });
+            $(document).on('input', '.jumlah, .harga', function() {
+                calculateItemSubTotal($(this).closest('.item-row'));
+                calculateTotal();
             });
 
             $('#formTambah').submit(function(e) {
@@ -942,13 +998,13 @@
                         let itemsHtml = '';
                         response.detail_pembelian.forEach(item => {
                             itemsHtml += `
-                        <tr>
-                            <td>${item.bahan_baku.nama}</td>
-                            <td>${item.jumlah} ${item.bahan_baku.satuan}</td>
-                            <td>Rp ${parseFloat(item.harga).toLocaleString('id-ID')}</td>
-                            <td>Rp ${parseFloat(item.sub_total).toLocaleString('id-ID')}</td>
-                        </tr>
-                    `;
+                                <tr>
+                                    <td>${item.bahan_baku.nama}</td>
+                                    <td>${item.jumlah} ${item.bahan_baku.satuan}</td>
+                                    <td>Rp ${parseFloat(item.harga).toLocaleString('id-ID')}</td>
+                                    <td>Rp ${parseFloat(item.sub_total).toLocaleString('id-ID')}</td>
+                                </tr>
+                            `;
                         });
 
                         const tanggal = new Date(response.tanggal);
@@ -959,39 +1015,39 @@
                         });
 
                         $('#detail-content').html(`
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <p><strong>Kode Pembelian:</strong> ${response.kode_pembelian || 'PB-' + response.id.toString().padStart(5, '0')}</p>
-                            <p><strong>Supplier:</strong> ${response.supplier.nama}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong>Tanggal:</strong> ${formattedDate}</p>
-                            <p><strong>Status:</strong> <span class="badge ${getStatusBadgeClass(response.status)}">${getStatusText(response.status)}</span></p>
-                        </div>
-                    </div>
-                    <div class="table-responsive">
-                        <h5>Detail Items:</h5>
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Bahan Baku</th>
-                                    <th>Jumlah</th>
-                                    <th>Harga</th>
-                                    <th>Sub Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${itemsHtml}
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <th colspan="3" class="text-right">Total:</th>
-                                    <th>Rp ${parseFloat(response.total).toLocaleString('id-ID')}</th>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                `);
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <p><strong>Kode Pembelian:</strong> ${response.kode_pembelian || 'PB-' + response.id.toString().padStart(5, '0')}</p>
+                                    <p><strong>Supplier:</strong> ${response.supplier.nama}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Tanggal:</strong> ${formattedDate}</p>
+                                    <p><strong>Status:</strong> <span class="badge ${getStatusBadgeClass(response.status)}">${getStatusText(response.status)}</span></p>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <h5>Detail Items:</h5>
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Bahan Baku</th>
+                                            <th>Jumlah</th>
+                                            <th>Harga</th>
+                                            <th>Sub Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${itemsHtml}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th colspan="3" class="text-right">Total:</th>
+                                            <th>Rp ${parseFloat(response.total).toLocaleString('id-ID')}</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        `);
                         $('#modalDetail').modal('show');
                     },
                     error: function() {
@@ -1023,90 +1079,97 @@
 
                         pembelian.detail_pembelian.forEach((item, index) => {
                             itemsHtml += `
-                        <div class="item-row row mb-2" data-row-index="${index}">
-                            <div class="col-md-4">
-                                <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
-                                    <option value="">Pilih Bahan Baku</option>
-                                    ${response.bahanBaku.map(bahan => `
-                                                                <option value="${bahan.id}" 
-                                                                    data-harga="${bahan.harga_beli}"
-                                                                    data-stok="${bahan.stok}"
-                                                                    data-min="${bahan.min}"
-                                                                    data-max="${bahan.max}"
-                                                                    data-satuan="${bahan.satuan}"
-                                                                    ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
-                                                                    ${bahan.nama} 
-                                                                    ${bahan.stok <= bahan.min ? 
-                                                                        `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - PERLU BELI!)</span>` : 
-                                                                        `(Stok: ${bahan.stok} ${bahan.satuan})`}
-                                                                </option>
-                                                            `).join('')}
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <input type="number" name="items[${index}][jumlah]" class="form-control jumlah" 
-                                    value="${item.jumlah}" placeholder="Jumlah" min="1" required>
-                            </div>
-                            <div class="col-md-3">
-                                <input type="number" name="items[${index}][harga]" class="form-control harga" 
-                                    value="${item.harga}" placeholder="Harga" step="0.01" min="0" required>
-                            </div>
-                            <div class="col-md-2">
-                                <input type="text" class="form-control-plaintext sub-total" 
-                                    value="Rp ${parseFloat(item.sub_total).toLocaleString('id-ID')}" readonly>
-                            </div>
-                            <div class="col-md-1">
-                                <button type="button" class="btn btn-danger btn-remove-item">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
+                                <div class="item-row row mb-2" data-row-index="${index}">
+                                    <div class="col-md-4">
+                                        <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
+                                            <option value="">Pilih Bahan Baku</option>
+                                            ${response.bahanBaku.map(bahan => {
+                                                const rop = bahan.rop || Math.max(0, bahan.max - bahan.min);
+                                                const rekomendasiBeli = Math.max(0, bahan.max - bahan.stok);
+                                                return `
+                                                            <option value="${bahan.id}" 
+                                                                data-harga="${bahan.harga_beli}"
+                                                                data-stok="${bahan.stok}"
+                                                                data-min="${bahan.min}"
+                                                                data-max="${bahan.max}"
+                                                                data-rop="${rop}"
+                                                                data-rekomendasi="${rekomendasiBeli}"
+                                                                data-satuan="${bahan.satuan}"
+                                                                ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
+                                                                ${bahan.nama} 
+                                                                ${bahan.stok <= bahan.min ? 
+                                                                    `<span class="text-danger">(Stok: ${bahan.stok} ${bahan.satuan} - ROP: ${rop} ${bahan.satuan})</span>` : 
+                                                                    `(Stok: ${bahan.stok} ${bahan.satuan}, ROP: ${rop} ${bahan.satuan})`}
+                                                            </option>
+                                                        `;
+                                            }).join('')}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" name="items[${index}][jumlah]" class="form-control jumlah" 
+                                            value="${item.jumlah}" placeholder="Jumlah" min="1" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="number" name="items[${index}][harga]" class="form-control harga" 
+                                            value="${item.harga}" placeholder="Harga" step="0.01" min="0" required>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control-plaintext sub-total" 
+                                            value="Rp ${parseFloat(item.sub_total).toLocaleString('id-ID')}" readonly>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-danger btn-remove-item">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
                             editItemCounter = index + 1;
                         });
 
                         $('#edit-content').html(`
-                    <input type="hidden" name="_method" value="PUT">
-                    <input type="hidden" id="edit-id" value="${currentEditId}">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Supplier</label>
-                                <select name="supplier_id" class="form-control" required>
-                                    <option value="">Pilih Supplier</option>
-                                    ${response.supplier.map(sup => `
-                                                                <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
-                                                                    ${sup.nama}
-                                                                </option>
-                                                            `).join('')}
-                                </select>
+                            <input type="hidden" name="_method" value="PUT">
+                            <input type="hidden" id="edit-id" value="${currentEditId}">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Supplier</label>
+                                        <select name="supplier_id" class="form-control" required>
+                                            <option value="">Pilih Supplier</option>
+                                            ${response.supplier.map(sup => `
+                                                        <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
+                                                            ${sup.nama}
+                                                        </option>
+                                                    `).join('')}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Tanggal</label>
+                                        <input type="date" name="tanggal" class="form-control" value="${pembelian.tanggal}" required>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-6">
+                            
                             <div class="form-group">
-                                <label>Tanggal</label>
-                                <input type="date" name="tanggal" class="form-control" value="${pembelian.tanggal}" required>
+                                <label>Items Pembelian</label>
+                                <div id="edit-items-container">
+                                    ${itemsHtml}
+                                </div>
+                                <button type="button" class="btn btn-secondary mt-2" id="btn-add-edit-item">
+                                    <i class="fas fa-plus"></i> Tambah Item
+                                </button>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Items Pembelian</label>
-                        <div id="edit-items-container">
-                            ${itemsHtml}
-                        </div>
-                        <button type="button" class="btn btn-secondary mt-2" id="btn-add-edit-item">
-                            <i class="fas fa-plus"></i> Tambah Item
-                        </button>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="h5">Total: <span id="edit-total-display" class="text-success font-weight-bold">Rp ${parseFloat(pembelian.total).toLocaleString('id-ID')}</span></label>
-                    </div>
-                `);
+                            
+                            <div class="form-group">
+                                <label class="h5">Total: <span id="edit-total-display" class="text-success font-weight-bold">Rp ${parseFloat(pembelian.total).toLocaleString('id-ID')}</span></label>
+                            </div>
+                        `);
 
                         setupEditFormEvents();
                         updateEditRemoveButtons();
+                        calculateEditTotal();
                         $('#modalEdit').modal('show');
                     },
                     error: function() {
@@ -1118,43 +1181,49 @@
             function setupEditFormEvents() {
                 $('#btn-add-edit-item').off('click').on('click', function() {
                     const newItem = `
-                <div class="item-row row mb-2" data-row-index="${editItemCounter}">
-                    <div class="col-md-4">
-                        <select name="items[${editItemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
-                            <option value="">Pilih Bahan Baku</option>
-                            @foreach ($bahanBaku as $bahan)
-                            <option value="{{ $bahan->id }}" 
-                                data-harga="{{ $bahan->harga_beli }}"
-                                data-stok="{{ $bahan->stok }}" 
-                                data-min="{{ $bahan->min }}"
-                                data-max="{{ $bahan->max }}" 
-                                data-satuan="{{ $bahan->satuan }}">
-                                {{ $bahan->nama }}
-                                @if ($bahan->stok <= $bahan->min)
-                                    <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
-                                @else
-                                    (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
-                                @endif
-                            </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <input type="number" name="items[${editItemCounter}][jumlah]" class="form-control jumlah" placeholder="Jumlah" min="1" required>
-                    </div>
-                    <div class="col-md-3">
-                        <input type="number" name="items[${editItemCounter}][harga]" class="form-control harga" placeholder="Harga" step="0.01" min="0" required>
-                    </div>
-                    <div class="col-md-2">
-                        <input type="text" class="form-control-plaintext sub-total" value="Rp 0" readonly>
-                    </div>
-                    <div class="col-md-1">
-                        <button type="button" class="btn btn-danger btn-remove-item">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
+                        <div class="item-row row mb-2" data-row-index="${editItemCounter}">
+                            <div class="col-md-4">
+                                <select name="items[${editItemCounter}][bahan_baku_id]" class="form-control bahan-baku-select" required>
+                                    <option value="">Pilih Bahan Baku</option>
+                                    @foreach ($bahanBaku as $bahan)
+                                        @php
+                                            $rop = $bahan->rop;
+                                            $rekomendasiBeli = $bahan->jumlahPemesananRekomendasiRop();
+                                        @endphp
+                                        <option value="{{ $bahan->id }}" 
+                                            data-harga="{{ $bahan->harga_beli }}"
+                                            data-stok="{{ $bahan->stok }}" 
+                                            data-min="{{ $bahan->min }}"
+                                            data-max="{{ $bahan->max }}" 
+                                            data-rop="{{ $rop }}"
+                                            data-rekomendasi="{{ $rekomendasiBeli }}"
+                                            data-satuan="{{ $bahan->satuan }}">
+                                            {{ $bahan->nama }}
+                                            @if ($bahan->stok <= $bahan->min)
+                                                <span class="text-danger">(Stok: {{ $bahan->stok }} - ROP: {{ $rop }})</span>
+                                            @else
+                                                (Stok: {{ $bahan->stok }}, ROP: {{ $rop }})
+                                            @endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" name="items[${editItemCounter}][jumlah]" class="form-control jumlah" placeholder="Jumlah" min="1" required>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="number" name="items[${editItemCounter}][harga]" class="form-control harga" placeholder="Harga" step="0.01" min="0" required>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="text" class="form-control-plaintext sub-total" value="Rp 0" readonly>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-danger btn-remove-item">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
                     $('#edit-items-container').append(newItem);
                     editItemCounter++;
                     updateEditRemoveButtons();
@@ -1175,9 +1244,18 @@
                     function() {
                         const selectedOption = $(this).find('option:selected');
                         const harga = selectedOption.data('harga');
+                        const stok = selectedOption.data('stok');
+                        const min = selectedOption.data('min');
+                        const rekomendasi = selectedOption.data('rekomendasi');
+
                         if (harga) {
                             $(this).closest('.item-row').find('.harga').val(harga);
                         }
+
+                        if (stok <= min) {
+                            $(this).closest('.item-row').find('.jumlah').val(rekomendasi);
+                        }
+
                         calculateEditItemSubTotal($(this).closest('.item-row'));
                         calculateEditTotal();
                     });
@@ -1246,22 +1324,15 @@
                 $('#edit-total-display').text('Rp ' + total.toLocaleString('id-ID'));
             }
 
-            function showConfirmationModal(message, callback) {
-                $('#konfirmasi-pesan').text(message);
-                $('#modalKonfirmasi').modal('show');
-
-                $('#konfirmasi-ya').off('click').on('click', function() {
-                    $('#modalKonfirmasi').modal('hide');
-                    callback();
-                });
-            }
-
             $(document).on('click', '.btn-approve', function() {
                 const id = $(this).data('id');
                 showConfirmationModal('Apakah Anda yakin ingin menyetujui pembelian ini?', function() {
                     $.ajax({
                         url: `{{ url('owner/pembelian') }}/${id}/approve`,
                         type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}'
+                        },
                         beforeSend: function() {
                             showAlert('info', 'Memproses persetujuan...');
                         },
@@ -1286,6 +1357,9 @@
                     $.ajax({
                         url: `{{ url('owner/pembelian') }}/${id}/reject`,
                         type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}'
+                        },
                         beforeSend: function() {
                             showAlert('info', 'Memproses penolakan...');
                         },
@@ -1310,6 +1384,9 @@
                     $.ajax({
                         url: `{{ url('owner/pembelian') }}/${id}`,
                         type: 'DELETE',
+                        data: {
+                            _token: '{{ csrf_token() }}'
+                        },
                         beforeSend: function() {
                             showAlert('info', 'Memproses penghapusan...');
                         },
@@ -1327,6 +1404,16 @@
                     });
                 });
             });
+
+            function showConfirmationModal(message, callback) {
+                $('#konfirmasi-pesan').text(message);
+                $('#modalKonfirmasi').modal('show');
+
+                $('#konfirmasi-ya').off('click').on('click', function() {
+                    $('#modalKonfirmasi').modal('hide');
+                    callback();
+                });
+            }
 
             function getStatusBadgeClass(status) {
                 switch (status) {
@@ -1346,7 +1433,7 @@
                     case 'menunggu_persetujuan':
                         return 'Menunggu Persetujuan';
                     case 'completed':
-                        return 'Selesai';
+                        return 'Disetujui';
                     case 'ditolak':
                         return 'Ditolak';
                     default:
@@ -1364,15 +1451,14 @@
                     type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle';
 
                 const alertHtml = `
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                <i class="fas ${icon} mr-2"></i>
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
-            </div>
-        `;
+                    <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        <i class="fas ${icon} mr-2"></i>
+                        ${message}
+                        <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    </div>
+                `;
 
                 $('.alert-dismissible').alert('close');
-
                 $('.card').before(alertHtml);
 
                 setTimeout(() => {
@@ -1380,53 +1466,54 @@
                 }, 5000);
             }
 
-            updateRemoveButtons();
-            attachItemEvents();
-            calculateTotal();
-
             $('#modalTambah').on('hidden.bs.modal', function() {
                 $('#formTambah')[0].reset();
                 $('#items-container').html(`
-            <div class="item-row row mb-2">
-                <div class="col-md-4">
-                    <select name="items[0][bahan_baku_id]" class="form-control bahan-baku-select" required>
-                        <option value="">Pilih Bahan Baku</option>
-                        @foreach ($bahanBaku as $bahan)
-                        <option value="{{ $bahan->id }}" 
-                            data-harga="{{ $bahan->harga_beli }}"
-                            data-stok="{{ $bahan->stok }}" 
-                            data-min="{{ $bahan->min }}"
-                            data-max="{{ $bahan->max }}" 
-                            data-satuan="{{ $bahan->satuan }}">
-                            {{ $bahan->nama }}
-                            @if ($bahan->stok <= $bahan->min)
-                                <span class="text-danger">(Stok: {{ $bahan->stok }} {{ $bahan->satuan }} - PERLU BELI!)</span>
-                            @else
-                                (Stok: {{ $bahan->stok }} {{ $bahan->satuan }})
-                            @endif
-                        </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <input type="number" name="items[0][jumlah]" class="form-control jumlah" placeholder="Jumlah" min="1" required>
-                </div>
-                <div class="col-md-3">
-                    <input type="number" name="items[0][harga]" class="form-control harga" placeholder="Harga" step="0.01" min="0" required>
-                </div>
-                <div class="col-md-2">
-                    <input type="text" class="form-control-plaintext sub-total" value="Rp 0" readonly>
-                </div>
-                <div class="col-md-1">
-                    <button type="button" class="btn btn-danger btn-remove-item" disabled>
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `);
+                    <div class="item-row row mb-2">
+                        <div class="col-md-4">
+                            <select name="items[0][bahan_baku_id]" class="form-control bahan-baku-select" required>
+                                <option value="">Pilih Bahan Baku</option>
+                                @foreach ($bahanBaku as $bahan)
+                                    @php
+                                        $rop = $bahan->rop;
+                                        $rekomendasiBeli = $bahan->jumlahPemesananRekomendasiRop();
+                                    @endphp
+                                    <option value="{{ $bahan->id }}" 
+                                        data-harga="{{ $bahan->harga_beli }}"
+                                        data-stok="{{ $bahan->stok }}" 
+                                        data-min="{{ $bahan->min }}"
+                                        data-max="{{ $bahan->max }}" 
+                                        data-rop="{{ $rop }}"
+                                        data-rekomendasi="{{ $rekomendasiBeli }}"
+                                        data-satuan="{{ $bahan->satuan }}">
+                                        {{ $bahan->nama }}
+                                        @if ($bahan->stok <= $bahan->min)
+                                            <span class="text-danger">(Stok: {{ $bahan->stok }} - ROP: {{ $rop }})</span>
+                                        @else
+                                            (Stok: {{ $bahan->stok }}, ROP: {{ $rop }})
+                                        @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" name="items[0][jumlah]" class="form-control jumlah" placeholder="Jumlah" min="1" required>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" name="items[0][harga]" class="form-control harga" placeholder="Harga" step="0.01" min="0" required>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="text" class="form-control-plaintext sub-total" value="Rp 0" readonly>
+                        </div>
+                        <div class="col-md-1">
+                            <button type="button" class="btn btn-danger btn-remove-item" disabled>
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
                 itemCounter = 1;
                 updateRemoveButtons();
-                attachItemEvents();
                 calculateTotal();
             });
 
@@ -1434,6 +1521,9 @@
                 $('#formPembelianCepat')[0].reset();
                 $('#select-all-rekomendasi').prop('checked', false);
             });
+
+            updateRemoveButtons();
+            calculateTotal();
         });
     </script>
 @endpush
