@@ -19,12 +19,11 @@ class PenjualanOwnerController extends Controller
         $tanggalAwal = $request->tanggal_awal ?? date('Y-m-01');
         $tanggalAkhir = $request->tanggal_akhir ?? date('Y-m-d');
 
-        $penjualan = Penjualan::with('detailPenjualan')
+        $penjualan = Penjualan::with(['detailPenjualan', 'admin'])
             ->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir])
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Query untuk 10 produk terlaris berdasarkan jumlah penjualan
         $produkTerlaris = DetailPenjualan::select(
             'produk_id',
             DB::raw('SUM(jumlah) as total_terjual'),
@@ -49,7 +48,6 @@ class PenjualanOwnerController extends Controller
                 ];
             });
 
-        // Query untuk 10 bahan baku terlaris (diambil dari penjualan produk yang mengandung bahan baku tersebut)
         $bahanBakuTerlaris = $this->getBahanBakuTerlaris($tanggalAwal, $tanggalAkhir);
 
         return view('owner.penjualan.index', compact(
@@ -63,7 +61,6 @@ class PenjualanOwnerController extends Controller
 
     private function getBahanBakuTerlaris($tanggalAwal, $tanggalAkhir)
     {
-        // Langkah 1: Ambil semua produk yang terjual dalam periode tersebut
         $produkTerjual = DetailPenjualan::select(
             'produk_id',
             DB::raw('SUM(jumlah) as total_produk_terjual')
@@ -75,7 +72,6 @@ class PenjualanOwnerController extends Controller
             ->groupBy('produk_id')
             ->get();
 
-        // Langkah 2: Hitung penggunaan bahan baku berdasarkan komposisi produk
         $bahanBakuUsage = [];
 
         foreach ($produkTerjual as $produk) {
@@ -100,7 +96,6 @@ class PenjualanOwnerController extends Controller
             }
         }
 
-        // Langkah 3: Tambahkan bahan baku yang terjual langsung
         $bahanBakuLangsung = DetailPenjualan::select(
             'bahan_baku_id',
             DB::raw('SUM(jumlah) as total_terjual_langsung')
@@ -125,14 +120,12 @@ class PenjualanOwnerController extends Controller
             }
         }
 
-        // Langkah 4: Urutkan dan ambil 10 teratas
         usort($bahanBakuUsage, function ($a, $b) {
             return $b['total_penggunaan'] <=> $a['total_penggunaan'];
         });
 
         $top10 = array_slice($bahanBakuUsage, 0, 10);
 
-        // Format hasil
         return collect($top10)->map(function ($item) {
             return [
                 'id' => $item['bahan_baku']->id,
@@ -149,7 +142,7 @@ class PenjualanOwnerController extends Controller
         $tanggalAwal = $request->tanggal_awal ?? date('Y-m-01');
         $tanggalAkhir = $request->tanggal_akhir ?? date('Y-m-d');
 
-        $penjualan = Penjualan::with('detailPenjualan')
+        $penjualan = Penjualan::with(['detailPenjualan', 'admin'])
             ->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir])
             ->orderBy('tanggal', 'desc')
             ->get();
@@ -158,7 +151,6 @@ class PenjualanOwnerController extends Controller
         $totalBayar = $penjualan->sum('bayar');
         $totalKembalian = $penjualan->sum('kembalian');
 
-        // Query untuk 10 produk terlaris
         $produkTerlaris = DetailPenjualan::select(
             'produk_id',
             DB::raw('SUM(jumlah) as total_terjual'),
@@ -184,7 +176,6 @@ class PenjualanOwnerController extends Controller
                 ];
             });
 
-        // Query untuk 10 bahan baku terlaris
         $bahanBakuTerlaris = $this->getBahanBakuTerlaris($tanggalAwal, $tanggalAkhir);
 
         if ($request->has('print')) {
@@ -222,7 +213,7 @@ class PenjualanOwnerController extends Controller
         $tanggalAwal = $request->tanggal_awal;
         $tanggalAkhir = $request->tanggal_akhir;
 
-        $penjualan = Penjualan::with('detailPenjualan')
+        $penjualan = Penjualan::with(['detailPenjualan', 'admin'])
             ->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir])
             ->orderBy('tanggal', 'desc')
             ->get();
@@ -231,7 +222,6 @@ class PenjualanOwnerController extends Controller
         $totalBayar = $penjualan->sum('bayar');
         $totalKembalian = $penjualan->sum('kembalian');
 
-        // Query untuk 10 produk terlaris
         $produkTerlaris = DetailPenjualan::select(
             'produk_id',
             DB::raw('SUM(jumlah) as total_terjual'),
@@ -257,7 +247,6 @@ class PenjualanOwnerController extends Controller
                 ];
             });
 
-        // Query untuk 10 bahan baku terlaris
         $bahanBakuTerlaris = $this->getBahanBakuTerlaris($tanggalAwal, $tanggalAkhir);
 
         $pdf = PDF::loadView('owner.penjualan.laporan-pdf', compact(
@@ -290,6 +279,7 @@ class PenjualanOwnerController extends Controller
                 'kembalian' => $penjualan->kembalian,
                 'kembalian_formatted' => 'Rp ' . number_format($penjualan->kembalian, 0, ',', '.'),
                 'tanggal' => $penjualan->tanggal,
+                'admin' => $penjualan->admin ? $penjualan->admin->name : null,
                 'detail_penjualan' => $penjualan->detailPenjualan->map(function ($detail) {
                     return [
                         'id' => $detail->id,

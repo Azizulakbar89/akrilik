@@ -51,14 +51,14 @@
                         </button>
                     </div>
 
-                    @if (Route::has('register'))
+                    {{-- @if (Route::has('register'))
                         <div class="font-16 weight-600 pt-10 pb-10 text-center" data-color="#707373">OR</div>
                         <div class="input-group mb-0">
                             <a class="btn btn-outline-primary btn-lg btn-block" href="{{ route('register') }}">
                                 Register To Create Account
                             </a>
                         </div>
-                    @endif
+                    @endif --}}
                 </div>
             </div>
         </form>

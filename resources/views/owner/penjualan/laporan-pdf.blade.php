@@ -194,16 +194,18 @@
                 </h3>
                 <p style="margin: 0 0 10px 0; color: #666;">
                     Tanggal: {{ date('d/m/Y', strtotime($transaksi->tanggal)) }} |
-                    Customer: {{ $transaksi->nama_customer }}
+                    Customer: {{ $transaksi->nama_customer }} |
+                    Admin/Kasir: <strong>{{ $transaksi->admin ? $transaksi->admin->name : '-' }}</strong>
                 </p>
 
                 <table>
                     <thead>
                         <tr>
-                            <th width="10%">No</th>
-                            <th width="50%">Item</th>
-                            <th width="15%">Jumlah</th>
-                            <th width="25%" class="text-right">Subtotal</th>
+                            <th width="8%">No</th>
+                            <th width="42%">Item</th>
+                            <th width="12%">Jumlah</th>
+                            <th width="23%" class="text-right">Subtotal</th>
+                            <th width="15%">Admin/Kasir</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -216,22 +218,23 @@
                                 </td>
                                 <td>{{ $detail->jumlah }}</td>
                                 <td class="text-right">Rp {{ number_format($detail->sub_total, 0, ',', '.') }}</td>
+                                <td>{{ $transaksi->admin ? $transaksi->admin->name : '-' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="3" class="text-right"><strong>Total:</strong></td>
+                            <td colspan="4" class="text-right"><strong>Total:</strong></td>
                             <td class="text-right"><strong>Rp
                                     {{ number_format($transaksi->total, 0, ',', '.') }}</strong></td>
                         </tr>
                         <tr>
-                            <td colspan="3" class="text-right"><strong>Bayar:</strong></td>
+                            <td colspan="4" class="text-right"><strong>Bayar:</strong></td>
                             <td class="text-right"><strong>Rp
                                     {{ number_format($transaksi->bayar, 0, ',', '.') }}</strong></td>
                         </tr>
                         <tr>
-                            <td colspan="3" class="text-right"><strong>Kembalian:</strong></td>
+                            <td colspan="4" class="text-right"><strong>Kembalian:</strong></td>
                             <td class="text-right"><strong>Rp
                                     {{ number_format($transaksi->kembalian, 0, ',', '.') }}</strong></td>
                         </tr>
