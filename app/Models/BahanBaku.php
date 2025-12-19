@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\PenggunaanBahanBaku;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -68,29 +67,64 @@ class BahanBaku extends Model
         return $this->hasMany(DetailPembelian::class, 'bahan_baku_id');
     }
 
+    // Method baru untuk mendapatkan total penggunaan dari semua sumber
+    public function getTotalPenggunaanPeriode($startDate = null, $endDate = null)
+    {
+        $total = 0;
+
+        if (!$startDate) {
+            $startDate = now()->subMonths(11)->startOfMonth();
+        }
+
+        if (!$endDate) {
+            $endDate = now()->endOfMonth();
+        }
+
+        // 1. Penjualan langsung
+        $penjualanLangsung = $this->detailPenjualan()
+            ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('tanggal', [$startDate, $endDate]);
+            })
+            ->sum('jumlah');
+
+        $total += $penjualanLangsung;
+
+        // 2. Penggunaan melalui produk yang dijual
+        $penjualanProduk = DetailPenjualan::where('jenis_item', 'produk')
+            ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('tanggal', [$startDate, $endDate]);
+            })
+            ->with(['produk' => function ($query) {
+                $query->with(['komposisi' => function ($q) {
+                    $q->where('bahan_baku_id', $this->id);
+                }]);
+            }])
+            ->get();
+
+        foreach ($penjualanProduk as $detail) {
+            if ($detail->produk && $detail->produk->komposisi) {
+                foreach ($detail->produk->komposisi as $komposisi) {
+                    if ($komposisi->bahan_baku_id == $this->id) {
+                        $total += $komposisi->jumlah * $detail->jumlah;
+                    }
+                }
+            }
+        }
+
+        return $total;
+    }
+
     public function hitungStatistikPenggunaan($rangeHari = 30)
     {
         $startDate = now()->subDays($rangeHari)->startOfDay();
+        $endDate = now()->endOfDay();
 
         $penggunaanData = collect();
 
-        $penggunaanBahanBaku = $this->penggunaan()
-            ->where('created_at', '>=', $startDate)
-            ->where('jumlah', '>', 0)
-            ->get();
+        // Tambahkan penggunaan dari semua sumber
+        $totalPenggunaan = $this->getTotalPenggunaanPeriode($startDate, $endDate);
 
-        $penggunaanData = $penggunaanData->merge($penggunaanBahanBaku);
-
-        $penjualanLangsung = $this->detailPenjualan()
-            ->whereHas('penjualan', function ($query) use ($startDate) {
-                $query->where('created_at', '>=', $startDate);
-            })
-            ->where('jumlah', '>', 0)
-            ->get();
-
-        $penggunaanData = $penggunaanData->merge($penjualanLangsung);
-
-        if ($penggunaanData->isEmpty()) {
+        if ($totalPenggunaan == 0) {
             return [
                 'total_keluar' => 0,
                 'count_keluar' => 0,
@@ -100,6 +134,50 @@ class BahanBaku extends Model
                 'hari_aktif' => 0,
                 'sumber_data' => 'Tidak ada data'
             ];
+        }
+
+        // Untuk perhitungan harian, kita perlu data per hari
+        $penggunaanBahanBaku = $this->penggunaan()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->where('jumlah', '>', 0)
+            ->get();
+
+        $penggunaanData = $penggunaanData->merge($penggunaanBahanBaku);
+
+        $penjualanLangsung = $this->detailPenjualan()
+            ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            })
+            ->where('jumlah', '>', 0)
+            ->get();
+
+        $penggunaanData = $penggunaanData->merge($penjualanLangsung);
+
+        // Untuk produk yang dijual, kita perlu hitung per hari
+        $penjualanProduk = DetailPenjualan::where('jenis_item', 'produk')
+            ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            })
+            ->with(['produk' => function ($query) {
+                $query->with(['komposisi' => function ($q) {
+                    $q->where('bahan_baku_id', $this->id);
+                }]);
+            }])
+            ->get();
+
+        foreach ($penjualanProduk as $detail) {
+            if ($detail->produk && $detail->produk->komposisi) {
+                foreach ($detail->produk->komposisi as $komposisi) {
+                    if ($komposisi->bahan_baku_id == $this->id) {
+                        // Buat pseudo item untuk perhitungan harian
+                        $pseudoItem = (object) [
+                            'jumlah' => $komposisi->jumlah * $detail->jumlah,
+                            'created_at' => $detail->penjualan->created_at
+                        ];
+                        $penggunaanData->push($pseudoItem);
+                    }
+                }
+            }
         }
 
         $penggunaanPerHari = $penggunaanData->groupBy(function ($item) {
@@ -182,13 +260,13 @@ class BahanBaku extends Model
 
     public function sudahAdaPenggunaan()
     {
-        $adaPenggunaan = $this->penggunaan()->where('jumlah', '>', 0)->exists();
+        // Cek dari semua sumber
+        $totalPenggunaan = $this->getTotalPenggunaanPeriode(
+            now()->subMonths(3)->startOfMonth(),
+            now()->endOfMonth()
+        );
 
-        if (!$adaPenggunaan) {
-            $adaPenggunaan = $this->detailPenjualan()->where('jumlah', '>', 0)->exists();
-        }
-
-        return $adaPenggunaan;
+        return $totalPenggunaan > 0;
     }
 
     public function isPerluPembelian()
@@ -215,7 +293,6 @@ class BahanBaku extends Model
     public function jumlahPemesananRekomendasiRop()
     {
         if ($this->isPerluPembelian() && $this->max > 0 && $this->rop > 0) {
-            // Jika stok ≤ min, beli sesuai ROP (ROP = Max - Min)
             return $this->rop;
         }
         return 0;
@@ -225,17 +302,6 @@ class BahanBaku extends Model
     {
         $quantity = $this->jumlahPemesananRekomendasiRop();
         return $quantity * $this->harga_beli;
-    }
-
-    // Metode lama untuk kompatibilitas
-    public function jumlahPemesananRekomendasi()
-    {
-        return $this->jumlahPemesananRekomendasiRop();
-    }
-
-    public function totalNilaiPemesananRekomendasi()
-    {
-        return $this->totalNilaiPemesananRekomendasiRop();
     }
 
     public function scopePerluPembelian($query)
@@ -286,62 +352,5 @@ class BahanBaku extends Model
             ];
         }
         return null;
-    }
-
-    // Untuk kompatibilitas
-    public function getRekomendasiPembelianAttribute()
-    {
-        return $this->getRekomendasiPembelianRopAttribute();
-    }
-
-    public function tambahStok($jumlah)
-    {
-        $this->stok += $jumlah;
-        $this->save();
-
-        if ($this->sudahAdaPenggunaan()) {
-            $this->updateParameterStok();
-        }
-
-        return $this;
-    }
-
-    public function kurangiStok($jumlah)
-    {
-        if ($this->stok < $jumlah) {
-            throw new \Exception("Stok bahan baku {$this->nama} tidak mencukupi");
-        }
-
-        $this->stok -= $jumlah;
-        $this->save();
-
-        if ($this->sudahAdaPenggunaan()) {
-            $this->updateParameterStok();
-        }
-
-        return $this;
-    }
-
-    public function kembalikanStok($jumlah)
-    {
-        $this->stok += $jumlah;
-        $this->save();
-
-        if ($this->sudahAdaPenggunaan()) {
-            $this->updateParameterStok();
-        }
-    }
-
-    public function scopeWithPenggunaanBulanan($query, $year = null, $month = null)
-    {
-        if (!$year) $year = date('Y');
-        if (!$month) $month = date('m');
-
-        return $query->with(['detailPenjualan' => function ($q) use ($year, $month) {
-            $q->whereHas('penjualan', function ($q2) use ($year, $month) {
-                $q2->whereYear('tanggal', $year)
-                    ->whereMonth('tanggal', $month);
-            });
-        }]);
     }
 }

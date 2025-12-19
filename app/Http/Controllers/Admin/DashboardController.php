@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\BahanBaku;
 use App\Models\Penjualan;
 use App\Models\DetailPenjualan;
+use App\Models\Produk;
+use App\Models\KomposisiBahanBaku;
 use Carbon\Carbon;
 use DB;
 use Illuminate\Support\Facades\Log;
@@ -93,8 +95,8 @@ class DashboardController extends Controller
                     'bulan' => $monthNames[$month] . ' ' . $date->format('y'),
                     'tahun' => $year,
                     'bulan_angka' => $month,
-                    'total_penjualan' => $result ? (float) $result->total_penjualan : 0,
-                    'jumlah_transaksi' => $result ? (int) $result->jumlah_transaksi : 0,
+                    'total_penjualan' => $result ? (float)$result->total_penjualan : 0,
+                    'jumlah_transaksi' => $result ? (int)$result->jumlah_transaksi : 0,
                 ];
             }
 
@@ -111,16 +113,7 @@ class DashboardController extends Controller
             $startDate = Carbon::now()->subMonths(11)->startOfMonth();
             $endDate = Carbon::now()->endOfMonth();
 
-            $topBahanBaku = DetailPenjualan::where('jenis_item', 'bahan_baku')
-                ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
-                    $query->whereBetween('tanggal', [$startDate, $endDate]);
-                })
-                ->select('bahan_baku_id', DB::raw('SUM(jumlah) as total_penggunaan'))
-                ->groupBy('bahan_baku_id')
-                ->orderByDesc('total_penggunaan')
-                ->limit(5)
-                ->pluck('bahan_baku_id')
-                ->toArray();
+            $topBahanBaku = $this->getTopBahanBakuByUsage($startDate, $endDate);
 
             if (empty($topBahanBaku)) {
                 return [
@@ -164,15 +157,9 @@ class DashboardController extends Controller
                     $year = $date->year;
                     $month = $date->month;
 
-                    $total = DetailPenjualan::where('jenis_item', 'bahan_baku')
-                        ->where('bahan_baku_id', $bahanBakuId)
-                        ->whereHas('penjualan', function ($query) use ($year, $month) {
-                            $query->whereYear('tanggal', $year)
-                                ->whereMonth('tanggal', $month);
-                        })
-                        ->sum('jumlah');
+                    $total = $this->calculateMonthlyUsage($bahanBakuId, $year, $month);
 
-                    $dataPerBulan[] = (float) ($total ?: 0);
+                    $dataPerBulan[] = (float)($total ?: 0);
                 }
 
                 $seriesData[] = [
@@ -196,6 +183,87 @@ class DashboardController extends Controller
         }
     }
 
+    private function getTopBahanBakuByUsage($startDate, $endDate)
+    {
+        $usageData = [];
+
+        $penjualanLangsung = DetailPenjualan::where('jenis_item', 'bahan_baku')
+            ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('tanggal', [$startDate, $endDate]);
+            })
+            ->select('bahan_baku_id', DB::raw('SUM(jumlah) as total_penggunaan'))
+            ->groupBy('bahan_baku_id')
+            ->get();
+
+        foreach ($penjualanLangsung as $item) {
+            $usageData[$item->bahan_baku_id] = ($usageData[$item->bahan_baku_id] ?? 0) + $item->total_penggunaan;
+        }
+
+        $penjualanProduk = DetailPenjualan::where('jenis_item', 'produk')
+            ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('tanggal', [$startDate, $endDate]);
+            })
+            ->with(['produk' => function ($query) {
+                $query->with('komposisi.bahanBaku');
+            }])
+            ->get();
+
+        foreach ($penjualanProduk as $detail) {
+            if ($detail->produk && $detail->produk->komposisi) {
+                foreach ($detail->produk->komposisi as $komposisi) {
+                    if ($komposisi->bahanBaku) {
+                        $usage = $komposisi->jumlah * $detail->jumlah;
+                        $usageData[$komposisi->bahan_baku_id] =
+                            ($usageData[$komposisi->bahan_baku_id] ?? 0) + $usage;
+                    }
+                }
+            }
+        }
+
+        arsort($usageData);
+
+        return array_slice(array_keys($usageData), 0, 5);
+    }
+
+    private function calculateMonthlyUsage($bahanBakuId, $year, $month)
+    {
+        $total = 0;
+
+        $penjualanLangsung = DetailPenjualan::where('jenis_item', 'bahan_baku')
+            ->where('bahan_baku_id', $bahanBakuId)
+            ->whereHas('penjualan', function ($query) use ($year, $month) {
+                $query->whereYear('tanggal', $year)
+                    ->whereMonth('tanggal', $month);
+            })
+            ->sum('jumlah');
+
+        $total += $penjualanLangsung;
+
+        $penjualanProduk = DetailPenjualan::where('jenis_item', 'produk')
+            ->whereHas('penjualan', function ($query) use ($year, $month) {
+                $query->whereYear('tanggal', $year)
+                    ->whereMonth('tanggal', $month);
+            })
+            ->with(['produk' => function ($query) use ($bahanBakuId) {
+                $query->with(['komposisi' => function ($q) use ($bahanBakuId) {
+                    $q->where('bahan_baku_id', $bahanBakuId);
+                }]);
+            }])
+            ->get();
+
+        foreach ($penjualanProduk as $detail) {
+            if ($detail->produk && $detail->produk->komposisi) {
+                foreach ($detail->produk->komposisi as $komposisi) {
+                    if ($komposisi->bahan_baku_id == $bahanBakuId) {
+                        $total += $komposisi->jumlah * $detail->jumlah;
+                    }
+                }
+            }
+        }
+
+        return $total;
+    }
+
     private function getRingkasanStatistik()
     {
         try {
@@ -210,13 +278,13 @@ class DashboardController extends Controller
                 (($penjualanHariIni - $penjualanKemarin) / $penjualanKemarin * 100) : 0;
 
             return [
-                'penjualan_hari_ini' => (float) $penjualanHariIni,
+                'penjualan_hari_ini' => (float)$penjualanHariIni,
                 'perubahan_penjualan' => round($perubahan, 2),
-                'penjualan_bulan_ini' => (float) Penjualan::where('tanggal', '>=', $startOfMonth)->sum('total'),
-                'penjualan_tahun_ini' => (float) Penjualan::where('tanggal', '>=', $startOfYear)->sum('total'),
-                'total_transaksi_hari_ini' => (int) Penjualan::whereDate('tanggal', $today)->count(),
-                'total_bahan_baku_perlu_beli' => (int) BahanBaku::perluPembelian()->count(),
-                'total_bahan_baku' => (int) BahanBaku::count(),
+                'penjualan_bulan_ini' => (float)Penjualan::where('tanggal', '>=', $startOfMonth)->sum('total'),
+                'penjualan_tahun_ini' => (float)Penjualan::where('tanggal', '>=', $startOfYear)->sum('total'),
+                'total_transaksi_hari_ini' => (int)Penjualan::whereDate('tanggal', $today)->count(),
+                'total_bahan_baku_perlu_beli' => (int)BahanBaku::perluPembelian()->count(),
+                'total_bahan_baku' => (int)BahanBaku::count(),
                 'total_nilai_perlu_beli' => BahanBaku::perluPembelian()
                     ->get()
                     ->sum(function ($bahan) {

@@ -104,10 +104,18 @@
                     </div>
                 </div>
                 <div id="penjualan-chart" class="chart-container" style="min-height: 400px;">
-                    <div class="chart-loading">
-                        <i class="icon-copy dw dw-arrow-circle"></i>
-                        <div class="mt-2">Memuat grafik penjualan...</div>
-                    </div>
+                    @if (!empty($penjualanPerBulan))
+                        <div class="chart-loading">
+                            <i class="icon-copy dw dw-arrow-circle"></i>
+                            <div class="mt-2">Memuat grafik penjualan...</div>
+                        </div>
+                    @else
+                        <div class="no-data">
+                            <i class="icon-copy dw dw-chart-1" style="font-size: 40px; color: #ccc;"></i>
+                            <h5 class="mt-3">Tidak ada data penjualan</h5>
+                            <p>Belum ada transaksi penjualan dalam 12 bulan terakhir.</p>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -143,10 +151,18 @@
                         </div>
                     </div>
                     <div id="bahan-baku-chart" class="chart-container" style="min-height: 250px;">
-                        <div class="chart-loading">
-                            <i class="icon-copy dw dw-arrow-circle"></i>
-                            <div class="mt-2">Memuat grafik...</div>
-                        </div>
+                        @if (($statistik['total_bahan_baku'] ?? 0) > 0)
+                            <div class="chart-loading">
+                                <i class="icon-copy dw dw-arrow-circle"></i>
+                                <div class="mt-2">Memuat grafik...</div>
+                            </div>
+                        @else
+                            <div class="no-data">
+                                <i class="icon-copy dw dw-box-1" style="font-size: 40px; color: #ccc;"></i>
+                                <h5 class="mt-3">Tidak ada bahan baku</h5>
+                                <p>Belum ada data bahan baku yang terdaftar.</p>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -156,6 +172,15 @@
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
             <div class="card-box height-100-p pd-20">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                    <div class="h5 mb-0">Bahan Baku yang Perlu Dibeli</div>
+                    <div class="dropdown">
+                        <a class="btn btn-primary btn-sm" href="{{ route('admin.bahan-baku.index') }}">
+                            <i class="icon-copy dw dw-list"></i> Lihat Semua Bahan Baku
+                        </a>
+                    </div>
+                </div>
+
                 @if (isset($bahanBakuPerluBeli) && $bahanBakuPerluBeli->count() > 0)
                     <div class="table-responsive">
                         <table class="data-table table stripe hover nowrap">
@@ -225,10 +250,13 @@
                         </table>
                     </div>
                 @else
-                    <div class="no-data">
+                    <div class="no-data text-center py-5">
                         <i class="icon-copy dw dw-check" style="font-size: 40px; color: #28a745;"></i>
                         <h5 class="mt-3">Semua stok bahan baku dalam kondisi aman</h5>
                         <p>Tidak ada bahan baku yang perlu dibeli saat ini.</p>
+                        <a href="{{ route('admin.bahan-baku.create') }}" class="btn btn-primary mt-3">
+                            <i class="icon-copy dw dw-add"></i> Tambah Bahan Baku Baru
+                        </a>
                     </div>
                 @endif
             </div>
@@ -241,12 +269,53 @@
                 <div class="card-box height-100-p pd-20">
                     <div class="d-flex flex-wrap justify-content-between align-items-center pb-0">
                         <div class="h5 mb-0">Grafik Penggunaan Bahan Baku 12 Bulan Terakhir</div>
+                        <div class="dropdown">
+                            <a class="btn btn-link font-24 p-0 line-height-1 no-arrow dropdown-toggle"
+                                data-color="#1b3133" href="#" role="button" data-toggle="dropdown">
+                                <i class="dw dw-more"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-right dropdown-menu-icon-list">
+                                <a class="dropdown-item" href="{{ route('admin.bahan-baku.index') }}">
+                                    <i class="dw dw-eye"></i> Lihat Semua Bahan Baku
+                                </a>
+                                <a class="dropdown-item" href="{{ route('admin.penjualan.index') }}">
+                                    <i class="dw dw-money"></i> Lihat Penjualan
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info alert-dismissible fade show mt-3" role="alert">
+                        <i class="icon-copy dw dw-info"></i>
+                        <strong>Informasi:</strong> Grafik ini menampilkan penggunaan bahan baku dari semua sumber, termasuk
+                        penjualan bahan baku langsung dan penggunaan melalui produk yang terjual.
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
                     </div>
                     <div id="penggunaan-bahan-baku-chart" class="chart-container" style="min-height: 400px;">
                         <div class="chart-loading">
                             <i class="icon-copy dw dw-arrow-circle"></i>
-                            <div class="mt-2">Memuat grafik penggunaan...</div>
+                            <div class="mt-2">Memuat grafik penggunaan bahan baku...</div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @else
+        <div class="row">
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
+                <div class="card-box height-100-p pd-20">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-0">
+                        <div class="h5 mb-0">Grafik Penggunaan Bahan Baku 12 Bulan Terakhir</div>
+                    </div>
+                    <div class="no-data text-center py-5">
+                        <i class="icon-copy dw dw-chart" style="font-size: 40px; color: #ccc;"></i>
+                        <h5 class="mt-3">Belum ada data penggunaan bahan baku</h5>
+                        <p>Data akan muncul setelah ada penjualan bahan baku langsung atau produk yang menggunakan bahan
+                            baku.</p>
+                        <a href="{{ route('admin.penjualan.create') }}" class="btn btn-primary mt-3">
+                            <i class="icon-copy dw dw-cart"></i> Buat Penjualan Baru
+                        </a>
                     </div>
                 </div>
             </div>
@@ -279,10 +348,12 @@
 
             console.log('Data penjualan:', penjualanData);
             console.log('Stats bahan baku:', bahanBakuStats);
-            console.log('Data penggunaan:', penggunaanData);
+            console.log('Data penggunaan bahan baku:', penggunaanData);
 
-            const penjualanChartEl = document.getElementById('penjualan-chart');
-            if (penjualanChartEl) {
+            function renderPenjualanChart() {
+                const penjualanChartEl = document.getElementById('penjualan-chart');
+                if (!penjualanChartEl) return;
+
                 if (penjualanData && penjualanData.length > 0) {
                     const categories = penjualanData.map(item => item.bulan || '');
                     const seriesData = penjualanData.map(item => parseFloat(item.total_penjualan) || 0);
@@ -296,7 +367,16 @@
                                     type: 'area',
                                     height: 400,
                                     toolbar: {
-                                        show: true
+                                        show: true,
+                                        tools: {
+                                            download: true,
+                                            selection: true,
+                                            zoom: true,
+                                            zoomin: true,
+                                            zoomout: true,
+                                            pan: true,
+                                            reset: true
+                                        }
                                     }
                                 },
                                 series: [{
@@ -319,13 +399,22 @@
                                 xaxis: {
                                     categories: categories,
                                     labels: {
-                                        rotate: -45
+                                        rotate: -45,
+                                        style: {
+                                            fontSize: '12px'
+                                        }
                                     }
                                 },
                                 yaxis: {
                                     labels: {
                                         formatter: function(val) {
                                             return 'Rp ' + (val / 1000000).toFixed(1) + ' jt';
+                                        }
+                                    },
+                                    title: {
+                                        text: 'Total Penjualan (Rp)',
+                                        style: {
+                                            fontSize: '12px'
                                         }
                                     }
                                 },
@@ -335,6 +424,12 @@
                                             return 'Rp ' + val.toLocaleString('id-ID');
                                         }
                                     }
+                                },
+                                dataLabels: {
+                                    enabled: false
+                                },
+                                grid: {
+                                    borderColor: '#f1f1f1',
                                 }
                             });
 
@@ -354,8 +449,10 @@
                 }
             }
 
-            const bahanBakuChartEl = document.getElementById('bahan-baku-chart');
-            if (bahanBakuChartEl) {
+            function renderBahanBakuChart() {
+                const bahanBakuChartEl = document.getElementById('bahan-baku-chart');
+                if (!bahanBakuChartEl) return;
+
                 const totalBahan = bahanBakuStats.aman + bahanBakuStats.perlu;
 
                 if (totalBahan > 0) {
@@ -371,22 +468,43 @@
                             labels: ['Stok Aman', 'Perlu Pembelian'],
                             colors: ['#28a745', '#dc3545'],
                             legend: {
-                                position: 'bottom'
+                                position: 'bottom',
+                                horizontalAlign: 'center'
                             },
                             plotOptions: {
                                 pie: {
                                     donut: {
-                                        size: '65%'
+                                        size: '65%',
+                                        labels: {
+                                            show: true,
+                                            total: {
+                                                show: true,
+                                                label: 'Total Bahan',
+                                                color: '#333',
+                                                fontSize: '16px'
+                                            }
+                                        }
                                     }
                                 }
                             },
                             tooltip: {
                                 y: {
                                     formatter: function(val) {
-                                        return val + ' bahan';
+                                        return val + ' bahan baku';
                                     }
                                 }
-                            }
+                            },
+                            responsive: [{
+                                breakpoint: 480,
+                                options: {
+                                    chart: {
+                                        height: 200
+                                    },
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                }
+                            }]
                         });
 
                         chart.render();
@@ -401,8 +519,10 @@
                 }
             }
 
-            const penggunaanChartEl = document.getElementById('penggunaan-bahan-baku-chart');
-            if (penggunaanChartEl) {
+            function renderPenggunaanBahanBakuChart() {
+                const penggunaanChartEl = document.getElementById('penggunaan-bahan-baku-chart');
+                if (!penggunaanChartEl) return;
+
                 if (penggunaanData &&
                     penggunaanData.series_data &&
                     Array.isArray(penggunaanData.series_data) &&
@@ -422,37 +542,89 @@
                                 height: 400,
                                 stacked: true,
                                 toolbar: {
-                                    show: true
+                                    show: true,
+                                    tools: {
+                                        download: true,
+                                        selection: true,
+                                        zoom: true,
+                                        zoomin: true,
+                                        zoomout: true,
+                                        pan: true,
+                                        reset: true
+                                    }
                                 }
                             },
                             series: series,
                             xaxis: {
                                 categories: penggunaanData.bulan_labels || [],
                                 labels: {
-                                    rotate: -45
+                                    rotate: -45,
+                                    style: {
+                                        fontSize: '12px'
+                                    }
+                                },
+                                title: {
+                                    text: 'Bulan',
+                                    style: {
+                                        fontSize: '14px',
+                                        fontWeight: 'bold'
+                                    }
                                 }
                             },
                             yaxis: {
                                 title: {
-                                    text: 'Jumlah Penggunaan'
+                                    text: 'Jumlah Penggunaan',
+                                    style: {
+                                        fontSize: '14px',
+                                        fontWeight: 'bold'
+                                    }
+                                },
+                                labels: {
+                                    formatter: function(val) {
+                                        return val.toLocaleString('id-ID');
+                                    }
                                 }
                             },
                             colors: ['#008FFB', '#00E396', '#FEB019', '#FF4560', '#775DD0'],
                             legend: {
-                                position: 'top'
+                                position: 'top',
+                                horizontalAlign: 'center',
+                                offsetY: 0
                             },
                             tooltip: {
                                 y: {
                                     formatter: function(val) {
                                         return val + ' unit';
                                     }
-                                }
+                                },
+                                shared: true,
+                                intersect: false
                             },
                             plotOptions: {
                                 bar: {
-                                    columnWidth: '60%'
+                                    columnWidth: '70%',
+                                    dataLabels: {
+                                        position: 'top'
+                                    }
                                 }
-                            }
+                            },
+                            dataLabels: {
+                                enabled: false
+                            },
+                            grid: {
+                                borderColor: '#f1f1f1',
+                            },
+                            responsive: [{
+                                breakpoint: 768,
+                                options: {
+                                    chart: {
+                                        height: 350
+                                    },
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                }
+                            }]
                         });
 
                         chart.render();
@@ -460,12 +632,16 @@
                     } catch (err) {
                         console.error('Error render penggunaan chart:', err);
                         penggunaanChartEl.innerHTML =
-                            '<div class="no-data">Error: Gagal memuat grafik penggunaan</div>';
+                            '<div class="no-data">Error: Gagal memuat grafik penggunaan bahan baku</div>';
                     }
                 } else {
                     penggunaanChartEl.innerHTML = '<div class="no-data">Tidak ada data penggunaan bahan baku</div>';
                 }
             }
+
+            renderPenjualanChart();
+            renderBahanBakuChart();
+            renderPenggunaanBahanBakuChart();
 
             if (typeof $.fn.DataTable !== 'undefined' && $('.data-table').length) {
                 $('.data-table').DataTable({
@@ -475,6 +651,9 @@
                         searchPlaceholder: "Cari...",
                         lengthMenu: "_MENU_ item per halaman",
                         info: "Menampilkan _START_ sampai _END_ dari _TOTAL_ item",
+                        infoEmpty: "Menampilkan 0 sampai 0 dari 0 item",
+                        infoFiltered: "(disaring dari _MAX_ total item)",
+                        zeroRecords: "Tidak ada data yang ditemukan",
                         paginate: {
                             previous: "<i class='icon-copy dw dw-left-arrow2'></i>",
                             next: "<i class='icon-copy dw dw-right-arrow2'></i>"
@@ -482,6 +661,11 @@
                     },
                     order: [
                         [0, 'asc']
+                    ],
+                    pageLength: 10,
+                    lengthMenu: [
+                        [5, 10, 25, 50, -1],
+                        [5, 10, 25, 50, "Semua"]
                     ]
                 });
             }
