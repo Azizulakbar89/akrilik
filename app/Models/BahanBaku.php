@@ -114,93 +114,59 @@ class BahanBaku extends Model
         return $total;
     }
 
-    public function hitungStatistikPenggunaan($rangeHari = 30)
+    // Method untuk mendapatkan total penggunaan per hari
+    public function getPenggunaanPerHari($rangeHari = 30)
     {
         $startDate = now()->subDays($rangeHari)->startOfDay();
         $endDate = now()->endOfDay();
 
-        $penggunaanData = collect();
+        $dataPerHari = [];
 
-        // Tambahkan penggunaan dari semua sumber
-        $totalPenggunaan = $this->getTotalPenggunaanPeriode($startDate, $endDate);
+        // Loop melalui setiap hari dalam rentang
+        $currentDate = clone $startDate;
+        while ($currentDate <= $endDate) {
+            $hari = $currentDate->format('Y-m-d');
+            $nextDay = (clone $currentDate)->addDay()->startOfDay();
 
-        if ($totalPenggunaan == 0) {
-            return [
-                'total_keluar' => 0,
-                'count_keluar' => 0,
-                'rata_rata' => 0,
-                'maks_keluar' => 0,
-                'range_hari' => $rangeHari,
-                'hari_aktif' => 0,
-                'sumber_data' => 'Tidak ada data'
-            ];
+            // Hitung total penggunaan untuk hari ini
+            $totalHari = $this->getTotalPenggunaanPeriode($currentDate, $currentDate->copy()->endOfDay());
+
+            $dataPerHari[$hari] = $totalHari;
+
+            $currentDate = $nextDay;
         }
 
-        // Untuk perhitungan harian, kita perlu data per hari
-        $penggunaanBahanBaku = $this->penggunaan()
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->where('jumlah', '>', 0)
-            ->get();
+        return $dataPerHari;
+    }
 
-        $penggunaanData = $penggunaanData->merge($penggunaanBahanBaku);
+    public function hitungStatistikPenggunaan($rangeHari = 30)
+    {
+        // Ambil data penggunaan per hari
+        $penggunaanPerHari = $this->getPenggunaanPerHari($rangeHari);
 
-        $penjualanLangsung = $this->detailPenjualan()
-            ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('created_at', [$startDate, $endDate]);
-            })
-            ->where('jumlah', '>', 0)
-            ->get();
-
-        $penggunaanData = $penggunaanData->merge($penjualanLangsung);
-
-        // Untuk produk yang dijual, kita perlu hitung per hari
-        $penjualanProduk = DetailPenjualan::where('jenis_item', 'produk')
-            ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('created_at', [$startDate, $endDate]);
-            })
-            ->with(['produk' => function ($query) {
-                $query->with(['komposisi' => function ($q) {
-                    $q->where('bahan_baku_id', $this->id);
-                }]);
-            }])
-            ->get();
-
-        foreach ($penjualanProduk as $detail) {
-            if ($detail->produk && $detail->produk->komposisi) {
-                foreach ($detail->produk->komposisi as $komposisi) {
-                    if ($komposisi->bahan_baku_id == $this->id) {
-                        // Buat pseudo item untuk perhitungan harian
-                        $pseudoItem = (object) [
-                            'jumlah' => $komposisi->jumlah * $detail->jumlah,
-                            'created_at' => $detail->penjualan->created_at
-                        ];
-                        $penggunaanData->push($pseudoItem);
-                    }
-                }
-            }
-        }
-
-        $penggunaanPerHari = $penggunaanData->groupBy(function ($item) {
-            return $item->created_at->format('Y-m-d');
-        })->map(function ($items) {
-            return $items->sum('jumlah');
+        // Filter hanya hari yang memiliki penggunaan
+        $hariDenganPenggunaan = array_filter($penggunaanPerHari, function ($value) {
+            return $value > 0;
         });
 
-        $totalKeluar = $penggunaanPerHari->sum();
-        $countKeluar = $penggunaanData->count();
-        $hariDenganTransaksi = $penggunaanPerHari->count();
-        $hariAktif = max(1, $hariDenganTransaksi);
-        $rataRata = $totalKeluar / $hariAktif;
-        $maksKeluar = $penggunaanPerHari->max();
+        // Hitung statistik
+        $totalKeluar = array_sum($penggunaanPerHari);
+        $hariAktif = count($hariDenganPenggunaan);
+        $maksKeluar = max($penggunaanPerHari);
+
+        // Hitung rata-rata berdasarkan hari aktif (bukan total hari)
+        if ($hariAktif > 0) {
+            $rataRata = $totalKeluar / $hariAktif;
+        } else {
+            $rataRata = 0;
+        }
 
         return [
             'total_keluar' => $totalKeluar,
-            'count_keluar' => $countKeluar,
-            'rata_rata' => max(0, round($rataRata, 2)),
-            'maks_keluar' => max(0, $maksKeluar),
-            'range_hari' => $rangeHari,
             'hari_aktif' => $hariAktif,
-            'sumber_data' => 'Penggunaan & Penjualan',
+            'rata_rata' => round($rataRata, 2),
+            'maks_keluar' => $maksKeluar,
+            'range_hari' => $rangeHari,
             'penggunaan_per_hari' => $penggunaanPerHari
         ];
     }
@@ -219,18 +185,21 @@ class BahanBaku extends Model
             ];
         }
 
-        $T = $statistik['rata_rata'];
-        $LT = max(1, $this->lead_time);
-        $LT_max = max($LT, $this->lead_time_max);
-        $Maks = $statistik['maks_keluar'];
+        $T = $statistik['rata_rata']; // Rata-rata per hari
+        $LT = max(1, $this->lead_time); // Lead time rata-rata
+        $LT_max = max($LT, $this->lead_time_max); // Lead time maksimum
+        $Maks = $statistik['maks_keluar']; // Permintaan maksimal per hari
 
-        // PERUBAHAN DI SINI: Safety Stock menggunakan maksimal keluar
+        // Safety Stock: (Penjualan Maksimal Harian × Lead Time Maksimum) - (Penjualan Harian Rata-rata × Lead Time Rata-rata)
         $SS = max(0, ($Maks * $LT_max) - ($T * $LT));
-        // PERUBAHAN DI SINI: Min menggunakan rata-rata + safety stock
+
+        // Min Stock: (Penjualan Harian Rata-rata × Lead Time Rata-rata) + Safety Stock
         $Min = ($T * $LT) + $SS;
-        // PERUBAHAN DI SINI: Max menggunakan rata-rata + safety stock (TIDAK dikali 2)
-        $Max = ($T * $LT) + $SS;
-        // PERUBAHAN DI SINI: ROP = Max - Min
+
+        // Max Stock: 2 * (rata-rata * lead time) + SS
+        $Max = 2 * ($T * $LT) + $SS;
+
+        // ROP: max - min
         $ROP = $Max - $Min;
 
         return [
@@ -242,7 +211,7 @@ class BahanBaku extends Model
             'perhitungan' => [
                 'formula_ss' => "($Maks × $LT_max) - ($T × $LT) = $SS",
                 'formula_min' => "($T × $LT) + $SS = $Min",
-                'formula_max' => "($T × $LT) + $SS = $Max",
+                'formula_max' => "2 × ($T × $LT) + $SS = $Max",
                 'formula_rop' => "$Max - $Min = $ROP"
             ]
         ];
@@ -264,10 +233,10 @@ class BahanBaku extends Model
 
     public function sudahAdaPenggunaan()
     {
-        // Cek dari semua sumber
+        // Cek dari semua sumber dalam 90 hari terakhir
         $totalPenggunaan = $this->getTotalPenggunaanPeriode(
-            now()->subMonths(3)->startOfMonth(),
-            now()->endOfMonth()
+            now()->subDays(90)->startOfDay(),
+            now()->endOfDay()
         );
 
         return $totalPenggunaan > 0;
@@ -296,7 +265,7 @@ class BahanBaku extends Model
 
     public function jumlahPemesananRekomendasiRop()
     {
-        if ($this->isPerluPembelian() && $this->max > 0 && $this->rop > 0) {
+        if ($this->isPerluPembelian() && $this->rop > 0) {
             return $this->rop;
         }
         return 0;

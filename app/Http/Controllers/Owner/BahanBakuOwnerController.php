@@ -29,7 +29,7 @@ class BahanBakuOwnerController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama' => 'required|string|max:255',
+            'nama' => 'required|string|max:255|unique:bahan_baku,nama',
             'satuan' => 'required|string|max:50',
             'harga_beli' => 'required|numeric|min:0',
             'harga_jual' => 'required|numeric|min:0',
@@ -37,6 +37,10 @@ class BahanBakuOwnerController extends Controller
             'lead_time' => 'required|integer|min:1',
             'lead_time_max' => 'required|integer|min:1',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+        ], [
+            'nama.unique' => 'Nama bahan baku sudah ada',
+            'lead_time.min' => 'Lead time rata-rata minimal 1 hari',
+            'lead_time_max.min' => 'Lead time maksimal minimal 1 hari'
         ]);
 
         $validator->after(function ($validator) use ($request) {
@@ -65,6 +69,7 @@ class BahanBakuOwnerController extends Controller
         try {
             $data = $request->except(['_token', '_method', 'foto']);
 
+            // Default values untuk parameter stok (0)
             $data['safety_stock'] = 0;
             $data['min'] = 0;
             $data['max'] = 0;
@@ -146,7 +151,7 @@ class BahanBakuOwnerController extends Controller
     public function update(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'nama' => 'required|string|max:255',
+            'nama' => 'required|string|max:255|unique:bahan_baku,nama,' . $id,
             'satuan' => 'required|string|max:50',
             'harga_beli' => 'required|numeric|min:0',
             'harga_jual' => 'required|numeric|min:0',
@@ -154,6 +159,10 @@ class BahanBakuOwnerController extends Controller
             'lead_time' => 'required|integer|min:1',
             'lead_time_max' => 'required|integer|min:1',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+        ], [
+            'nama.unique' => 'Nama bahan baku sudah ada',
+            'lead_time.min' => 'Lead time rata-rata minimal 1 hari',
+            'lead_time_max.min' => 'Lead time maksimal minimal 1 hari'
         ]);
 
         $validator->after(function ($validator) use ($request) {
@@ -188,14 +197,16 @@ class BahanBakuOwnerController extends Controller
 
             $bahanBaku->update($data);
 
-            $parameters = $bahanBaku->hitungParameterStok();
-
-            $bahanBaku->update([
-                'safety_stock' => $parameters['safety_stock'],
-                'min' => $parameters['min'],
-                'max' => $parameters['max'],
-                'rop' => $parameters['rop']
-            ]);
+            // Update parameter stok otomatis setelah update jika sudah ada penggunaan
+            if ($bahanBaku->sudahAdaPenggunaan()) {
+                $parameters = $bahanBaku->hitungParameterStok();
+                $bahanBaku->update([
+                    'safety_stock' => $parameters['safety_stock'],
+                    'min' => $parameters['min'],
+                    'max' => $parameters['max'],
+                    'rop' => $parameters['rop']
+                ]);
+            }
 
             $bahanBaku->refresh();
 
@@ -243,20 +254,19 @@ class BahanBakuOwnerController extends Controller
             $parameters = $bahanBaku->hitungParameterStok();
             $statistik = $parameters['statistik'];
 
-            $hasData = $statistik['count_keluar'] > 0;
+            $hasData = $statistik['total_keluar'] > 0 && $statistik['rata_rata'] > 0;
 
             if ($hasData) {
                 $calculationDetail = [
                     'bahan_baku' => $bahanBaku->nama,
-                    'lead_time' => $bahanBaku->lead_time . ' hari',
-                    'lead_time_max' => $bahanBaku->lead_time_max . ' hari',
+                    'lead_time_rata_rata' => $bahanBaku->lead_time . ' hari',
+                    'lead_time_maksimum' => $bahanBaku->lead_time_max . ' hari',
                     'statistik_penggunaan' => [
                         'total_keluar' => $statistik['total_keluar'],
-                        'count_keluar' => $statistik['count_keluar'],
+                        'hari_aktif' => $statistik['hari_aktif'],
                         'rata_rata_per_hari' => round($statistik['rata_rata'], 2),
                         'maks_keluar_per_hari' => $statistik['maks_keluar'],
-                        'range_hari' => $statistik['range_hari'],
-                        'hari_aktif' => $statistik['hari_aktif']
+                        'range_hari' => $statistik['range_hari']
                     ],
                     'perhitungan' => [
                         'safety_stock' => "({$statistik['maks_keluar']} × {$bahanBaku->lead_time_max}) - (" . round($statistik['rata_rata'], 2) . " × {$bahanBaku->lead_time}) = {$parameters['safety_stock']}",
@@ -275,15 +285,14 @@ class BahanBakuOwnerController extends Controller
             } else {
                 $calculationDetail = [
                     'bahan_baku' => $bahanBaku->nama,
-                    'lead_time' => $bahanBaku->lead_time . ' hari',
-                    'lead_time_max' => $bahanBaku->lead_time_max . ' hari',
+                    'lead_time_rata_rata' => $bahanBaku->lead_time . ' hari',
+                    'lead_time_maksimum' => $bahanBaku->lead_time_max . ' hari',
                     'statistik_penggunaan' => [
                         'total_keluar' => 0,
-                        'count_keluar' => 0,
+                        'hari_aktif' => 0,
                         'rata_rata_per_hari' => 0,
                         'maks_keluar_per_hari' => 0,
-                        'range_hari' => 30,
-                        'hari_aktif' => 0
+                        'range_hari' => 30
                     ],
                     'perhitungan' => [
                         'safety_stock' => "Belum ada data penggunaan",

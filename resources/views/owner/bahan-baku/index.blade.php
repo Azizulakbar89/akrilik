@@ -71,7 +71,7 @@
                             <th class="text-center" width="60">Min</th>
                             <th class="text-center" width="60">Max</th>
                             <th class="text-center" width="100">Status Stok</th>
-                            <th class="text-center" width="80">Aksi</th>
+                            <th class="text-center" width="100">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -115,11 +115,11 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="action-buttons">
-                                        <button class="btn btn-sm btn-info show-btn" data-id="{{ $bb->id }}"
-                                            title="Detail">
-                                            <i class="fas fa-eye"></i>
+                                        <button class="btn btn-sm btn-warning calculation-detail-btn"
+                                            data-id="{{ $bb->id }}" title="Detail Perhitungan">
+                                            <i class="fas fa-calculator"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-warning edit-btn" data-id="{{ $bb->id }}"
+                                        <button class="btn btn-sm btn-primary edit-btn" data-id="{{ $bb->id }}"
                                             title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -162,6 +162,7 @@
                                 <div class="form-group">
                                     <label for="nama">Nama Bahan Baku <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="nama" name="nama" required>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -177,6 +178,7 @@
                                         <option value="m">m</option>
                                         <option value="rim">rim</option>
                                     </select>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                         </div>
@@ -186,6 +188,7 @@
                                     <label for="harga_beli">Harga Beli <span class="text-danger">*</span></label>
                                     <input type="number" step="0.01" class="form-control" id="harga_beli"
                                         name="harga_beli" required>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -193,6 +196,7 @@
                                     <label for="harga_jual">Harga Jual <span class="text-danger">*</span></label>
                                     <input type="number" step="0.01" class="form-control" id="harga_jual"
                                         name="harga_jual" required>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                         </div>
@@ -202,6 +206,7 @@
                                     <label for="stok">Stok Awal <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="stok" name="stok"
                                         value="0" required>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -212,6 +217,7 @@
                                         value="1" required min="1">
                                     <small class="form-text text-muted">Waktu tunggu rata-rata pesanan sampai
                                         diterima</small>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                         </div>
@@ -224,6 +230,7 @@
                                         value="3" required min="1">
                                     <small class="form-text text-muted">Waktu tunggu terlama pesanan sampai
                                         diterima</small>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -240,6 +247,7 @@
                             <label for="foto">Foto Bahan Baku</label>
                             <input type="file" class="form-control-file" id="foto" name="foto"
                                 accept="image/*">
+                            <div class="invalid-feedback"></div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -275,6 +283,7 @@
                                 <div class="form-group">
                                     <label for="edit_nama">Nama Bahan Baku <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="edit_nama" name="nama" required>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -290,6 +299,7 @@
                                         <option value="m">m</option>
                                         <option value="rim">rim</option>
                                     </select>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                         </div>
@@ -299,6 +309,7 @@
                                     <label for="edit_harga_beli">Harga Beli <span class="text-danger">*</span></label>
                                     <input type="number" step="0.01" class="form-control" id="edit_harga_beli"
                                         name="harga_beli" required>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -306,6 +317,7 @@
                                     <label for="edit_harga_jual">Harga Jual <span class="text-danger">*</span></label>
                                     <input type="number" step="0.01" class="form-control" id="edit_harga_jual"
                                         name="harga_jual" required>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                         </div>
@@ -314,6 +326,7 @@
                                 <div class="form-group">
                                     <label for="edit_stok">Stok <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="edit_stok" name="stok" required>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -324,6 +337,7 @@
                                         required min="1">
                                     <small class="form-text text-muted">Waktu tunggu rata-rata pesanan sampai
                                         diterima</small>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                         </div>
@@ -336,6 +350,7 @@
                                         name="lead_time_max" required min="1">
                                     <small class="form-text text-muted">Waktu tunggu terlama pesanan sampai
                                         diterima</small>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -353,6 +368,7 @@
                             <input type="file" class="form-control-file" id="edit_foto" name="foto"
                                 accept="image/*">
                             <small class="form-text text-muted">Kosongkan jika tidak ingin mengubah foto</small>
+                            <div class="invalid-feedback"></div>
                             <div id="edit_foto_preview" class="mt-2"></div>
                         </div>
                     </div>
@@ -531,7 +547,7 @@
 
         #bahanBakuTable {
             width: 100%;
-            min-width: 1300px;
+            min-width: 1400px;
             margin-bottom: 0;
         }
 
@@ -858,9 +874,9 @@
                             html += '<h5>Informasi Bahan Baku</h5>';
                             html += '<p><strong>Nama:</strong> ' + data.bahan_baku + '</p>';
                             html += '<p><strong>Lead Time Rata-rata:</strong> ' + data
-                                .lead_time + '</p>';
+                                .lead_time_rata_rata + '</p>';
                             html += '<p><strong>Lead Time Maksimum:</strong> ' + data
-                                .lead_time_max + '</p>';
+                                .lead_time_maksimum + '</p>';
                             html += '</div>';
 
                             if (data.memiliki_data) {
@@ -871,8 +887,9 @@
                                     '<div class="col-md-6"><p><strong>Total Keluar:</strong> ' +
                                     data.statistik_penggunaan.total_keluar + '</p></div>';
                                 html +=
-                                    '<div class="col-md-6"><p><strong>Jumlah Transaksi:</strong> ' +
-                                    data.statistik_penggunaan.count_keluar + ' kali</p></div>';
+                                    '<div class="col-md-6"><p><strong>Hari dengan Transaksi:</strong> ' +
+                                    data.statistik_penggunaan.hari_aktif + ' dari ' + data
+                                    .statistik_penggunaan.range_hari + ' hari</p></div>';
                                 html +=
                                     '<div class="col-md-6"><p><strong>Rata-rata per Hari:</strong> ' +
                                     data.statistik_penggunaan.rata_rata_per_hari + '</p></div>';
@@ -880,12 +897,6 @@
                                     '<div class="col-md-6"><p><strong>Maksimum per Hari:</strong> ' +
                                     data.statistik_penggunaan.maks_keluar_per_hari +
                                     '</p></div>';
-                                if (data.statistik_penggunaan.hari_aktif !== undefined) {
-                                    html +=
-                                        '<div class="col-md-6"><p><strong>Hari dengan Transaksi:</strong> ' +
-                                        data.statistik_penggunaan.hari_aktif + ' dari ' + data
-                                        .statistik_penggunaan.range_hari + ' hari</p></div>';
-                                }
                                 html += '</div>';
                                 html += '</div>';
 
@@ -893,7 +904,7 @@
                                 html += '<h5>Detail Perhitungan</h5>';
 
                                 html += '<div class="formula-highlight">';
-                                html += '<h6>Rumus Safety Stock Baru:</h6>';
+                                html += '<h6>Rumus Safety Stock:</h6>';
                                 html +=
                                     '<p class="mb-1"><strong>(Penjualan Maksimal Harian × Lead Time Maksimum) - (Penjualan Harian Rata-rata × Lead Time Rata-rata)</strong></p>';
                                 html += '</div>';
@@ -918,6 +929,7 @@
 
                                 html += '<div class="calculation-step">';
                                 html += '<h6>Reorder Point (ROP)</h6>';
+                                html += '<p class="mb-1">Rumus: Max - Min</p>';
                                 html += '<p class="mb-1">' + data.perhitungan.rop + '</p>';
                                 html += '</div>';
                                 html += '</div>';
@@ -1055,7 +1067,7 @@
                     contentType: false,
                     success: function(response) {
                         Swal.close();
-                        if (response.success) {
+                        if (response.status === 'success') {
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Berhasil!',

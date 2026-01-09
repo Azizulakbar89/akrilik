@@ -21,11 +21,10 @@ class BahanBakuController extends Controller
             } else {
                 $bahan->statistik = [
                     'total_keluar' => 0,
-                    'count_keluar' => 0,
+                    'hari_aktif' => 0,
                     'rata_rata' => 0,
                     'maks_keluar' => 0,
-                    'range_hari' => 30,
-                    'hari_aktif' => 0
+                    'range_hari' => 30
                 ];
             }
             return $bahan;
@@ -48,8 +47,7 @@ class BahanBakuController extends Controller
         ], [
             'nama.unique' => 'Nama bahan baku sudah ada',
             'lead_time.min' => 'Lead time rata-rata minimal 1 hari',
-            'lead_time_max.min' => 'Lead time maksimal minimal 1 hari',
-            'lead_time_max.gte' => 'Lead time maksimal harus lebih besar atau sama dengan lead time rata-rata'
+            'lead_time_max.min' => 'Lead time maksimal minimal 1 hari'
         ]);
 
         // Validasi tambahan: lead_time_max harus >= lead_time
@@ -124,11 +122,10 @@ class BahanBakuController extends Controller
                     'rop' => 0,
                     'statistik' => [
                         'total_keluar' => 0,
-                        'count_keluar' => 0,
+                        'hari_aktif' => 0,
                         'rata_rata' => 0,
                         'maks_keluar' => 0,
-                        'range_hari' => 30,
-                        'hari_aktif' => 0
+                        'range_hari' => 30
                     ]
                 ];
             }
@@ -162,8 +159,7 @@ class BahanBakuController extends Controller
         ], [
             'nama.unique' => 'Nama bahan baku sudah ada',
             'lead_time.min' => 'Lead time rata-rata minimal 1 hari',
-            'lead_time_max.min' => 'Lead time maksimal minimal 1 hari',
-            'lead_time_max.gte' => 'Lead time maksimal harus lebih besar atau sama dengan lead time rata-rata'
+            'lead_time_max.min' => 'Lead time maksimal minimal 1 hari'
         ]);
 
         // Validasi tambahan: lead_time_max harus >= lead_time
@@ -296,16 +292,15 @@ class BahanBakuController extends Controller
                     'lead_time_maksimum' => $bahanBaku->lead_time_max . ' hari',
                     'statistik_penggunaan' => [
                         'total_keluar' => $statistik['total_keluar'],
-                        'count_keluar' => $statistik['count_keluar'],
+                        'hari_aktif' => $statistik['hari_aktif'],
                         'rata_rata_per_hari' => $statistik['rata_rata'],
                         'maks_keluar_per_hari' => $statistik['maks_keluar'],
-                        'range_hari' => $statistik['range_hari'],
-                        'hari_aktif' => $statistik['hari_aktif']
+                        'range_hari' => $statistik['range_hari']
                     ],
                     'perhitungan' => [
                         'safety_stock' => "({$statistik['maks_keluar']} × {$bahanBaku->lead_time_max}) - ({$statistik['rata_rata']} × {$bahanBaku->lead_time}) = {$parameters['safety_stock']}",
                         'min_stock' => "({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['min']}",
-                        'max_stock' => "({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['max']}",
+                        'max_stock' => "2 × ({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['max']}",
                         'rop' => "{$parameters['max']} - {$parameters['min']} = {$parameters['rop']}"
                     ],
                     'hasil' => $parameters,
@@ -318,11 +313,10 @@ class BahanBakuController extends Controller
                     'lead_time_maksimum' => $bahanBaku->lead_time_max . ' hari',
                     'statistik_penggunaan' => [
                         'total_keluar' => 0,
-                        'count_keluar' => 0,
+                        'hari_aktif' => 0,
                         'rata_rata_per_hari' => 0,
                         'maks_keluar_per_hari' => 0,
-                        'range_hari' => 30,
-                        'hari_aktif' => 0
+                        'range_hari' => 30
                     ],
                     'perhitungan' => [
                         'safety_stock' => "Belum ada data penggunaan",
