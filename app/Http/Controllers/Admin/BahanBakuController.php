@@ -305,8 +305,8 @@ class BahanBakuController extends Controller
                     'perhitungan' => [
                         'safety_stock' => "({$statistik['maks_keluar']} × {$bahanBaku->lead_time_max}) - ({$statistik['rata_rata']} × {$bahanBaku->lead_time}) = {$parameters['safety_stock']}",
                         'min_stock' => "({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['min']}",
-                        'max_stock' => "2 × ({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['max']}",
-                        'rop' => "{$parameters['min']} = {$parameters['rop']}"
+                        'max_stock' => "({$statistik['rata_rata']} × {$bahanBaku->lead_time}) + {$parameters['safety_stock']} = {$parameters['max']}",
+                        'rop' => "{$parameters['max']} - {$parameters['min']} = {$parameters['rop']}"
                     ],
                     'hasil' => $parameters,
                     'memiliki_data' => true

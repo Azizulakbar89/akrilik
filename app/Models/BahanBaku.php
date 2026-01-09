@@ -224,9 +224,13 @@ class BahanBaku extends Model
         $LT_max = max($LT, $this->lead_time_max);
         $Maks = $statistik['maks_keluar'];
 
+        // PERUBAHAN DI SINI: Safety Stock menggunakan maksimal keluar
         $SS = max(0, ($Maks * $LT_max) - ($T * $LT));
+        // PERUBAHAN DI SINI: Min menggunakan rata-rata + safety stock
         $Min = ($T * $LT) + $SS;
-        $Max = 2 * ($T * $LT) + $SS;
+        // PERUBAHAN DI SINI: Max menggunakan rata-rata + safety stock (TIDAK dikali 2)
+        $Max = ($T * $LT) + $SS;
+        // PERUBAHAN DI SINI: ROP = Max - Min
         $ROP = $Max - $Min;
 
         return [
@@ -238,7 +242,7 @@ class BahanBaku extends Model
             'perhitungan' => [
                 'formula_ss' => "($Maks × $LT_max) - ($T × $LT) = $SS",
                 'formula_min' => "($T × $LT) + $SS = $Min",
-                'formula_max' => "2 × ($T × $LT) + $SS = $Max",
+                'formula_max' => "($T × $LT) + $SS = $Max",
                 'formula_rop' => "$Max - $Min = $ROP"
             ]
         ];

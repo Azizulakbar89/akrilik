@@ -254,9 +254,9 @@
                         <i class="icon-copy dw dw-check" style="font-size: 40px; color: #28a745;"></i>
                         <h5 class="mt-3">Semua stok bahan baku dalam kondisi aman</h5>
                         <p>Tidak ada bahan baku yang perlu dibeli saat ini.</p>
-                        <a href="{{ route('admin.bahan-baku.create') }}" class="btn btn-primary mt-3">
+                        {{-- <a href="{{ route('admin.bahan-baku.create') }}" class="btn btn-primary mt-3">
                             <i class="icon-copy dw dw-add"></i> Tambah Bahan Baku Baru
-                        </a>
+                        </a> --}}
                     </div>
                 @endif
             </div>
