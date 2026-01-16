@@ -50,7 +50,6 @@
     <div class="card-box mb-30">
         <div class="pd-20">
             <h4 class="text-blue h4">Daftar Bahan Baku</h4>
-            <p class="mb-0">Parameter stok dihitung otomatis berdasarkan data penggunaan 30 hari terakhir</p>
         </div>
         <div class="pb-20">
             <div class="table-responsive-scroll">
@@ -63,11 +62,11 @@
                             <th class="text-center" width="60">Satuan</th>
                             <th class="text-right" width="100">Harga Beli</th>
                             <th class="text-right" width="100">Harga Jual</th>
+                            <th class="text-center" width="70">Lead Time Rata-rata</th>
+                            <th class="text-center" width="70">Lead Time Maksimal</th>
                             <th class="text-center" width="60">Stok</th>
-                            <th class="text-center" width="70">Lead Time Avg</th>
-                            <th class="text-center" width="70">Lead Time Max</th>
                             <th class="text-center" width="70">Safety Stock</th>
-                            <th class="text-center" width="60">ROP</th>
+                            <th class="text-center" width="70">ROP</th>
                             <th class="text-center" width="60">Min</th>
                             <th class="text-center" width="60">Max</th>
                             <th class="text-center" width="100">Status Stok</th>
@@ -93,13 +92,17 @@
                                 <td class="text-right">Rp {{ number_format($bb->harga_beli, 0, ',', '.') }}</td>
                                 <td class="text-right">Rp {{ number_format($bb->harga_jual, 0, ',', '.') }}</td>
                                 <td class="text-center">
+                                    <span class="lead-time-badge">{{ $bb->lead_time }} hari</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="lead-time-badge max">{{ $bb->lead_time_max }} hari</span>
+                                </td>
+                                <td class="text-center">
                                     <span
                                         class="stok-indicator {{ $bb->stok <= $bb->min ? 'danger' : ($bb->stok <= $bb->safety_stock ? 'warning' : 'success') }}">
                                         {{ $bb->stok }}
                                     </span>
                                 </td>
-                                <td class="text-center">{{ $bb->lead_time }} hari</td>
-                                <td class="text-center">{{ $bb->lead_time_max }} hari</td>
                                 <td class="text-center">{{ $bb->safety_stock }}</td>
                                 <td class="text-center">{{ $bb->rop }}</td>
                                 <td class="text-center">{{ $bb->min }}</td>
@@ -115,6 +118,10 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="action-buttons">
+                                        <button class="btn btn-sm btn-info show-btn" data-id="{{ $bb->id }}"
+                                            title="Detail">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
                                         <button class="btn btn-sm btn-warning calculation-detail-btn"
                                             data-id="{{ $bb->id }}" title="Detail Perhitungan">
                                             <i class="fas fa-calculator"></i>
@@ -153,10 +160,6 @@
                     enctype="multipart/form-data">
                     @csrf
                     <div class="modal-body">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> Safety Stock, ROP, Min, dan Max akan dihitung otomatis
-                            berdasarkan data penggunaan 30 hari terakhir.
-                        </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -200,49 +203,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="stok">Stok Awal <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="stok" name="stok"
-                                        value="0" required>
-                                    <div class="invalid-feedback"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="lead_time">Lead Time Rata-rata (hari) <span
-                                            class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="lead_time" name="lead_time"
-                                        value="1" required min="1">
-                                    <small class="form-text text-muted">Waktu tunggu rata-rata pesanan sampai
-                                        diterima</small>
-                                    <div class="invalid-feedback"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="lead_time_max">Lead Time Maksimum (hari) <span
-                                            class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="lead_time_max" name="lead_time_max"
-                                        value="3" required min="1">
-                                    <small class="form-text text-muted">Waktu tunggu terlama pesanan sampai
-                                        diterima</small>
-                                    <div class="invalid-feedback"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label>&nbsp;</label>
-                                    <div class="alert alert-warning mt-2">
-                                        <small><i class="fas fa-exclamation-triangle"></i> Lead Time Maksimum harus
-                                            lebih besar atau sama dengan Lead Time Rata-rata</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         <div class="form-group">
                             <label for="foto">Foto Bahan Baku</label>
                             <input type="file" class="form-control-file" id="foto" name="foto"
@@ -274,8 +234,9 @@
                     @method('PUT')
                     <div class="modal-body">
                         <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> Safety Stock, ROP, Min, dan Max akan dihitung ulang
-                            otomatis berdasarkan data penggunaan 30 hari terakhir.
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Catatan:</strong> Stok hanya bisa diubah melalui transaksi. Safety Stock, ROP, Min, dan
+                            Max akan dihitung ulang otomatis berdasarkan data penggunaan 30 hari terakhir.
                         </div>
                         <input type="hidden" id="edit_id" name="id">
                         <div class="row">
@@ -324,42 +285,22 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="edit_stok">Stok <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="edit_stok" name="stok" required>
-                                    <div class="invalid-feedback"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
                                     <label for="edit_lead_time">Lead Time Rata-rata (hari) <span
                                             class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="edit_lead_time" name="lead_time"
-                                        required min="1">
-                                    <small class="form-text text-muted">Waktu tunggu rata-rata pesanan sampai
-                                        diterima</small>
+                                        min="0" required>
+                                    <small class="form-text text-muted">Waktu rata-rata pengiriman bahan baku</small>
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="edit_lead_time_max">Lead Time Maksimum (hari) <span
+                                    <label for="edit_lead_time_max">Lead Time Maksimal (hari) <span
                                             class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="edit_lead_time_max"
-                                        name="lead_time_max" required min="1">
-                                    <small class="form-text text-muted">Waktu tunggu terlama pesanan sampai
-                                        diterima</small>
+                                        name="lead_time_max" min="0" required>
+                                    <small class="form-text text-muted">Waktu maksimal pengiriman bahan baku</small>
                                     <div class="invalid-feedback"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label>&nbsp;</label>
-                                    <div class="alert alert-warning mt-2">
-                                        <small><i class="fas fa-exclamation-triangle"></i> Lead Time Maksimum harus
-                                            lebih besar atau sama dengan Lead Time Rata-rata</small>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -433,13 +374,13 @@
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label>Lead Time Rata-rata</label>
-                                        <p id="show_lead_time" class="form-control-plaintext"></p>
+                                        <p id="show_lead_time" class="form-control-plaintext font-weight-bold"></p>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Lead Time Maksimum</label>
-                                        <p id="show_lead_time_max" class="form-control-plaintext"></p>
+                                        <label>Lead Time Maksimal</label>
+                                        <p id="show_lead_time_max" class="form-control-plaintext font-weight-bold"></p>
                                     </div>
                                 </div>
                             </div>
@@ -448,6 +389,12 @@
                                     <div class="form-group">
                                         <label>Status Stok</label>
                                         <p id="show_status" class="form-control-plaintext"></p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Terakhir Diperbarui</label>
+                                        <p id="show_updated_at" class="form-control-plaintext"></p>
                                     </div>
                                 </div>
                             </div>
@@ -547,7 +494,7 @@
 
         #bahanBakuTable {
             width: 100%;
-            min-width: 1400px;
+            min-width: 1500px;
             margin-bottom: 0;
         }
 
@@ -609,6 +556,23 @@
         .stok-indicator.danger {
             background-color: #f8d7da;
             color: #721c24;
+        }
+
+        .lead-time-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            background-color: #e7f3ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+
+        .lead-time-badge.max {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
         }
 
         .action-buttons {
@@ -693,7 +657,8 @@
                 border: 1px solid #000;
             }
 
-            .stok-indicator {
+            .stok-indicator,
+            .lead-time-badge {
                 border: 1px solid #000;
             }
         }
@@ -770,23 +735,6 @@
                 allowClear: true
             });
 
-            function validateLeadTime() {
-                var leadTime = parseInt($('input[name="lead_time"]').val()) || 0;
-                var leadTimeMax = parseInt($('input[name="lead_time_max"]').val()) || 0;
-
-                if (leadTimeMax < leadTime) {
-                    $('input[name="lead_time_max"]').addClass('is-invalid');
-                    return false;
-                } else {
-                    $('input[name="lead_time_max"]').removeClass('is-invalid');
-                    return true;
-                }
-            }
-
-            $('input[name="lead_time"], input[name="lead_time_max"]').on('change', function() {
-                validateLeadTime();
-            });
-
             $(document).on('click', '.show-btn', function(e) {
                 e.preventDefault();
                 var id = $(this).data('id');
@@ -814,10 +762,9 @@
                             $('#show_harga_jual').text(data.harga_jual ? 'Rp ' + parseFloat(data
                                 .harga_jual).toLocaleString('id-ID') : '-');
                             $('#show_stok').text(data.stok || '0');
-                            $('#show_lead_time').text(data.lead_time ? data.lead_time +
-                                ' hari' : '-');
-                            $('#show_lead_time_max').text(data.lead_time_max ? data
-                                .lead_time_max + ' hari' : '-');
+                            $('#show_lead_time').text((data.lead_time || '0') + ' hari');
+                            $('#show_lead_time_max').text((data.lead_time_max || '0') +
+                                ' hari');
                             $('#show_safety_stock').text(data.safety_stock || '0');
                             $('#show_rop').text(data.rop || '0');
                             $('#show_min').text(data.min || '0');
@@ -829,6 +776,15 @@
                                 '<span class="badge badge-warning">Stok Menipis</span>' :
                                 '<span class="badge badge-success">Aman</span>';
                             $('#show_status').html(statusText);
+
+                            $('#show_updated_at').text(data.updated_at ?
+                                new Date(data.updated_at).toLocaleDateString('id-ID', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                }) : '-');
 
                             $('#show_foto').html(data.foto ?
                                 `<img src="{{ asset('storage') }}/${data.foto}" alt="Foto Bahan Baku" style="max-width: 200px; height: auto; border-radius: 5px;">` :
@@ -875,7 +831,7 @@
                             html += '<p><strong>Nama:</strong> ' + data.bahan_baku + '</p>';
                             html += '<p><strong>Lead Time Rata-rata:</strong> ' + data
                                 .lead_time_rata_rata + '</p>';
-                            html += '<p><strong>Lead Time Maksimum:</strong> ' + data
+                            html += '<p><strong>Lead Time Maksimal:</strong> ' + data
                                 .lead_time_maksimum + '</p>';
                             html += '</div>';
 
@@ -887,9 +843,12 @@
                                     '<div class="col-md-6"><p><strong>Total Keluar:</strong> ' +
                                     data.statistik_penggunaan.total_keluar + '</p></div>';
                                 html +=
-                                    '<div class="col-md-6"><p><strong>Hari dengan Transaksi:</strong> ' +
-                                    data.statistik_penggunaan.hari_aktif + ' dari ' + data
-                                    .statistik_penggunaan.range_hari + ' hari</p></div>';
+                                    '<div class="col-md-6"><p><strong>Hari Aktif:</strong> ' +
+                                    data.statistik_penggunaan.hari_aktif + ' hari</p></div>';
+                                html +=
+                                    '<div class="col-md-6"><p><strong>Total Hari Analisis:</strong> ' +
+                                    data.statistik_penggunaan.total_hari_analisis +
+                                    ' hari</p></div>';
                                 html +=
                                     '<div class="col-md-6"><p><strong>Rata-rata per Hari:</strong> ' +
                                     data.statistik_penggunaan.rata_rata_per_hari + '</p></div>';
@@ -997,7 +956,6 @@
                             $('#edit_satuan').val(data.satuan).trigger('change');
                             $('#edit_harga_beli').val(data.harga_beli);
                             $('#edit_harga_jual').val(data.harga_jual);
-                            $('#edit_stok').val(data.stok);
                             $('#edit_lead_time').val(data.lead_time);
                             $('#edit_lead_time_max').val(data.lead_time_max);
 
@@ -1039,15 +997,6 @@
             $('#createForm').on('submit', function(e) {
                 e.preventDefault();
 
-                if (!validateLeadTime()) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validasi Error',
-                        text: 'Lead Time Maksimum harus lebih besar atau sama dengan Lead Time Rata-rata'
-                    });
-                    return;
-                }
-
                 var form = $(this);
                 var formData = new FormData(this);
 
@@ -1072,7 +1021,7 @@
                                 icon: 'success',
                                 title: 'Berhasil!',
                                 text: response.message ||
-                                    'Bahan baku berhasil ditambahkan!',
+                                    'Bahan baku berhasil ditambahkan dengan stok awal 0!',
                                 timer: 2000,
                                 showConfirmButton: false
                             }).then(() => {
@@ -1108,15 +1057,6 @@
 
             $('#editForm').on('submit', function(e) {
                 e.preventDefault();
-
-                if (!validateLeadTime()) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validasi Error',
-                        text: 'Lead Time Maksimum harus lebih besar atau sama dengan Lead Time Rata-rata'
-                    });
-                    return;
-                }
 
                 var form = $(this);
                 var formData = new FormData(this);
@@ -1231,6 +1171,21 @@
                     }
                 });
             });
+
+            // Reset form ketika modal ditutup
+            $('#createBahanBakuModal').on('hidden.bs.modal', function() {
+                $('#createForm')[0].reset();
+                $('#createForm').find('.is-invalid').removeClass('is-invalid');
+                $('#createForm').find('.invalid-feedback').text('');
+                $('#createForm select').val('').trigger('change');
+            });
+
+            $('#editBahanBakuModal').on('hidden.bs.modal', function() {
+                $('#editForm')[0].reset();
+                $('#editForm').find('.is-invalid').removeClass('is-invalid');
+                $('#editForm').find('.invalid-feedback').text('');
+                $('#edit_foto_preview').empty();
+            });
         });
 
         function printLaporan() {
@@ -1266,9 +1221,9 @@
                                 <th>Satuan</th>
                                 <th>Harga Beli</th>
                                 <th>Harga Jual</th>
+                                <th>Lead Time Rata-rata</th>
+                                <th>Lead Time Maksimal</th>
                                 <th>Stok</th>
-                                <th>Lead Time Avg</th>
-                                <th>Lead Time Max</th>
                                 <th>Safety Stock</th>
                                 <th>ROP</th>
                                 <th>Min</th>
