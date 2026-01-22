@@ -71,7 +71,6 @@ class PembelianOwnerController extends Controller
                 if ($bahan->rop > 0) {
                     $jumlahRekomendasi = $bahan->rop;
                 } elseif ($bahan->max > 0 && $bahan->min > 0) {
-                    // Fallback: hitung dari max - stok saat ini
                     $jumlahRekomendasi = max(1, $bahan->max - $bahan->stok);
                 } else {
                     $jumlahRekomendasi = max(1, $bahan->min - $bahan->stok + 10);
@@ -190,11 +189,24 @@ class PembelianOwnerController extends Controller
             }
 
             DB::commit();
-            return response()->json(['success' => 'Pembelian berhasil disimpan dan menunggu persetujuan']);
+
+            if ($request->ajax()) {
+                return response()->json(['success' => 'Pembelian berhasil disimpan dan menunggu persetujuan']);
+            }
+
+            return redirect()->route('owner.pembelian.index')
+                ->with('success', 'Pembelian berhasil disimpan dan menunggu persetujuan');
         } catch (\Exception $e) {
             DB::rollback();
             Log::error('Error storing pembelian: ' . $e->getMessage());
-            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+
+            if ($request->ajax()) {
+                return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+            }
+
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
         }
     }
 
@@ -252,7 +264,14 @@ class PembelianOwnerController extends Controller
 
             if (empty($items)) {
                 DB::rollback();
-                return response()->json(['error' => 'Tidak ada bahan baku yang valid untuk dibeli. Semua bahan baku sudah dalam kondisi aman.'], 400);
+
+                if ($request->ajax()) {
+                    return response()->json(['error' => 'Tidak ada bahan baku yang valid untuk dibeli. Semua bahan baku sudah dalam kondisi aman.'], 400);
+                }
+
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors(['error' => 'Tidak ada bahan baku yang valid untuk dibeli. Semua bahan baku sudah dalam kondisi aman.']);
             }
 
             // Buat pembelian
@@ -287,18 +306,30 @@ class PembelianOwnerController extends Controller
                 'bahan_baku' => $bahanBakuNames
             ]);
 
-            return response()->json([
-                'success' => 'Pembelian cepat berhasil dibuat!',
-                'pembelian_id' => $pembelian->id,
-                'total_items' => count($items),
-                'total_pembelian' => $total,
-                'redirect' => route('owner.pembelian.index'),
-                'message' => count($items) . ' bahan baku berhasil ditambahkan ke pembelian'
-            ]);
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => 'Pembelian cepat berhasil dibuat!',
+                    'pembelian_id' => $pembelian->id,
+                    'total_items' => count($items),
+                    'total_pembelian' => $total,
+                    'redirect' => route('owner.pembelian.index'),
+                    'message' => count($items) . ' bahan baku berhasil ditambahkan ke pembelian'
+                ]);
+            }
+
+            return redirect()->route('owner.pembelian.index')
+                ->with('success', 'Pembelian cepat berhasil dibuat! ' . count($items) . ' bahan baku berhasil ditambahkan ke pembelian');
         } catch (\Exception $e) {
             DB::rollback();
             Log::error('Error storing pembelian cepat: ' . $e->getMessage());
-            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+
+            if ($request->ajax()) {
+                return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+            }
+
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
         }
     }
 
@@ -518,82 +549,91 @@ class PembelianOwnerController extends Controller
             // Set waktu penerimaan sekarang
             $pembelian->waktu_penerimaan = now();
 
-            // Hitung lead time dengan aturan baru
-            $leadTimeDetail = $pembelian->lead_time_detail;
-            $leadTimeDays = $leadTimeDetail['days'];
-
-            if (!$leadTimeDays || $leadTimeDays < 1) {
-                $leadTimeDays = 1; // Default 1 hari jika tidak bisa dihitung
-            }
-
-            $leadTimeRaw = $pembelian->calculateLeadTime();
-            if ($leadTimeRaw) {
-                if ($leadTimeRaw < 1) {
-                    $leadTimeDays = 1;
-                } else {
-                    $days = floor($leadTimeRaw);
-                    $hours = ($leadTimeRaw - $days) * 24;
-                    $leadTimeDays = $hours > 0 ? $days + 1 : $days;
-                }
-            }
+            // Hitung lead time actual dari tanggal pesan sampai tanggal terima
+            $leadTimeDays = $this->calculateActualLeadTime($pembelian);
 
             // Update status
             $pembelian->status = 'diterima';
             $pembelian->save();
 
-            // Tambah stok bahan baku dan update lead time
-            $leadTimeUpdates = [];
+            // Tambah stok bahan baku dan update lead time serta hitung ulang parameter stok
+            $updates = [];
             foreach ($pembelian->detailPembelian as $detail) {
                 $bahanBaku = $detail->bahanBaku;
                 if ($bahanBaku) {
-                    // Update stok
+                    // Simpan stok sebelum
                     $stokSebelum = $bahanBaku->stok;
+
+                    // Update lead time berdasarkan lead time actual dari pembelian ini
+                    $leadTimeUpdate = $bahanBaku->updateLeadTimeWithActual($leadTimeDays);
+
+                    // Tambah stok
                     $bahanBaku->stok += $detail->jumlah;
 
-                    // Update lead time dengan aturan baru
-                    $leadTimeResult = $bahanBaku->updateLeadTime($leadTimeDays);
+                    // Hitung ulang parameter stok (safety stock, min, max, rop)
+                    $parameterBaru = $bahanBaku->hitungDanUpdateParameterStok();
 
-                    $leadTimeUpdates[] = [
+                    $bahanBaku->save();
+
+                    $updates[] = [
                         'bahan_baku' => $bahanBaku->nama,
-                        'bahan_baku_id' => $bahanBaku->id,
                         'stok_sebelum' => $stokSebelum,
                         'stok_sesudah' => $bahanBaku->stok,
                         'jumlah_ditambahkan' => $detail->jumlah,
-                        'lead_time_sebelum' => $leadTimeResult['average'] . ' hari',
-                        'lead_time_sesudah' => $leadTimeResult['new_average'] . ' hari',
-                        'lead_time_max_sebelum' => $leadTimeResult['max'] . ' hari',
-                        'lead_time_max_sesudah' => $leadTimeResult['new_max'] . ' hari',
-                        'lead_time_raw' => $leadTimeRaw,
-                        'lead_time_adjusted' => $leadTimeDays
+                        'lead_time_sebelum' => $leadTimeUpdate['old_average'] . ' hari',
+                        'lead_time_sesudah' => $leadTimeUpdate['new_average'] . ' hari',
+                        'lead_time_max_sebelum' => $leadTimeUpdate['old_max'] . ' hari',
+                        'lead_time_max_sesudah' => $leadTimeUpdate['new_max'] . ' hari',
+                        'safety_stock_sebelum' => $parameterBaru['safety_stock_old'],
+                        'safety_stock_sesudah' => $parameterBaru['safety_stock'],
+                        'min_sebelum' => $parameterBaru['min_old'],
+                        'min_sesudah' => $parameterBaru['min'],
+                        'max_sebelum' => $parameterBaru['max_old'],
+                        'max_sesudah' => $parameterBaru['max'],
+                        'rop_sebelum' => $parameterBaru['rop_old'],
+                        'rop_sesudah' => $parameterBaru['rop']
                     ];
-
-                    $bahanBaku->save();
                 }
             }
 
             DB::commit();
 
-            Log::info('Pembelian diterima dengan aturan lead time baru', [
+            Log::info('Pembelian diterima dengan perhitungan parameter stok otomatis', [
                 'pembelian_id' => $id,
-                'lead_time_raw' => $leadTimeRaw,
-                'lead_time_adjusted' => $leadTimeDays,
-                'formatted' => $leadTimeDays . ' hari',
-                'updates' => $leadTimeUpdates
+                'lead_time_actual' => $leadTimeDays,
+                'updates' => $updates
             ]);
 
             return response()->json([
-                'success' => 'Pembelian berhasil diterima, stok diperbarui, dan lead time diupdate',
-                'lead_time_raw' => $leadTimeRaw,
-                'lead_time_days' => $leadTimeDays,
+                'success' => 'Pembelian berhasil diterima, stok diperbarui, dan parameter stok dihitung ulang',
+                'lead_time_actual' => $leadTimeDays,
                 'lead_time_formatted' => $leadTimeDays . ' hari',
-                'rule_applied' => $leadTimeRaw < 1 ? 'Kurang dari 24 jam -> 1 hari' : ($leadTimeRaw > floor($leadTimeRaw) ? 'Ada sisa jam -> tambah 1 hari' : 'Tepat hari'),
-                'updates' => $leadTimeUpdates
+                'updates' => $updates,
+                'message' => 'Parameter stok (safety stock, min, max, rop) telah dihitung ulang berdasarkan lead time terbaru'
             ]);
         } catch (\Exception $e) {
             DB::rollback();
             Log::error('Error receiving pembelian: ' . $e->getMessage());
             return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Hitung lead time actual dari tanggal pesan sampai tanggal terima
+     */
+    private function calculateActualLeadTime($pembelian)
+    {
+        $tanggalPesan = Carbon::parse($pembelian->created_at);
+        $tanggalTerima = Carbon::parse(now());
+
+        // Hitung selisih dalam jam
+        $selisihJam = $tanggalPesan->diffInHours($tanggalTerima);
+
+        // Konversi ke hari dengan pembulatan ke atas
+        $leadTimeDays = ceil($selisihJam / 24);
+
+        // Minimal 1 hari
+        return max(1, $leadTimeDays);
     }
 
     public function reject($id)
@@ -653,85 +693,102 @@ class PembelianOwnerController extends Controller
     public function getPembelianCepatData()
     {
         try {
-            // Ambil semua bahan baku yang perlu dibeli dengan query yang lebih sederhana
-            $bahanBakuPerluBeli = BahanBaku::where(function ($query) {
-                $query->whereColumn('stok', '<=', 'min')
-                    ->orWhereColumn('stok', '<=', 'safety_stock');
-            })
-                ->where('min', '>', 0)
-                ->whereNotNull('harga_beli') // Pastikan harga beli tidak null
+            // LOG untuk debugging
+            Log::info('Memulai getPembelianCepatData');
+
+            // Ambil semua bahan baku dengan kondisi yang sederhana
+            $bahanBaku = BahanBaku::where('min', '>', 0)
+                ->whereNotNull('harga_beli')
+                ->where('harga_beli', '>', 0)
+                ->orderBy('nama')
                 ->get();
+
+            Log::info('Jumlah bahan baku ditemukan: ' . $bahanBaku->count());
 
             $data = [];
             $totalNilai = 0;
             $totalItems = 0;
 
-            foreach ($bahanBakuPerluBeli as $bahan) {
+            foreach ($bahanBaku as $bahan) {
                 // Cek apakah perlu pembelian
-                $perluPembelian = ($bahan->stok <= $bahan->min) ||
-                    (isset($bahan->safety_stock) && $bahan->stok <= $bahan->safety_stock);
+                $perluPembelian = false;
+                $statusStok = 'Aman';
 
+                // Cek 1: Stok <= Min (Kritis)
+                if ($bahan->stok <= $bahan->min) {
+                    $perluPembelian = true;
+                    $statusStok = 'Kritis';
+                }
+                // Cek 2: Stok <= Safety Stock (jika safety stock > 0)
+                elseif ($bahan->safety_stock > 0 && $bahan->stok <= $bahan->safety_stock) {
+                    $perluPembelian = true;
+                    $statusStok = 'Tidak Aman';
+                }
+
+                // Jika tidak perlu pembelian, skip
                 if (!$perluPembelian) {
                     continue;
                 }
 
-                // Hitung jumlah rekomendasi dengan validasi lebih baik
+                // Hitung jumlah rekomendasi
                 $jumlahRekomendasi = 0;
 
-                if (isset($bahan->rop) && $bahan->rop > 0) {
+                // Prioritaskan ROP jika ada
+                if ($bahan->rop > 0) {
                     $jumlahRekomendasi = $bahan->rop;
-                } elseif (isset($bahan->max) && $bahan->max > 0) {
-                    // Jika max ada, beli sampai max
+                }
+                // Jika ada max, hitung dari max - stok
+                elseif ($bahan->max > 0) {
                     $kebutuhan = $bahan->max - $bahan->stok;
                     $jumlahRekomendasi = max(1, $kebutuhan);
-                } elseif (isset($bahan->min) && $bahan->min > 0) {
-                    // Jika tidak ada max, beli min - stok + buffer
+                }
+                // Default: beli sampai min + buffer
+                else {
                     $kebutuhan = $bahan->min - $bahan->stok;
                     $jumlahRekomendasi = max(1, $kebutuhan + 10);
-                } else {
-                    // Default minimal 1
-                    $jumlahRekomendasi = 1;
                 }
 
-                // Pastikan minimal 1 dan tidak melebihi batas jika ada max
-                $jumlahRekomendasi = max(1, $jumlahRekomendasi);
-                if (isset($bahan->max) && $bahan->max > 0) {
+                // Validasi: jangan melebihi max jika ada
+                if ($bahan->max > 0) {
                     $jumlahRekomendasi = min($jumlahRekomendasi, $bahan->max);
                 }
 
-                $hargaBeli = isset($bahan->harga_beli) && $bahan->harga_beli > 0 ? $bahan->harga_beli : 0;
-                $totalNilaiItem = $jumlahRekomendasi * $hargaBeli;
+                // Pastikan minimal 1
+                $jumlahRekomendasi = max(1, $jumlahRekomendasi);
 
-                $statusStok = 'Aman';
-                if ($bahan->stok <= $bahan->min) {
-                    $statusStok = 'Kritis';
-                } elseif (isset($bahan->safety_stock) && $bahan->stok <= $bahan->safety_stock) {
-                    $statusStok = 'Tidak Aman';
-                }
+                $hargaBeli = $bahan->harga_beli ?: 0;
+                $totalNilaiItem = $jumlahRekomendasi * $hargaBeli;
 
                 $data[] = [
                     'bahan_baku_id' => $bahan->id,
                     'nama' => $bahan->nama,
                     'stok' => $bahan->stok,
                     'min' => $bahan->min,
-                    'max' => isset($bahan->max) ? $bahan->max : 0,
-                    'safety_stock' => isset($bahan->safety_stock) ? $bahan->safety_stock : 0,
-                    'rop' => isset($bahan->rop) ? $bahan->rop : 0,
+                    'max' => $bahan->max ?? 0,
+                    'safety_stock' => $bahan->safety_stock ?? 0,
+                    'rop' => $bahan->rop ?? 0,
                     'jumlah_rekomendasi' => $jumlahRekomendasi,
                     'harga_beli' => $hargaBeli,
-                    'satuan' => isset($bahan->satuan) ? $bahan->satuan : 'pcs',
+                    'satuan' => $bahan->satuan ?? 'pcs',
                     'total_nilai' => $totalNilaiItem,
                     'status_stok' => $statusStok,
                     'perlu_pembelian' => true,
+                    'lead_time' => $bahan->lead_time ?? 1,
+                    'lead_time_max' => $bahan->lead_time_max ?? $bahan->lead_time ?? 1,
                     'stok_kurang' => max(0, $bahan->min - $bahan->stok),
-                    'kebutuhan_untuk_stok_aman' => isset($bahan->safety_stock) ? max(0, $bahan->safety_stock - $bahan->stok) : 0
+                    'kebutuhan_untuk_stok_aman' => $bahan->safety_stock > 0 ? max(0, $bahan->safety_stock - $bahan->stok) : 0
                 ];
 
                 $totalNilai += $totalNilaiItem;
                 $totalItems++;
+
+                Log::info('Bahan baku ditambahkan: ' . $bahan->nama . ' - Status: ' . $statusStok . ' - Jumlah: ' . $jumlahRekomendasi);
             }
 
+            Log::info('Total items ditemukan: ' . $totalItems . ' - Total nilai: ' . $totalNilai);
+
             if ($totalItems === 0) {
+                Log::info('Tidak ada bahan baku yang perlu dibeli');
                 return response()->json([
                     'success' => true,
                     'data' => [],
@@ -747,15 +804,19 @@ class PembelianOwnerController extends Controller
                 'data' => $data,
                 'total_items' => $totalItems,
                 'total_nilai' => $totalNilai,
-                'message' => $totalItems . ' bahan baku perlu dibeli',
+                'message' => 'Ditemukan ' . $totalItems . ' bahan baku yang perlu dibeli',
                 'all_safe' => false
             ]);
         } catch (\Exception $e) {
             Log::error('Error getting pembelian cepat data: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+
             return response()->json([
                 'success' => false,
-                'error' => 'Terjadi kesalahan saat memuat data: ' . $e->getMessage(),
-                'message' => 'Gagal memuat data pembelian cepat'
+                'error' => 'Terjadi kesalahan saat memuat data',
+                'message' => 'Gagal memuat data pembelian cepat. Error: ' . $e->getMessage(),
+                'data' => [],
+                'all_safe' => false
             ], 500);
         }
     }
@@ -789,5 +850,117 @@ class PembelianOwnerController extends Controller
         ];
 
         return view('owner.pembelian.laporan_pdf', $data);
+    }
+
+    /**
+     * Tampilkan form pembelian cepat
+     */
+    public function showPembelianCepat()
+    {
+        $supplier = Supplier::all();
+        $bahanBaku = BahanBaku::all();
+
+        // Ambil data untuk pembelian cepat
+        $pembelianCepatData = $this->getPembelianCepatDataForView();
+
+        return view('owner.pembelian.pembelian_cepat', compact(
+            'supplier',
+            'bahanBaku',
+            'pembelianCepatData'
+        ));
+    }
+
+    /**
+     * Get data pembelian cepat untuk view
+     */
+    private function getPembelianCepatDataForView()
+    {
+        try {
+            $bahanBakuPerluBeli = BahanBaku::where(function ($query) {
+                $query->whereColumn('stok', '<=', 'min')
+                    ->orWhere(function ($q) {
+                        $q->whereColumn('stok', '<=', 'safety_stock')
+                            ->where('safety_stock', '>', 0);
+                    });
+            })
+                ->where('min', '>', 0)
+                ->whereNotNull('harga_beli')
+                ->get();
+
+            $data = [];
+            $totalNilai = 0;
+
+            foreach ($bahanBakuPerluBeli as $bahan) {
+                $perluPembelian = ($bahan->stok <= $bahan->min) ||
+                    ($bahan->safety_stock > 0 && $bahan->stok <= $bahan->safety_stock);
+
+                if (!$perluPembelian) {
+                    continue;
+                }
+
+                // Hitung jumlah rekomendasi
+                $jumlahRekomendasi = 0;
+                if ($bahan->rop > 0) {
+                    $jumlahRekomendasi = $bahan->rop;
+                } elseif ($bahan->max > 0) {
+                    $kebutuhan = $bahan->max - $bahan->stok;
+                    $jumlahRekomendasi = max(1, $kebutuhan);
+                } elseif ($bahan->min > 0) {
+                    $kebutuhan = $bahan->min - $bahan->stok;
+                    $jumlahRekomendasi = max(1, $kebutuhan + 10);
+                } else {
+                    $jumlahRekomendasi = 1;
+                }
+
+                $jumlahRekomendasi = max(1, $jumlahRekomendasi);
+                if ($bahan->max > 0) {
+                    $jumlahRekomendasi = min($jumlahRekomendasi, $bahan->max);
+                }
+
+                $hargaBeli = $bahan->harga_beli > 0 ? $bahan->harga_beli : 0;
+                $totalNilaiItem = $jumlahRekomendasi * $hargaBeli;
+
+                $statusStok = 'Aman';
+                if ($bahan->stok <= $bahan->min) {
+                    $statusStok = 'Kritis';
+                } elseif ($bahan->safety_stock > 0 && $bahan->stok <= $bahan->safety_stock) {
+                    $statusStok = 'Tidak Aman';
+                }
+
+                $data[] = [
+                    'bahan_baku_id' => $bahan->id,
+                    'nama' => $bahan->nama,
+                    'stok' => $bahan->stok,
+                    'min' => $bahan->min,
+                    'max' => $bahan->max ?? 0,
+                    'safety_stock' => $bahan->safety_stock ?? 0,
+                    'rop' => $bahan->rop ?? 0,
+                    'jumlah_rekomendasi' => $jumlahRekomendasi,
+                    'harga_beli' => $hargaBeli,
+                    'satuan' => $bahan->satuan ?? 'pcs',
+                    'total_nilai' => $totalNilaiItem,
+                    'status_stok' => $statusStok,
+                    'perlu_pembelian' => true,
+                    'lead_time' => $bahan->lead_time ?? 1
+                ];
+
+                $totalNilai += $totalNilaiItem;
+            }
+
+            return [
+                'data' => $data,
+                'total_nilai' => $totalNilai,
+                'total_items' => count($data),
+                'has_data' => count($data) > 0
+            ];
+        } catch (\Exception $e) {
+            Log::error('Error in getPembelianCepatDataForView: ' . $e->getMessage());
+            return [
+                'data' => [],
+                'total_nilai' => 0,
+                'total_items' => 0,
+                'has_data' => false
+            ];
+        }
     }
 }

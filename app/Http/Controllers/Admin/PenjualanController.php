@@ -18,8 +18,16 @@ class PenjualanController extends Controller
     public function index()
     {
         $penjualan = Penjualan::with('detailPenjualan', 'admin')->latest()->get();
-        $produk = Produk::all();
-        $bahanBaku = BahanBaku::all();
+
+        $produk = Produk::with(['komposisi.bahanBaku'])->get()->map(function ($produk) {
+            $produk->info_penjualan = $produk->getInfoForPenjualan();
+            return $produk;
+        });
+
+        $bahanBaku = BahanBaku::all()->map(function ($bahan) {
+            $bahan->info_penjualan = $bahan->getInfoForPenjualan();
+            return $bahan;
+        });
 
         return view('admin.penjualan.index', compact('penjualan', 'produk', 'bahanBaku'));
     }
@@ -48,14 +56,22 @@ class PenjualanController extends Controller
 
             foreach ($request->items as $item) {
                 if ($item['jenis_item'] == 'produk') {
-                    $produk = Produk::findOrFail($item['item_id']);
+                    $produk = Produk::with('komposisi.bahanBaku')->findOrFail($item['item_id']);
+
                     if (!$produk->bisaDiproduksi($item['jumlah'])) {
-                        throw new \Exception("Bahan baku tidak mencukupi untuk memproduksi produk: {$produk->nama}");
+                        $bahanTidakCukup = $produk->bahanBakuYangTidakCukup($item['jumlah']);
+                        $errorMessage = "Bahan baku tidak mencukupi untuk memproduksi produk: {$produk->nama}\n";
+
+                        foreach ($bahanTidakCukup as $bahan) {
+                            $errorMessage .= "- {$bahan['nama']}: Stok {$bahan['stok_tersedia']} {$bahan['satuan']}, Dibutuhkan {$bahan['dibutuhkan']} {$bahan['satuan']}, Kurang {$bahan['kekurangan']} {$bahan['satuan']}\n";
+                        }
+
+                        throw new \Exception($errorMessage);
                     }
                 } elseif ($item['jenis_item'] == 'bahan_baku') {
                     $bahanBaku = BahanBaku::findOrFail($item['item_id']);
                     if ($bahanBaku->stok < $item['jumlah']) {
-                        throw new \Exception("Stok bahan baku {$bahanBaku->nama} tidak mencukupi");
+                        throw new \Exception("Stok bahan baku {$bahanBaku->nama} tidak mencukupi. Stok tersedia: {$bahanBaku->stok}, Dibutuhkan: {$item['jumlah']}");
                     }
                 }
             }
@@ -203,22 +219,44 @@ class PenjualanController extends Controller
 
     public function getItemInfo(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'jenis_item' => 'required|in:produk,bahan_baku',
+            'item_id' => 'required|integer'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data tidak valid'
+            ], 400);
+        }
+
         $jenis = $request->jenis_item;
         $itemId = $request->item_id;
 
         try {
             if ($jenis == 'produk') {
-                $item = Produk::findOrFail($itemId);
+                $item = Produk::with('komposisi.bahanBaku')->findOrFail($itemId);
+                $info = $item->getInfoForPenjualan();
                 $stok = 'N/A';
                 $harga = $item->harga;
                 $satuan = $item->satuan;
                 $nama = $item->nama;
+                $status_ss = $info['status_bahan_baku_badge'];
+                $perlu_pembelian = $info['perlu_pembelian_bahan'];
+                $bisa_diproduksi = $info['bisa_diproduksi_satu_unit'];
+                $bahan_tidak_cukup = $info['bahan_tidak_cukup'];
             } else {
                 $item = BahanBaku::findOrFail($itemId);
+                $info = $item->getInfoForPenjualan();
                 $stok = $item->stok;
                 $harga = $item->harga_jual;
                 $satuan = $item->satuan;
                 $nama = $item->nama;
+                $status_ss = $info['status_ss_badge'];
+                $perlu_pembelian = !$item->isStokAmanSS();
+                $bisa_diproduksi = null;
+                $bahan_tidak_cukup = [];
             }
 
             return response()->json([
@@ -227,7 +265,12 @@ class PenjualanController extends Controller
                     'nama' => $nama,
                     'stok' => $stok,
                     'harga' => $harga,
-                    'satuan' => $satuan
+                    'satuan' => $satuan,
+                    'status_ss' => $status_ss,
+                    'perlu_pembelian' => $perlu_pembelian,
+                    'bisa_diproduksi' => $bisa_diproduksi,
+                    'bahan_tidak_cukup' => $bahan_tidak_cukup,
+                    'info_lengkap' => $info
                 ]
             ]);
         } catch (\Exception $e) {

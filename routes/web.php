@@ -60,6 +60,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         Route::get('/komposisi', [ProdukController::class, 'komposisi'])->name('komposisi');
     });
 
+    Route::get('/penjualan/get-item-info', [PenjualanController::class, 'getItemInfo'])->name('penjualan.getItemInfo');
+
     Route::resource('supplier', SupplierController::class);
 
     Route::prefix('pembelian')->name('pembelian.')->group(function () {
@@ -89,7 +91,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         Route::get('/{id}', [PenjualanController::class, 'show'])->name('show');
         Route::delete('/{id}', [PenjualanController::class, 'destroy'])->name('destroy');
         Route::get('/{id}/print', [PenjualanController::class, 'printNota'])->name('print-nota');
-        Route::post('/get-item-info', [PenjualanController::class, 'getItemInfo'])->name('get-item-info');
+        Route::get('/get-item-info', [PenjualanController::class, 'getItemInfo'])->name('get-item-info'); // TAMBAHKAN INI
     });
 });
 
@@ -136,13 +138,13 @@ Route::prefix('owner')->middleware(['auth', 'role:owner'])->group(function () {
         Route::post('/{id}/reject', [PembelianOwnerController::class, 'reject'])->name('owner.pembelian.reject');
         Route::post('/{id}/receive', [PembelianOwnerController::class, 'receive'])->name('owner.pembelian.receive');
 
-        // Rekomendasi ROP
-        Route::get('/get-rekomendasi-data', [PembelianOwnerController::class, 'getRekomendasiData'])->name('owner.pembelian.get.rekomendasi-data');
-        Route::post('/store-rekomendasi', [PembelianOwnerController::class, 'storeRekomendasi'])->name('owner.pembelian.store.rekomendasi');
+        Route::get('/data/rekomendasi', [PembelianOwnerController::class, 'getRekomendasiData'])->name('get.rekomendasi-data');
+        Route::get('/data/pembelian-cepat', [PembelianOwnerController::class, 'getPembelianCepatData'])->name('get.pembelian-cepat-data');
+        Route::post('/store/pembelian-cepat', [PembelianOwnerController::class, 'storePembelianCepat'])->name('store.pembelian-cepat');
+        Route::post('/store/rekomendasi', [PembelianOwnerController::class, 'storeRekomendasi'])->name('store.rekomendasi');
 
-        // Pembelian cepat
-        Route::get('/get-pembelian-cepat-data', [PembelianOwnerController::class, 'getPembelianCepatData'])->name('owner.pembelian.get.pembelian-cepat-data');
-        Route::post('/store-pembelian-cepat', [PembelianOwnerController::class, 'storePembelianCepat'])->name('owner.pembelian.store.pembelian-cepat');
+        // Route untuk halaman pembelian cepat (optional)
+        Route::get('/pembelian-cepat/form', [PembelianOwnerController::class, 'showPembelianCepat'])->name('pembelian-cepat.form');
 
         // Laporan
         Route::get('/laporan', [PembelianOwnerController::class, 'laporan'])->name('owner.pembelian.laporan');

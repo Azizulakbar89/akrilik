@@ -43,6 +43,7 @@
                                         <tr>
                                             <th>Jenis Item</th>
                                             <th>Nama Item</th>
+                                            <th>Status SS</th>
                                             <th>Jumlah</th>
                                             <th>Harga Satuan</th>
                                             <th>Subtotal</th>
@@ -51,20 +52,20 @@
                                     </thead>
                                     <tbody id="itemsBody">
                                         <tr>
-                                            <td colspan="6" class="text-center text-muted">Belum ada item</td>
+                                            <td colspan="7" class="text-center text-muted">Belum ada item</td>
                                         </tr>
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colspan="4" class="text-right"><strong>Total</strong></td>
+                                            <td colspan="5" class="text-right"><strong>Total</strong></td>
                                             <td colspan="2"><strong id="totalAmount">Rp 0</strong></td>
                                         </tr>
                                         <tr>
-                                            <td colspan="4" class="text-right"><strong>Bayar</strong></td>
+                                            <td colspan="5" class="text-right"><strong>Bayar</strong></td>
                                             <td colspan="2"><strong id="bayarAmount">Rp 0</strong></td>
                                         </tr>
                                         <tr>
-                                            <td colspan="4" class="text-right"><strong>Kembalian</strong></td>
+                                            <td colspan="5" class="text-right"><strong>Kembalian</strong></td>
                                             <td colspan="2"><strong id="kembalianAmount">Rp 0</strong></td>
                                         </tr>
                                     </tfoot>
@@ -223,6 +224,21 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="alert alert-success" id="successAlert" style="display: none;">
+                            <i class="fa fa-check-circle"></i> <span id="successText"></span>
+                        </div>
+                        <div class="alert alert-info" id="infoAlert" style="display: none;">
+                            <i class="fa fa-info-circle"></i> <span id="infoText"></span>
+                        </div>
+                        <div class="alert alert-warning" id="warningAlert" style="display: none;">
+                            <i class="fa fa-exclamation-triangle"></i> <span id="warningText"></span>
+                        </div>
+                        <div class="alert alert-danger" id="dangerAlert" style="display: none;">
+                            <i class="fa fa-exclamation-circle"></i> <span id="dangerText"></span>
+                        </div>
+                        <div class="alert alert-danger" id="errorAlert" style="display: none;">
+                            <i class="fa fa-times-circle"></i> <span id="errorText"></span>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -297,6 +313,29 @@
         .item-detail:last-child {
             border-bottom: none;
         }
+
+        .status-ss-cell {
+            max-width: 200px;
+            min-width: 150px;
+        }
+
+        .select2-container--default .select2-results__option[aria-disabled=true] {
+            color: #999;
+            background-color: #f5f5f5;
+        }
+
+        .select2-container--default .select2-results__option--highlighted[aria-disabled=true] {
+            background-color: #f5f5f5;
+            color: #999;
+        }
+
+        .item-disabled {
+            color: #999;
+        }
+
+        .item-enabled {
+            color: #333;
+        }
     </style>
 @endpush
 
@@ -307,9 +346,37 @@
             let currentItems = [];
             let currentPenjualanId = null;
 
+            // Inisialisasi tooltip
+            $('[data-toggle="tooltip"]').tooltip();
+
             $('#item_id').select2({
                 placeholder: "Pilih Item",
-                allowClear: true
+                allowClear: true,
+                templateResult: function(item) {
+                    if (!item.id) {
+                        return item.text;
+                    }
+
+                    // Tambahkan status di sebelah nama item
+                    var $item = $(
+                        '<span>' + item.text +
+                        (item.element.dataset.status ?
+                            ' <span class="float-right">' + item.element.dataset.status +
+                            '</span>' :
+                            '') +
+                        '</span>'
+                    );
+                    return $item;
+                },
+                templateSelection: function(item) {
+                    if (!item.id) {
+                        return item.text;
+                    }
+
+                    // Hanya tampilkan nama item tanpa status saat dipilih
+                    var $item = $('<span>' + item.text.split('(')[0].trim() + '</span>');
+                    return $item;
+                }
             });
 
             $('#addItemModal').on('hidden.bs.modal', function() {
@@ -319,8 +386,14 @@
                 $('#hargaInfo').text('Rp 0').removeClass('badge-success').addClass('badge-success');
                 $('#subtotalInfo').text('Rp 0').removeClass('badge-primary').addClass('badge-primary');
                 $('#satuanInfo').text('-').removeClass('badge-secondary').addClass('badge-secondary');
+                $('#statusSSInfo').html('');
                 $('#item_id').empty().append('<option value="">Pilih Item</option>');
                 $('#jenis_item').val('');
+                $('#successAlert').hide();
+                $('#infoAlert').hide();
+                $('#warningAlert').hide();
+                $('#dangerAlert').hide();
+                $('#errorAlert').hide();
             });
 
             $('#addItemBtn').click(function() {
@@ -333,24 +406,62 @@
 
                 if (jenis === 'produk') {
                     @foreach ($produk as $item)
+                        @php
+                            $info = $item->info_penjualan;
+                            $status = '';
+                            $disabled = false;
+
+                            if (!$info['bisa_diproduksi_satu_unit']) {
+                                $status = '<span class="badge badge-danger">Tidak bisa diproduksi</span>';
+                                $disabled = true;
+                            } elseif ($info['perlu_pembelian_bahan']) {
+                                $status = '<span class="badge badge-warning">Perlu Pembelian</span>';
+                            } else {
+                                $status = '<span class="badge badge-success">Aman</span>';
+                            }
+                        @endphp
                         $('#item_id').append(
-                            '<option value="{{ $item->id }}" data-harga="{{ $item->harga }}" data-satuan="{{ $item->satuan }}">{{ $item->nama }}</option>'
+                            `<option value="{{ $item->id }}" 
+                             data-harga="{{ $item->harga }}" 
+                             data-satuan="{{ $item->satuan }}"
+                             data-info='@json($info)'
+                             data-status='{!! $status !!}'
+                             {{ $disabled ? 'disabled' : '' }}>
+                             {{ $item->nama }}
+                            </option>`
                         );
                     @endforeach
                 } else if (jenis === 'bahan_baku') {
                     @foreach ($bahanBaku as $item)
+                        @php
+                            $info = $item->info_penjualan;
+                            $status = '';
+                            $disabled = false;
+
+                            if ($item->stok <= 0) {
+                                $status = '<span class="badge badge-danger">Perlu Pembelian</span>';
+                                $disabled = true;
+                            } elseif ($info['perlu_pembelian']) {
+                                $status = '<span class="badge badge-warning">Perlu Pembelian</span>';
+                            } else {
+                                $status = '<span class="badge badge-success">Aman</span>';
+                            }
+                        @endphp
                         $('#item_id').append(
-                            '<option value="{{ $item->id }}" data-stok="{{ $item->stok }}" data-harga="{{ $item->harga_jual }}" data-satuan="{{ $item->satuan }}">{{ $item->nama }}</option>'
+                            `<option value="{{ $item->id }}" 
+                             data-stok="{{ $item->stok }}" 
+                             data-harga="{{ $item->harga_jual }}" 
+                             data-satuan="{{ $item->satuan }}"
+                             data-info='@json($info)'
+                             data-status='{!! $status !!}'
+                             {{ $disabled ? 'disabled' : '' }}>
+                             {{ $item->nama }} (Stok: {{ $item->stok }})
+                            </option>`
                         );
                     @endforeach
                 }
 
-                $('#statusInfo').text('-').removeClass('badge-danger badge-warning badge-success').addClass(
-                    'badge-info');
-                $('#hargaInfo').text('Rp 0').removeClass('badge-success').addClass('badge-success');
-                $('#subtotalInfo').text('Rp 0').removeClass('badge-primary').addClass('badge-primary');
-                $('#satuanInfo').text('-').removeClass('badge-secondary').addClass('badge-secondary');
-
+                resetStatusFields();
                 $('#item_id').trigger('change.select2');
             });
 
@@ -359,41 +470,133 @@
                 const jenis = $('#jenis_item').val();
                 const harga = selectedOption.data('harga');
                 const satuan = selectedOption.data('satuan');
+                const info = selectedOption.data('info');
+                const isDisabled = selectedOption.prop('disabled');
+
+                if (isDisabled) {
+                    $('#saveItemBtn').prop('disabled', true);
+                    if (jenis === 'produk') {
+                        $('#errorText').text(
+                            'Produk ini tidak bisa ditambahkan karena bahan baku tidak cukup.');
+                    } else {
+                        $('#errorText').text('Bahan baku ini tidak bisa ditambahkan karena stok habis.');
+                    }
+                    $('#errorAlert').show();
+                    $('#successAlert').hide();
+                    $('#infoAlert').hide();
+                    $('#warningAlert').hide();
+                    $('#dangerAlert').hide();
+                    return;
+                } else {
+                    $('#saveItemBtn').prop('disabled', false);
+                    $('#errorAlert').hide();
+                }
 
                 if (harga !== undefined) {
+                    // Update informasi dasar
                     if (jenis === 'produk') {
                         $('#statusInfo').text('Produk - Bahan baku akan diproses saat penjualan')
                             .removeClass('badge-danger badge-warning badge-success')
                             .addClass('badge-info');
+
+                        if (info.bisa_diproduksi_satu_unit) {
+                            if (info.perlu_pembelian_bahan) {
+                                $('#warningText').text(
+                                    'Produk ini mengandung bahan baku yang perlu pembelian (≤ Safety Stock).'
+                                );
+                                $('#warningAlert').show();
+                                $('#successAlert').hide();
+                            } else {
+                                $('#successText').text('Produk bisa diproduksi. Semua bahan baku aman.');
+                                $('#successAlert').show();
+                                $('#warningAlert').hide();
+                            }
+                        }
                     } else {
                         const stok = selectedOption.data('stok');
                         $('#statusInfo').text(stok);
                         if (stok <= 0) {
                             $('#statusInfo').removeClass('badge-info badge-warning badge-success').addClass(
                                 'badge-danger');
+                            $('#dangerText').text('Stok habis! Tidak dapat menjual item ini.');
+                            $('#dangerAlert').show();
+                            $('#warningAlert').hide();
+                            $('#successAlert').hide();
                         } else if (stok <= 10) {
                             $('#statusInfo').removeClass('badge-info badge-danger badge-success').addClass(
                                 'badge-warning');
+                            $('#warningText').text('Stok rendah! Hati-hati dalam penjualan.');
+                            $('#warningAlert').show();
+                            $('#dangerAlert').hide();
+                            $('#successAlert').hide();
                         } else {
                             $('#statusInfo').removeClass('badge-info badge-danger badge-warning').addClass(
                                 'badge-success');
+                            if (info.perlu_pembelian) {
+                                $('#warningText').text(
+                                    'Bahan baku perlu pembelian karena stok ≤ Safety Stock.');
+                                $('#warningAlert').show();
+                                $('#successAlert').hide();
+                            } else {
+                                $('#successText').text('Stok tersedia dan aman.');
+                                $('#successAlert').show();
+                                $('#warningAlert').hide();
+                            }
                         }
                     }
 
                     $('#hargaInfo').text('Rp ' + numberFormat(harga));
                     $('#satuanInfo').text(satuan);
+
+                    // Update status Safety Stock
+                    if (info && info.status_ss_badge) {
+                        $('#statusSSInfo').html(info.status_ss_badge);
+                    } else if (info && info.status_bahan_baku_badge) {
+                        $('#statusSSInfo').html(info.status_bahan_baku_badge);
+                    } else {
+                        $('#statusSSInfo').html('<span class="badge badge-secondary">-</span>');
+                    }
+
                     calculateSubtotal();
                 } else {
-                    $('#statusInfo').text('-').removeClass('badge-danger badge-warning badge-success')
-                        .addClass('badge-info');
-                    $('#hargaInfo').text('Rp 0').removeClass('badge-success').addClass('badge-success');
-                    $('#subtotalInfo').text('Rp 0').removeClass('badge-primary').addClass('badge-primary');
-                    $('#satuanInfo').text('-').removeClass('badge-secondary').addClass('badge-secondary');
+                    resetStatusFields();
                 }
             });
 
             $('#jumlah').on('input', function() {
                 calculateSubtotal();
+
+                // Validasi khusus untuk bahan baku dan produk
+                const jenis = $('#jenis_item').val();
+                const selectedOption = $('#item_id').find('option:selected');
+                const info = selectedOption.data('info');
+                const jumlah = parseInt($('#jumlah').val()) || 0;
+
+                if (jenis === 'bahan_baku') {
+                    const stok = selectedOption.data('stok');
+
+                    if (jumlah > stok) {
+                        $('#dangerText').text('Jumlah melebihi stok tersedia! Stok tersedia: ' + stok);
+                        $('#dangerAlert').show();
+                        $('#warningAlert').hide();
+                        $('#successAlert').hide();
+                        $('#saveItemBtn').prop('disabled', true);
+                    } else if (stok > 0) {
+                        $('#dangerAlert').hide();
+                        $('#saveItemBtn').prop('disabled', false);
+                    }
+                } else if (jenis === 'produk' && info && info.bahan_tidak_cukup && info.bahan_tidak_cukup
+                    .length > 0) {
+                    // Cek untuk produk apakah bahan baku cukup untuk jumlah yang dimasukkan
+                    let semuaCukup = true;
+                    let pesanError = '';
+
+                    if (jumlah > 10) {
+                        $('#warningText').text('Jumlah besar, pastikan bahan baku mencukupi.');
+                        $('#warningAlert').show();
+                        $('#successAlert').hide();
+                    }
+                }
             });
 
             function calculateSubtotal() {
@@ -405,14 +608,42 @@
                 $('#subtotalInfo').text('Rp ' + numberFormat(subtotal));
             }
 
+            function resetStatusFields() {
+                $('#statusInfo').text('-').removeClass('badge-danger badge-warning badge-success')
+                    .addClass('badge-info');
+                $('#hargaInfo').text('Rp 0').removeClass('badge-success').addClass('badge-success');
+                $('#subtotalInfo').text('Rp 0').removeClass('badge-primary').addClass('badge-primary');
+                $('#satuanInfo').text('-').removeClass('badge-secondary').addClass('badge-secondary');
+                $('#statusSSInfo').html('');
+                $('#successAlert').hide();
+                $('#infoAlert').hide();
+                $('#warningAlert').hide();
+                $('#dangerAlert').hide();
+                $('#errorAlert').hide();
+                $('#saveItemBtn').prop('disabled', false);
+            }
+
             $('#saveItemBtn').click(function() {
                 const jenisItem = $('#jenis_item').val();
                 const itemId = $('#item_id').val();
                 const jumlah = $('#jumlah').val();
                 const selectedOption = $('#item_id').find('option:selected');
+                const info = selectedOption.data('info');
 
                 if (!jenisItem || !itemId || !jumlah) {
                     Swal.fire('Peringatan', 'Harap lengkapi semua field', 'warning');
+                    return;
+                }
+
+                // Cek jika item disabled
+                if (selectedOption.prop('disabled')) {
+                    if (jenisItem === 'produk') {
+                        Swal.fire('Error',
+                            'Produk ini tidak bisa ditambahkan karena bahan baku tidak cukup.', 'error');
+                    } else {
+                        Swal.fire('Error', 'Bahan baku ini tidak bisa ditambahkan karena stok habis.',
+                            'error');
+                    }
                     return;
                 }
 
@@ -425,23 +656,86 @@
                     }
                 }
 
-                if (jumlah <= 0) {
-                    Swal.fire('Error', 'Jumlah harus lebih dari 0', 'error');
-                    return;
-                }
+                if (jenisItem === 'produk') {
+                    // Validasi stok bahan baku untuk produk
+                    $.ajax({
+                        url: '{{ url('admin/penjualan/get-item-info') }}',
+                        type: 'GET',
+                        data: {
+                            jenis_item: jenisItem,
+                            item_id: itemId
+                        },
+                        success: function(response) {
+                            if (response.status === 'success') {
+                                const data = response.data;
 
+                                if (jumlah > 1) {
+                                    Swal.fire({
+                                        title: 'Validasi Jumlah',
+                                        text: 'Apakah Anda yakin jumlah ' + jumlah +
+                                            ' unit dapat diproduksi?',
+                                        icon: 'question',
+                                        showCancelButton: true,
+                                        confirmButtonText: 'Ya, lanjutkan',
+                                        cancelButtonText: 'Periksa ulang'
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            addItemToCart(jenisItem, itemId, jumlah,
+                                                selectedOption, info, data);
+                                        }
+                                    });
+                                } else {
+                                    // Cek apakah produk bisa diproduksi untuk 1 unit
+                                    if (!data.bisa_diproduksi) {
+                                        let errorMsg =
+                                            'Produk tidak bisa diproduksi karena bahan baku tidak cukup:\n';
+                                        data.bahan_tidak_cukup.forEach(function(bahan) {
+                                            errorMsg +=
+                                                `- ${bahan.nama}: Stok ${bahan.stok_tersedia}, Dibutuhkan ${bahan.dibutuhkan}, Kurang ${bahan.kekurangan}\n`;
+                                        });
+                                        Swal.fire('Error', errorMsg, 'error');
+                                        return;
+                                    }
+
+                                    addItemToCart(jenisItem, itemId, jumlah, selectedOption,
+                                        info, data);
+                                }
+                            }
+                        },
+                        error: function(xhr) {
+                            let errorMessage = 'Gagal memvalidasi stok bahan baku';
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                errorMessage = xhr.responseJSON.message;
+                            }
+                            Swal.fire('Error', errorMessage, 'error');
+                        }
+                    });
+                } else {
+                    // Untuk bahan baku langsung tambahkan
+                    addItemToCart(jenisItem, itemId, jumlah, selectedOption, info, null);
+                }
+            });
+
+            function addItemToCart(jenisItem, itemId, jumlah, selectedOption, info, dataFromServer) {
                 const harga = parseFloat(selectedOption.data('harga'));
                 const subtotal = harga * jumlah;
+                const satuan = selectedOption.data('satuan');
+                const nama = selectedOption.text().split('(')[0].trim();
 
                 const item = {
                     id: itemCounter++,
                     jenis_item: jenisItem,
                     item_id: itemId,
-                    nama: $('#item_id option:selected').text(),
+                    nama: nama,
                     jumlah: parseInt(jumlah),
                     harga: harga,
                     subtotal: subtotal,
-                    satuan: selectedOption.data('satuan')
+                    satuan: satuan,
+                    status_ss: $('#statusSSInfo').html(),
+                    perlu_pembelian: info ? (jenisItem === 'produk' ? info.perlu_pembelian_bahan : info
+                        .perlu_pembelian) : false,
+                    bisa_diproduksi: jenisItem === 'produk' ? (dataFromServer ? dataFromServer.bisa_diproduksi :
+                        info.bisa_diproduksi_satu_unit) : true
                 };
 
                 currentItems.push(item);
@@ -456,25 +750,26 @@
                     timer: 1500,
                     showConfirmButton: false
                 });
-            });
+            }
 
             function updateItemsTable() {
                 const tbody = $('#itemsBody');
                 tbody.empty();
 
                 if (currentItems.length === 0) {
-                    tbody.append('<tr><td colspan="6" class="text-center text-muted">Belum ada item</td></tr>');
+                    tbody.append('<tr><td colspan="7" class="text-center text-muted">Belum ada item</td></tr>');
                 } else {
                     currentItems.forEach((item, index) => {
                         const row = `
                     <tr>
                         <td>${item.jenis_item === 'produk' ? 'Produk' : 'Bahan Baku'}</td>
                         <td>${item.nama}</td>
+                        <td class="status-ss-cell">${item.status_ss || '<span class="badge badge-secondary">-</span>'}</td>
                         <td>${item.jumlah} ${item.satuan}</td>
                         <td>Rp ${numberFormat(item.harga)}</td>
                         <td>Rp ${numberFormat(item.subtotal)}</td>
                         <td>
-                            <button type="button" class="btn btn-sm btn-danger remove-item" data-index="${index}">
+                            <button type="button" class="btn btn-sm btn-danger remove-item" data-index="${index}" title="Hapus item">
                                 <i class="fa fa-trash"></i>
                             </button>
                         </td>
@@ -482,6 +777,9 @@
                 `;
                         tbody.append(row);
                     });
+
+                    // Re-inisialisasi tooltip untuk baris baru
+                    $('[title]').tooltip();
                 }
             }
 
@@ -530,9 +828,35 @@
                     return;
                 }
 
+                // Tampilkan konfirmasi jika ada item yang perlu pembelian
+                const itemsPerluPembelian = currentItems.filter(item => item.perlu_pembelian);
+                if (itemsPerluPembelian.length > 0) {
+                    const itemNames = itemsPerluPembelian.map(item => item.nama).join(', ');
+                    Swal.fire({
+                        title: 'Peringatan Safety Stock',
+                        html: `<p>Beberapa item yang akan dijual memiliki stok ≤ Safety Stock:</p>
+                               <p><strong>${itemNames}</strong></p>
+                               <p>Anda yakin ingin melanjutkan penjualan?</p>`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'Ya, lanjutkan',
+                        cancelButtonText: 'Batal'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            processPenjualan();
+                        }
+                    });
+                } else {
+                    processPenjualan();
+                }
+            });
+
+            function processPenjualan() {
                 const formData = {
                     nama_customer: $('#nama_customer').val(),
-                    bayar: bayar,
+                    bayar: parseFloat($('#bayar').val()) || 0,
                     items: currentItems.map(item => ({
                         jenis_item: item.jenis_item,
                         item_id: item.item_id,
@@ -589,7 +913,7 @@
                         });
                     }
                 });
-            });
+            }
 
             $('.view-penjualan').click(function() {
                 const id = $(this).data('id');

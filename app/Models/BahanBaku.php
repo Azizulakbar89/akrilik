@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
 
 class BahanBaku extends Model
@@ -50,7 +50,12 @@ class BahanBaku extends Model
         'lead_time_max' => 'integer'
     ];
 
-    // Relationships
+    protected $appends = [
+        'status_ss_label',
+        'status_ss_badge',
+        'status_stok_bahan'
+    ];
+
     public function penggunaan()
     {
         return $this->hasMany(PenggunaanBahanBaku::class, 'bahan_baku_id');
@@ -71,10 +76,6 @@ class BahanBaku extends Model
         return $this->hasMany(DetailPembelian::class, 'bahan_baku_id');
     }
 
-    /**
-     * PERHITUNGAN PARAMETER STOK DENGAN LEAD TIME DALAM HARI
-     * Menggunakan rumus: (Penjualan Maksimal Harian × Lead Time Maksimum) - (Penjualan Harian Rata-rata × Lead Time Rata-rata)
-     */
     public function hitungParameterStok()
     {
         $statistik = $this->hitungStatistikPenggunaan(30);
@@ -131,9 +132,19 @@ class BahanBaku extends Model
         ];
     }
 
-    public function updateParameterStok()
+    /**
+     * Hitung dan update parameter stok sekaligus
+     */
+    public function hitungDanUpdateParameterStok()
     {
         $parameters = $this->hitungParameterStok();
+
+        $oldValues = [
+            'safety_stock' => $this->safety_stock,
+            'min' => $this->min,
+            'max' => $this->max,
+            'rop' => $this->rop
+        ];
 
         $this->update([
             'safety_stock' => $parameters['safety_stock'],
@@ -142,11 +153,53 @@ class BahanBaku extends Model
             'rop' => $parameters['rop']
         ]);
 
-        return $parameters;
+        return array_merge($parameters, [
+            'safety_stock_old' => $oldValues['safety_stock'],
+            'min_old' => $oldValues['min'],
+            'max_old' => $oldValues['max'],
+            'rop_old' => $oldValues['rop']
+        ]);
     }
 
     /**
-     * Method baru untuk mendapatkan total penggunaan dari semua sumber
+     * Method alias untuk updateParameterStok() - untuk kompatibilitas dengan controller
+     */
+    public function updateParameterStok()
+    {
+        return $this->hitungDanUpdateParameterStok();
+    }
+
+    /**
+     * Update lead time dengan data actual dari pembelian
+     */
+    public function updateLeadTimeWithActual($actualLeadTime)
+    {
+        $oldAverage = $this->lead_time;
+        $oldMax = $this->lead_time_max;
+
+        // Hitung lead time rata-rata baru
+        // Rumus: (lead_time_lama + actual_lead_time) / 2
+        $newAverage = ($oldAverage + $actualLeadTime) / 2;
+
+        // Update lead time maksimum
+        $newMax = max($oldMax, $actualLeadTime);
+
+        // Simpan ke database
+        $this->lead_time = round($newAverage, 1);
+        $this->lead_time_max = round($newMax, 1);
+        $this->save();
+
+        return [
+            'old_average' => $oldAverage,
+            'new_average' => round($newAverage, 1),
+            'old_max' => $oldMax,
+            'new_max' => round($newMax, 1),
+            'actual_lead_time' => $actualLeadTime
+        ];
+    }
+
+    /**
+     * Method untuk mendapatkan total penggunaan dari semua sumber
      */
     public function getTotalPenggunaanPeriode($startDate = null, $endDate = null)
     {
@@ -160,7 +213,6 @@ class BahanBaku extends Model
             $endDate = now()->endOfMonth();
         }
 
-        // 1. Penjualan langsung
         $penjualanLangsung = $this->detailPenjualan()
             ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
                 $query->whereBetween('tanggal', [$startDate, $endDate]);
@@ -169,7 +221,6 @@ class BahanBaku extends Model
 
         $total += $penjualanLangsung;
 
-        // 2. Penggunaan melalui produk yang dijual
         $penjualanProduk = DetailPenjualan::where('jenis_item', 'produk')
             ->whereHas('penjualan', function ($query) use ($startDate, $endDate) {
                 $query->whereBetween('tanggal', [$startDate, $endDate]);
@@ -317,7 +368,6 @@ class BahanBaku extends Model
         });
         $hariAktif = count($hariDenganPenggunaan);
 
-        // **PERBAIKAN: Rata-rata dihitung berdasarkan jumlah transaksi**
         if ($jumlahTransaksi > 0) {
             $rataRata = $totalPenggunaan / $jumlahTransaksi;
         } else {
@@ -370,6 +420,91 @@ class BahanBaku extends Model
     {
         return ($this->stok <= $this->min || $this->stok <= $this->safety_stock)
             && ($this->min > 0 || $this->safety_stock > 0);
+    }
+
+    /**
+     * Cek status berdasarkan safety stock
+     * Stok < SS = Perlu Pembelian
+     * Stok > SS = Aman
+     */
+    public function isStokAmanSS()
+    {
+        if ($this->safety_stock <= 0) {
+            return true; // Jika SS belum diatur, dianggap aman
+        }
+        return $this->stok > $this->safety_stock;
+    }
+
+    /**
+     * Cek apakah stok mencukupi untuk jumlah tertentu
+     */
+    public function isStokCukup($jumlah)
+    {
+        return $this->stok >= $jumlah;
+    }
+
+    /**
+     * Get label status berdasarkan safety stock
+     */
+    public function getStatusSsLabelAttribute()
+    {
+        if ($this->safety_stock <= 0) {
+            return 'Belum diatur SS';
+        }
+
+        if ($this->stok <= $this->safety_stock) {
+            return 'Perlu Pembelian';
+        } else {
+            return 'Aman';
+        }
+    }
+
+    /**
+     * Get status stok untuk bahan baku (untuk dropdown)
+     */
+    public function getStatusStokBahanAttribute()
+    {
+        if ($this->stok <= 0) {
+            return 'Stok Habis';
+        } elseif ($this->stok <= $this->safety_stock && $this->safety_stock > 0) {
+            return 'Perlu Pembelian (≤ SS)';
+        } elseif ($this->safety_stock <= 0) {
+            return 'Aman (SS belum diatur)';
+        } else {
+            return 'Aman (> SS)';
+        }
+    }
+
+    /**
+     * Get badge HTML untuk status SS
+     */
+    public function getStatusSsBadgeAttribute()
+    {
+        if ($this->safety_stock <= 0) {
+            return '<span class="badge badge-secondary">Belum diatur SS</span>';
+        }
+
+        if ($this->stok <= $this->safety_stock) {
+            return '<span class="badge badge-danger">Perlu Pembelian (≤ SS)</span>';
+        } else {
+            return '<span class="badge badge-success">Aman (> SS)</span>';
+        }
+    }
+
+    /**
+     * Get badge HTML untuk status stok bahan baku
+     */
+    public function getStatusStokBadgeAttribute()
+    {
+        if ($this->stok <= 0) {
+            return '<span class="badge badge-danger">Stok Habis</span>';
+        } elseif ($this->stok <= $this->safety_stock && $this->safety_stock > 0) {
+            return '<span class="badge badge-warning">Perlu Pembelian (≤ SS)</span>';
+        } elseif ($this->safety_stock <= 0) {
+            return '<span class="badge badge-info">Aman (SS belum diatur)</span>';
+        } else {
+            return '<span class="badge badge-success">Aman (> SS)</span>';
+        }
     }
 
     /**
@@ -438,6 +573,24 @@ class BahanBaku extends Model
                 $q->where('min', '>', 0)
                     ->orWhere('safety_stock', '>', 0);
             });
+    }
+
+    /**
+     * Scope untuk bahan baku yang perlu pembelian berdasarkan SS
+     */
+    public function scopePerluPembelianSS($query)
+    {
+        return $query->whereColumn('stok', '<=', 'safety_stock')
+            ->where('safety_stock', '>', 0);
+    }
+
+    /**
+     * Scope untuk bahan baku yang aman berdasarkan SS
+     */
+    public function scopeAmanSS($query)
+    {
+        return $query->whereColumn('stok', '>', 'safety_stock')
+            ->where('safety_stock', '>', 0);
     }
 
     /**
@@ -532,6 +685,8 @@ class BahanBaku extends Model
                 'max' => $this->max,
                 'rop' => $this->rop,
                 'safety_stock' => $this->safety_stock,
+                'status_ss' => $this->status_ss_label,
+                'status_stok_bahan' => $this->status_stok_bahan,
                 'jumlah_rekomendasi' => $jumlahRekomendasi,
                 'harga_beli' => $this->harga_beli,
                 'satuan' => $this->satuan,
@@ -581,5 +736,27 @@ class BahanBaku extends Model
             return true;
         }
         return false;
+    }
+
+    /**
+     * Get informasi lengkap untuk form penjualan
+     */
+    public function getInfoForPenjualan()
+    {
+        return [
+            'id' => $this->id,
+            'nama' => $this->nama,
+            'stok' => $this->stok,
+            'harga_jual' => $this->harga_jual,
+            'satuan' => $this->satuan,
+            'safety_stock' => $this->safety_stock,
+            'status_ss' => $this->status_ss_label,
+            'status_ss_badge' => $this->status_ss_badge,
+            'status_stok_badge' => $this->status_stok_badge,
+            'status_stok_bahan' => $this->status_stok_bahan,
+            'perlu_pembelian' => !$this->isStokAmanSS(),
+            'stok_cukup' => $this->stok > 0,
+            'stok_habis' => $this->stok <= 0
+        ];
     }
 }

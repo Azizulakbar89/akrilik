@@ -26,6 +26,68 @@
                     </div>
 
                     <div class="card-body">
+                        <!-- Statistik Lead Time -->
+                        @if ($leadTimeStats['count'] > 0)
+                            <div class="alert alert-primary">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6><i class="fas fa-clock"></i> Statistik Lead Time</h6>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <small class="text-muted">Rata-rata Lead Time</small>
+                                                <div><strong>{{ $leadTimeStats['average'] }} hari</strong></div>
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="text-muted">Lead Time Maksimum</small>
+                                                <div><strong>{{ $leadTimeStats['max'] }} hari</strong></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="small text-muted mb-1">Distribusi Lead Time:</div>
+                                        <div class="progress" style="height: 10px;">
+                                            @php
+                                                $totalBahan = count($leadTimeStats['lead_times']);
+                                                $groups = [
+                                                    '1-2 hari' => 0,
+                                                    '3-5 hari' => 0,
+                                                    '6+ hari' => 0,
+                                                ];
+
+                                                foreach ($leadTimeStats['lead_times'] as $lt) {
+                                                    if ($lt <= 2) {
+                                                        $groups['1-2 hari']++;
+                                                    } elseif ($lt <= 5) {
+                                                        $groups['3-5 hari']++;
+                                                    } else {
+                                                        $groups['6+ hari']++;
+                                                    }
+                                                }
+                                            @endphp
+
+                                            <div class="progress-bar bg-success"
+                                                style="width: {{ ($groups['1-2 hari'] / $totalBahan) * 100 }}%"
+                                                data-toggle="tooltip"
+                                                title="{{ $groups['1-2 hari'] }} bahan baku (1-2 hari)">
+                                            </div>
+                                            <div class="progress-bar bg-warning"
+                                                style="width: {{ ($groups['3-5 hari'] / $totalBahan) * 100 }}%"
+                                                data-toggle="tooltip"
+                                                title="{{ $groups['3-5 hari'] }} bahan baku (3-5 hari)">
+                                            </div>
+                                            <div class="progress-bar bg-danger"
+                                                style="width: {{ ($groups['6+ hari'] / $totalBahan) * 100 }}%"
+                                                data-toggle="tooltip" title="{{ $groups['6+ hari'] }} bahan baku (6+ hari)">
+                                            </div>
+                                        </div>
+                                        <div class="small text-muted mt-1">
+                                            Parameter stok otomatis dihitung ulang saat penerimaan bahan baku
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
                         @if ($stokTidakAman->count() > 0)
                             <div class="alert alert-danger">
                                 <h5><i class="fas fa-exclamation-triangle"></i> Peringatan Stok Tidak Aman</h5>
@@ -41,6 +103,7 @@
                                                 <th>Min</th>
                                                 <th>ROP</th>
                                                 <th>Rekomendasi Beli</th>
+                                                <th>Lead Time</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
@@ -74,6 +137,7 @@
                                                             {{ $bahan->satuan }}</strong></td>
                                                     <td class="text-success"><strong>{{ $rekomendasiBeli }}
                                                             {{ $bahan->satuan }}</strong></td>
+                                                    <td>{{ $bahan->lead_time }} hari</td>
                                                     <td>{!! $status !!}</td>
                                                 </tr>
                                             @endforeach
@@ -90,6 +154,9 @@
                                     <div>
                                         <span class="badge badge-primary mr-2">Total: Rp
                                             {{ number_format($totalRekomendasi, 0, ',', '.') }}</span>
+                                        <button class="btn btn-sm btn-outline-light" id="btn-detail-perhitungan">
+                                            <i class="fas fa-calculator"></i> Detail Perhitungan
+                                        </button>
                                     </div>
                                 </div>
                                 <p>Bahan baku berikut perlu dilakukan pembelian berdasarkan sistem ROP:</p>
@@ -102,10 +169,12 @@
                                                 <th>Min</th>
                                                 <th>Max</th>
                                                 <th>ROP</th>
+                                                <th>Safety Stock</th>
                                                 <th>Rekomendasi Beli</th>
                                                 <th>Harga Beli</th>
                                                 <th>Sub Total</th>
                                                 <th>Satuan</th>
+                                                <th>Lead Time</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -119,23 +188,99 @@
                                                     <td>{{ $item['min'] }}</td>
                                                     <td>{{ $item['max'] }}</td>
                                                     <td><span class="badge badge-info">{{ $item['rop'] }}</span></td>
+                                                    <td><span
+                                                            class="badge badge-secondary">{{ $item['safety_stock'] }}</span>
+                                                    </td>
                                                     <td><strong
                                                             class="text-success">{{ $item['jumlah_rekomendasi'] }}</strong>
                                                     </td>
                                                     <td>Rp {{ number_format($item['harga_beli'], 0, ',', '.') }}</td>
                                                     <td>Rp {{ number_format($subTotal, 0, ',', '.') }}</td>
                                                     <td>{{ $item['satuan'] }}</td>
+                                                    <td>{{ $item['lead_time'] }} hari</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
                                         <tfoot class="table-primary">
                                             <tr>
-                                                <th colspan="7" class="text-right">Total Rekomendasi:</th>
-                                                <th colspan="2">Rp {{ number_format($totalRekomendasi, 0, ',', '.') }}
+                                                <th colspan="8" class="text-right">Total Rekomendasi:</th>
+                                                <th colspan="3">Rp {{ number_format($totalRekomendasi, 0, ',', '.') }}
                                                 </th>
                                             </tr>
                                         </tfoot>
                                     </table>
+                                </div>
+
+                                <!-- Panel Detail Perhitungan (hidden by default) -->
+                                <div id="detail-perhitungan" style="display: none;">
+                                    <hr>
+                                    <h6><i class="fas fa-calculator"></i> Rumus Perhitungan Parameter Stok</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="card mb-3">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">Safety Stock (SS)</h6>
+                                                    <p class="card-text small">
+                                                        <strong>Rumus:</strong> (Permintaan Maksimal Harian × Lead Time
+                                                        Maksimum) - (Permintaan Harian Rata-rata × Lead Time Rata-rata)
+                                                    </p>
+                                                    <p class="card-text small">
+                                                        <strong>Fungsi:</strong> Stok pengaman untuk menghadapi fluktuasi
+                                                        permintaan dan ketidakpastian lead time
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card mb-3">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">Minimum Stock (Min)</h6>
+                                                    <p class="card-text small">
+                                                        <strong>Rumus:</strong> (Permintaan Harian Rata-rata × Lead Time
+                                                        Rata-rata) + Safety Stock
+                                                    </p>
+                                                    <p class="card-text small">
+                                                        <strong>Fungsi:</strong> Titik minimal stok sebelum melakukan
+                                                        pemesanan ulang
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card mb-3">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">Maximum Stock (Max)</h6>
+                                                    <p class="card-text small">
+                                                        <strong>Rumus:</strong> 2 × (Permintaan Rata-rata × Lead Time
+                                                        Rata-rata) + Safety Stock
+                                                    </p>
+                                                    <p class="card-text small">
+                                                        <strong>Fungsi:</strong> Batas maksimal stok untuk mengontrol biaya
+                                                        penyimpanan
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card mb-3">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">Reorder Point (ROP)</h6>
+                                                    <p class="card-text small">
+                                                        <strong>Rumus:</strong> Max - Min
+                                                    </p>
+                                                    <p class="card-text small">
+                                                        <strong>Fungsi:</strong> Jumlah yang harus dipesan saat stok
+                                                        mencapai titik minimum
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-info-circle"></i> <strong>Catatan:</strong> Parameter stok otomatis
+                                        dihitung ulang setiap kali bahan baku diterima, berdasarkan lead time actual dan
+                                        data penggunaan terbaru.
+                                    </div>
                                 </div>
                             </div>
                         @else
@@ -154,6 +299,7 @@
                                         <th>Supplier</th>
                                         <th>Tanggal Pesan</th>
                                         <th>Tanggal Terima</th>
+                                        <th>Lead Time</th>
                                         <th>Total</th>
                                         <th>Status</th>
                                         <th width="250px">Aksi</th>
@@ -161,6 +307,17 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($pembelian as $index => $item)
+                                        @php
+                                            // Hitung lead time actual jika sudah diterima
+                                            $leadTime = '-';
+                                            if ($item->waktu_penerimaan) {
+                                                $tanggalPesan = \Carbon\Carbon::parse($item->created_at);
+                                                $tanggalTerima = \Carbon\Carbon::parse($item->waktu_penerimaan);
+                                                $selisihJam = $tanggalPesan->diffInHours($tanggalTerima);
+                                                $leadTimeDays = ceil($selisihJam / 24);
+                                                $leadTime = max(1, $leadTimeDays) . ' hari';
+                                            }
+                                        @endphp
                                         <tr>
                                             <td>{{ $index + 1 }}</td>
                                             <td>{{ $item->kode_pembelian ?? 'PB-' . str_pad($item->id, 5, '0', STR_PAD_LEFT) }}
@@ -182,6 +339,7 @@
                                                     -
                                                 @endif
                                             </td>
+                                            <td>{{ $leadTime }}</td>
                                             <td>Rp {{ number_format($item->total, 0, ',', '.') }}</td>
                                             <td>
                                                 @if ($item->status == 'menunggu_persetujuan')
@@ -252,7 +410,7 @@
                     <h4 class="modal-title"><i class="fas fa-shopping-cart"></i> Pembelian Cepat ROP</h4>
                     <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
                 </div>
-                <form id="formPembelianCepat" action="{{ route('owner.pembelian.store.pembelian-cepat') }}" method="POST">
+                <form id="formPembelianCepat" action="{{ route('store.pembelian-cepat') }}" method="POST">
                     @csrf
                     <div class="modal-body">
                         <div id="pembelian-cepat-alert"></div>
@@ -315,6 +473,7 @@
                                             <th>Jumlah Beli (ROP)</th>
                                             <th>Harga Beli</th>
                                             <th>Sub Total</th>
+                                            <th>Lead Time</th>
                                             <th>Status</th>
                                         </tr>
                                     </thead>
@@ -323,7 +482,7 @@
                                     </tbody>
                                     <tfoot class="table-success">
                                         <tr>
-                                            <th colspan="9" class="text-right">Total Pembelian:</th>
+                                            <th colspan="10" class="text-right">Total Pembelian:</th>
                                             <th colspan="2" id="total-pembelian-cepat">Rp 0</th>
                                         </tr>
                                     </tfoot>
@@ -333,8 +492,13 @@
 
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
-                            <strong>Informasi:</strong> Pembelian ini akan dibuat dengan status "menunggu_persetujuan".
-                            Anda perlu menyetujui pembelian sebelum menerima barang.
+                            <strong>Informasi:</strong>
+                            <ul class="mb-0 pl-3">
+                                <li>Pembelian ini akan dibuat dengan status "menunggu_persetujuan".</li>
+                                <li>Anda perlu menyetujui pembelian sebelum menerima barang.</li>
+                                <li>Saat menerima pembelian, parameter stok (safety stock, min, max, rop) akan otomatis
+                                    dihitung ulang berdasarkan lead time actual.</li>
+                            </ul>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -419,13 +583,15 @@
                                                     data-stok="{{ $bahan->stok }}" data-min="{{ $bahan->min }}"
                                                     data-max="{{ $bahan->max }}" data-rop="{{ $rop }}"
                                                     data-rekomendasi="{{ $rekomendasiBeli }}"
-                                                    data-satuan="{{ $bahan->satuan }}">
+                                                    data-satuan="{{ $bahan->satuan }}"
+                                                    data-leadtime="{{ $bahan->lead_time }}">
                                                     {{ $bahan->nama }}
                                                     @if ($bahan->stok <= $bahan->min)
                                                         <span class="text-danger">(Stok: {{ $bahan->stok }} - Min:
                                                             {{ $bahan->min }})</span>
                                                     @else
-                                                        (Stok: {{ $bahan->stok }}, Min: {{ $bahan->min }})
+                                                        (Stok: {{ $bahan->stok }}, Min: {{ $bahan->min }}, LT:
+                                                        {{ $bahan->lead_time }} hari)
                                                     @endif
                                                 </option>
                                             @endforeach
@@ -651,11 +817,11 @@
         }
 
         .stok-kritis {
-            background-color: #fff3cd !important;
+            background-color: #ffe6e6 !important;
         }
 
         .stok-peringatan {
-            background-color: #f8d7da !important;
+            background-color: #fff3cd !important;
         }
 
         .stok-aman {
@@ -670,6 +836,66 @@
         .stok-peringatan td {
             font-weight: bold;
             color: #721c24 !important;
+        }
+
+        .progress {
+            border-radius: 5px;
+        }
+
+        .progress-bar {
+            border-radius: 5px;
+        }
+
+        .card .card-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .card .card-text {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        /* Tambahan styling untuk pembelian cepat */
+        .item-checkbox {
+            width: 20px;
+            height: 20px;
+        }
+
+        .stok-kritis {
+            background-color: #ffe6e6 !important;
+        }
+
+        .stok-peringatan {
+            background-color: #fff3cd !important;
+        }
+
+        .jumlah-input,
+        .harga-input {
+            min-width: 80px;
+        }
+
+        .harga-input {
+            min-width: 120px;
+        }
+
+        #pembelian-cepat-table table {
+            font-size: 0.9rem;
+        }
+
+        #pembelian-cepat-table th {
+            white-space: nowrap;
+        }
+
+        #btn-submit-pembelian-cepat:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Loading overlay */
+        .swal2-container {
+            z-index: 10000 !important;
         }
     </style>
 @endpush
@@ -687,14 +913,14 @@
                 }
             });
 
-            // ========== FUNGSI PEMBELIAN CEPAT ==========
+            // ========== FUNGSI PEMBELIAN CEPAT (DIPERBAIKI) ==========
             $('#btn-pembelian-cepat').click(function() {
                 loadDataPembelianCepat();
                 $('#modalPembelianCepat').modal('show');
             });
 
             function loadDataPembelianCepat() {
-                showLoading();
+                showLoading('Memuat data pembelian cepat...');
 
                 // Reset state
                 $('#pembelian-cepat-no-data').hide();
@@ -703,8 +929,9 @@
                 $('#pembelian-cepat-alert').html('');
 
                 $.ajax({
-                    url: '{{ route('owner.pembelian.get.pembelian-cepat-data') }}',
+                    url: '{{ route('get.pembelian-cepat-data') }}',
                     type: 'GET',
+                    dataType: 'json',
                     success: function(response) {
                         hideLoading();
 
@@ -741,17 +968,21 @@
                             `);
                         }
                     },
-                    error: function(xhr) {
+                    error: function(xhr, status, error) {
                         hideLoading();
                         let errorMessage = 'Terjadi kesalahan saat memuat data pembelian cepat';
                         if (xhr.responseJSON && xhr.responseJSON.message) {
                             errorMessage = xhr.responseJSON.message;
+                        } else if (xhr.status === 0) {
+                            errorMessage =
+                                'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
                         }
                         $('#pembelian-cepat-alert').html(`
                             <div class="alert alert-danger">
                                 <i class="fas fa-exclamation-circle"></i> ${errorMessage}
                             </div>
                         `);
+                        console.error('Error loading pembelian cepat:', error);
                     }
                 });
             }
@@ -780,12 +1011,14 @@
                     html += `
                         <tr class="${rowClass}">
                             <td>
-                                <input type="checkbox" name="items[${itemIndex}][bahan_baku_id]" 
-                                       value="${item.bahan_baku_id}"
+                                <input type="checkbox" 
                                        class="form-check-input item-checkbox" 
+                                       data-index="${itemIndex}"
+                                       data-bahan-id="${item.bahan_baku_id}"
                                        data-jumlah="${jumlahBeli}"
                                        data-harga="${item.harga_beli}"
-                                       data-total="${subTotal}" checked>
+                                       data-total="${subTotal}" 
+                                       checked>
                             </td>
                             <td>
                                 <strong>${item.nama}</strong>
@@ -805,6 +1038,7 @@
                                        value="${jumlahBeli}" 
                                        class="form-control form-control-sm jumlah-input"
                                        min="1" 
+                                       data-index="${itemIndex}"
                                        data-bahan-id="${item.bahan_baku_id}"
                                        style="width: 80px; display: inline-block;">
                                 ${item.satuan}
@@ -816,19 +1050,18 @@
                                        class="form-control form-control-sm harga-input"
                                        min="0"
                                        step="0.01"
+                                       data-index="${itemIndex}"
                                        data-bahan-id="${item.bahan_baku_id}"
                                        style="width: 120px; display: inline-block;">
                             </td>
-                            <td class="text-primary font-weight-bold sub-total-display" data-subtotal="${subTotal}">
+                            <td class="text-primary font-weight-bold sub-total-display" 
+                                data-index="${itemIndex}"
+                                data-subtotal="${subTotal}">
                                 Rp ${parseFloat(subTotal).toLocaleString('id-ID')}
                             </td>
+                            <td>${item.lead_time || '1'} hari</td>
                             <td>${item.status_stok}</td>
                         </tr>
-                    `;
-
-                    // Tambah input hidden untuk data tambahan
-                    html += `
-                        <input type="hidden" name="items[${itemIndex}][is_checked]" value="1">
                     `;
 
                     itemIndex++;
@@ -858,30 +1091,32 @@
                 });
 
                 // Jumlah input change
-                $(document).on('input', '.jumlah-input', function() {
+                $(document).off('input', '.jumlah-input').on('input', '.jumlah-input', function() {
                     updatePembelianCepatSubTotal($(this));
                 });
 
                 // Harga input change
-                $(document).on('input', '.harga-input', function() {
+                $(document).off('input', '.harga-input').on('input', '.harga-input', function() {
                     updatePembelianCepatSubTotal($(this));
                 });
             }
 
             function updatePembelianCepatSubTotal($input) {
-                const $row = $input.closest('tr');
-                const jumlah = $row.find('.jumlah-input').val();
-                const harga = $row.find('.harga-input').val();
+                const index = $input.data('index');
+                const jumlah = $input.val();
+                const harga = $(`.harga-input[data-index="${index}"]`).val();
                 const subTotal = (parseFloat(jumlah) || 0) * (parseFloat(harga) || 0);
 
-                // Update data attribute
-                $row.find('.item-checkbox').data('total', subTotal);
-                $row.find('.item-checkbox').data('jumlah', jumlah);
-                $row.find('.item-checkbox').data('harga', harga);
+                // Update data attribute di checkbox
+                $(`.item-checkbox[data-index="${index}"]`)
+                    .data('jumlah', jumlah)
+                    .data('harga', harga)
+                    .data('total', subTotal);
 
                 // Update display
-                $row.find('.sub-total-display').text('Rp ' + subTotal.toLocaleString('id-ID'));
-                $row.find('.sub-total-display').data('subtotal', subTotal);
+                $(`.sub-total-display[data-index="${index}"]`)
+                    .text('Rp ' + subTotal.toLocaleString('id-ID'))
+                    .data('subtotal', subTotal);
 
                 calculatePembelianCepatTotal();
             }
@@ -891,10 +1126,7 @@
                 let selectedCount = 0;
 
                 $('.item-checkbox:checked').each(function() {
-                    const $row = $(this).closest('tr');
-                    const subTotalDisplay = $row.find('.sub-total-display');
-                    const subTotal = parseFloat(subTotalDisplay.data('subtotal')) || 0;
-
+                    const subTotal = parseFloat($(this).data('total')) || 0;
                     total += subTotal;
                     selectedCount++;
                 });
@@ -902,6 +1134,7 @@
                 $('#total-pembelian-cepat').text('Rp ' + total.toLocaleString('id-ID'));
                 $('#selected-count').text(selectedCount + ' item terpilih');
 
+                // Enable/disable submit button
                 $('#btn-submit-pembelian-cepat').prop('disabled', selectedCount === 0);
             }
 
@@ -911,7 +1144,6 @@
                 $('#selected-count').text(selectedCount + ' dari ' + totalCount + ' item terpilih');
             }
 
-            // Form pembelian cepat
             $('#formPembelianCepat').submit(function(e) {
                 e.preventDefault();
 
@@ -930,76 +1162,103 @@
                 // Kumpulkan data items yang dipilih
                 const items = [];
                 let itemIndex = 0;
+                let hasValidItem = false;
 
                 $('.item-checkbox:checked').each(function() {
-                    const $row = $(this).closest('tr');
-                    const bahanBakuId = $(this).val();
-                    const jumlah = $row.find('.jumlah-input').val();
-                    const harga = $row.find('.harga-input').val();
+                    const bahanBakuId = $(this).data('bahan-id');
+                    const jumlah = $(this).data('jumlah');
+                    const harga = $(this).data('harga');
 
-                    if (bahanBakuId && jumlah && harga) {
+                    if (bahanBakuId && jumlah && harga && parseFloat(jumlah) > 0 && parseFloat(
+                            harga) > 0) {
                         items.push({
                             bahan_baku_id: bahanBakuId,
                             jumlah: parseInt(jumlah) || 1,
                             harga: parseFloat(harga) || 0
                         });
+                        hasValidItem = true;
+                        itemIndex++;
                     }
                 });
 
-                if (items.length === 0) {
-                    showAlert('error', 'Pilih minimal satu item untuk dibeli');
+                if (!hasValidItem || items.length === 0) {
+                    showAlert('error',
+                        'Pilih minimal satu item untuk dibeli dengan jumlah dan harga yang valid');
                     return;
                 }
 
-                // Buat FormData
-                const formData = new FormData(this);
+                // Siapkan data untuk dikirim
+                const formData = {
+                    supplier_id: $('select[name="supplier_id"]').val(),
+                    tanggal: $('input[name="tanggal"]').val(),
+                    items: items,
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                };
 
-                // Hapus items yang lama
-                formData.delete('items');
-
-                // Tambah items yang baru
-                items.forEach((item, index) => {
-                    formData.append(`items[${index}][bahan_baku_id]`, item.bahan_baku_id);
-                    formData.append(`items[${index}][jumlah]`, item.jumlah);
-                    formData.append(`items[${index}][harga]`, item.harga);
-                });
-
-                showLoading();
+                showLoading('Membuat pembelian cepat...');
 
                 $.ajax({
                     url: $(this).attr('action'),
                     type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
+                    data: JSON.stringify(formData),
+                    contentType: 'application/json',
+                    dataType: 'json',
                     success: function(response) {
                         hideLoading();
 
                         if (response.success) {
                             $('#modalPembelianCepat').modal('hide');
-                            showAlert('success', response.success);
 
-                            if (response.total_items > 0) {
-                                showAlert('info',
-                                    `${response.total_items} bahan baku berhasil ditambahkan ke pembelian. Total: Rp ${parseFloat(response.total_pembelian).toLocaleString('id-ID')}`
-                                );
-                            }
+                            // Tampilkan SweetAlert sukses
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                html: `
+                                    <div class="text-center">
+                                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                        <h4>${response.success}</h4>
+                                        ${response.message ? `<p class="mt-2">${response.message}</p>` : ''}
+                                        ${response.total_items ? `<p><strong>Total Items:</strong> ${response.total_items}</p>` : ''}
+                                        ${response.total_pembelian ? `<p><strong>Total Pembelian:</strong> Rp ${parseFloat(response.total_pembelian).toLocaleString('id-ID')}</p>` : ''}
+                                        <hr>
+                                        <p class="text-muted">Anda akan diarahkan ke halaman pembelian...</p>
+                                    </div>
+                                `,
+                                showConfirmButton: true,
+                                timer: 3000
+                            });
 
+                            // Redirect ke index pembelian setelah 3 detik
                             setTimeout(() => {
-                                location.reload();
-                            }, 2000);
+                                if (response.redirect) {
+                                    window.location.href = response.redirect;
+                                } else {
+                                    window.location.href =
+                                        '{{ route('owner.pembelian.index') }}';
+                                }
+                            }, 3000);
                         } else {
                             showAlert('error', response.error ||
                                 'Terjadi kesalahan saat membuat pembelian cepat');
                         }
                     },
-                    error: function(xhr) {
+                    error: function(xhr, status, error) {
                         hideLoading();
                         let errorMessage = 'Terjadi kesalahan saat membuat pembelian cepat';
                         if (xhr.responseJSON && xhr.responseJSON.error) {
                             errorMessage = xhr.responseJSON.error;
+                        } else if (xhr.status === 422) {
+                            errorMessage =
+                                'Data yang dimasukkan tidak valid. Periksa kembali input Anda.';
                         }
-                        showAlert('error', errorMessage);
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: errorMessage,
+                            showConfirmButton: true
+                        });
+                        console.error('Error creating pembelian cepat:', error);
                     }
                 });
             });
@@ -1015,12 +1274,63 @@
                 $('#btn-submit-pembelian-cepat').prop('disabled', true);
             });
 
+            function showLoading(message = 'Memproses...') {
+                Swal.fire({
+                    title: message,
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    willOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+            }
+
+            function hideLoading() {
+                Swal.close();
+            }
+
+            function showAlert(type, message) {
+                const alertClass = type === 'success' ? 'alert-success' :
+                    type === 'error' ? 'alert-danger' :
+                    type === 'warning' ? 'alert-warning' : 'alert-info';
+
+                const icon = type === 'success' ? 'fa-check-circle' :
+                    type === 'error' ? 'fa-exclamation-circle' :
+                    type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle';
+
+                const alertHtml = `
+                    <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        <i class="fas ${icon} mr-2"></i>
+                        ${message}
+                        <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    </div>
+                `;
+
+                $('.alert-dismissible').alert('close');
+                $('.card').before(alertHtml);
+
+                setTimeout(() => {
+                    $('.alert-dismissible').alert('close');
+                }, 5000);
+            }
+
+            // ========== FUNGSI LAINNYA ==========
+            // Toggle detail perhitungan
+            $('#btn-detail-perhitungan').click(function() {
+                $('#detail-perhitungan').slideToggle();
+                if ($('#detail-perhitungan').is(':visible')) {
+                    $(this).html('<i class="fas fa-times"></i> Sembunyikan Detail');
+                } else {
+                    $(this).html('<i class="fas fa-calculator"></i> Detail Perhitungan');
+                }
+            });
+
             // ========== FUNGSI REKOMENDASI ROP UNTUK FORM TAMBAH ==========
             $('#btn-use-recommendation').click(function() {
-                showLoading();
+                showLoading('Memuat rekomendasi...');
 
                 $.ajax({
-                    url: '{{ route('owner.pembelian.get.rekomendasi-data') }}',
+                    url: '{{ route('get.rekomendasi-data') }}',
                     type: 'GET',
                     success: function(response) {
                         hideLoading();
@@ -1053,12 +1363,13 @@
                                                         data-rop="{{ $ropBahan }}"
                                                         data-rekomendasi="{{ $rekomendasiBeli }}"
                                                         data-satuan="{{ $bahan->satuan }}"
+                                                        data-leadtime="{{ $bahan->lead_time }}"
                                                         ${item.bahan_baku_id == {{ $bahan->id }} ? 'selected' : ''}>
                                                         {{ $bahan->nama }}
                                                         @if ($bahan->stok <= $bahan->min)
                                                             <span class="text-danger">(Stok: {{ $bahan->stok }} - Min: {{ $bahan->min }})</span>
                                                         @else
-                                                            (Stok: {{ $bahan->stok }}, Min: {{ $bahan->min }})
+                                                            (Stok: {{ $bahan->stok }}, Min: {{ $bahan->min }}, LT: {{ $bahan->lead_time }} hari)
                                                         @endif
                                                     </option>
                                                 @endforeach
@@ -1150,7 +1461,7 @@
             $(document).on('click', '.btn-receive', function() {
                 const id = $(this).data('id');
                 showConfirmationModal(
-                    'Apakah Anda yakin ingin menerima pembelian ini?<br><small>Stok bahan baku akan ditambahkan.</small>',
+                    'Apakah Anda yakin ingin menerima pembelian ini?<br><small>Stok bahan baku akan ditambahkan dan parameter stok (safety stock, min, max, rop) akan otomatis dihitung ulang berdasarkan lead time actual.</small>',
                     function() {
                         receivePembelian(id);
                     }
@@ -1158,7 +1469,7 @@
             });
 
             function showDetailModal(id) {
-                showLoading();
+                showLoading('Memuat detail...');
 
                 $.ajax({
                     url: `/owner/pembelian/${id}`,
@@ -1189,6 +1500,7 @@
                         });
 
                         let waktuPenerimaanHtml = '-';
+                        let leadTimeHtml = '';
                         if (response.waktu_penerimaan) {
                             const waktuPenerimaan = new Date(response.waktu_penerimaan);
                             waktuPenerimaanHtml = waktuPenerimaan.toLocaleDateString('id-ID', {
@@ -1198,6 +1510,14 @@
                                 hour: '2-digit',
                                 minute: '2-digit'
                             });
+
+                            // Hitung lead time
+                            const tanggalPesan = new Date(response.created_at);
+                            const tanggalTerima = new Date(response.waktu_penerimaan);
+                            const selisihJam = (tanggalTerima - tanggalPesan) / (1000 * 60 * 60);
+                            const leadTimeDays = Math.ceil(selisihJam / 24);
+                            leadTimeHtml =
+                                `<p><strong>Lead Time Actual:</strong> ${Math.max(1, leadTimeDays)} hari</p>`;
                         }
 
                         const detailHtml = `
@@ -1209,6 +1529,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <p><strong>Waktu Penerimaan:</strong> ${waktuPenerimaanHtml}</p>
+                                    ${leadTimeHtml}
                                     <p><strong>Status:</strong> <span class="badge ${getStatusBadgeClass(response.status)}">${getStatusText(response.status)}</span></p>
                                     <p><strong>Total Pembelian:</strong> Rp ${parseFloat(response.total).toLocaleString('id-ID')}</p>
                                 </div>
@@ -1253,7 +1574,7 @@
             }
 
             function showEditModal(id) {
-                showLoading();
+                showLoading('Memuat data...');
 
                 $.ajax({
                     url: `/owner/pembelian/${id}/edit`,
@@ -1299,13 +1620,14 @@
                                 <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select-edit" required>
                                     <option value="">Pilih Bahan Baku</option>
                                     ${bahanBaku.map(b => `
-                                                    <option value="${b.id}" 
-                                                        data-harga="${b.harga_beli}"
-                                                        data-stok="${b.stok}"
-                                                        ${item.bahan_baku_id == b.id ? 'selected' : ''}>
-                                                        ${b.nama} (Stok: ${b.stok})
-                                                    </option>
-                                                `).join('')}
+                                                                                    <option value="${b.id}" 
+                                                                                        data-harga="${b.harga_beli}"
+                                                                                        data-stok="${b.stok}"
+                                                                                        data-leadtime="${b.lead_time}"
+                                                                                        ${item.bahan_baku_id == b.id ? 'selected' : ''}>
+                                                                                        ${b.nome} (Stok: ${b.stok}, LT: ${b.lead_time} hari)
+                                                                                    </option>
+                                                                                `).join('')}
                                 </select>
                             </div>
                             <div class="col-md-2">
@@ -1339,10 +1661,10 @@
                                 <select name="supplier_id" class="form-control" required>
                                     <option value="">Pilih Supplier</option>
                                     ${supplier.map(s => `
-                                                    <option value="${s.id}" ${pembelian.supplier_id == s.id ? 'selected' : ''}>
-                                                        ${s.nama}
-                                                    </option>
-                                                `).join('')}
+                                                                                    <option value="${s.id}" ${pembelian.supplier_id == s.id ? 'selected' : ''}>
+                                                                                        ${s.nama}
+                                                                                    </option>
+                                                                                `).join('')}
                                 </select>
                             </div>
                         </div>
@@ -1388,8 +1710,9 @@
                                     @foreach ($bahanBaku as $bahan)
                                         <option value="{{ $bahan->id }}" 
                                             data-harga="{{ $bahan->harga_beli }}"
-                                            data-stok="{{ $bahan->stok }}">
-                                            {{ $bahan->nama }} (Stok: {{ $bahan->stok }})
+                                            data-stok="{{ $bahan->stok }}"
+                                            data-leadtime="{{ $bahan->lead_time }}">
+                                            {{ $bahan->nama }} (Stok: {{ $bahan->stok }}, LT: {{ $bahan->lead_time }} hari)
                                         </option>
                                     @endforeach
                                 </select>
@@ -1502,7 +1825,7 @@
                     return;
                 }
 
-                showLoading();
+                showLoading('Mengupdate pembelian...');
 
                 $.ajax({
                     url: $(this).attr('action'),
@@ -1526,7 +1849,7 @@
             });
 
             function approvePembelian(id) {
-                showLoading();
+                showLoading('Menyetujui pembelian...');
 
                 $.ajax({
                     url: `/owner/pembelian/${id}/approve`,
@@ -1548,7 +1871,7 @@
             }
 
             function rejectPembelian(id) {
-                showLoading();
+                showLoading('Menolak pembelian...');
 
                 $.ajax({
                     url: `/owner/pembelian/${id}/reject`,
@@ -1570,7 +1893,7 @@
             }
 
             function deletePembelian(id) {
-                showLoading();
+                showLoading('Menghapus pembelian...');
 
                 $.ajax({
                     url: `/owner/pembelian/${id}`,
@@ -1592,14 +1915,69 @@
             }
 
             function receivePembelian(id) {
-                showLoading();
+                showLoading('Menerima pembelian...');
 
                 $.ajax({
                     url: `/owner/pembelian/${id}/receive`,
                     type: 'POST',
                     success: function(response) {
                         hideLoading();
-                        showAlert('success', response.success);
+
+                        // Tampilkan detail perhitungan yang terjadi
+                        let detailHtml = `
+                            <div class="alert alert-success">
+                                <h5><i class="fas fa-check-circle"></i> ${response.success}</h5>
+                                <p><strong>Lead Time Actual:</strong> ${response.lead_time_formatted}</p>
+                                <hr>
+                                <h6>Detail Perubahan Parameter:</h6>
+                        `;
+
+                        if (response.updates && response.updates.length > 0) {
+                            response.updates.forEach(update => {
+                                detailHtml += `
+                                    <div class="card mb-2">
+                                        <div class="card-header bg-light py-2">
+                                            <strong>${update.bahan_baku}</strong>
+                                        </div>
+                                        <div class="card-body p-3">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <p><strong>Stok:</strong> ${update.stok_sebelum} → ${update.stok_sesudah} (+${update.jumlah_ditambahkan})</p>
+                                                    <p><strong>Safety Stock:</strong> ${update.safety_stock_sebelum} → ${update.safety_stock_sesudah}</p>
+                                                    <p><strong>Min:</strong> ${update.min_sebelum} → ${update.min_sesudah}</p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <p><strong>Max:</strong> ${update.max_sebelum} → ${update.max_sesudah}</p>
+                                                    <p><strong>ROP:</strong> ${update.rop_sebelum} → ${update.rop_sesudah}</p>
+                                                    <p><strong>Lead Time:</strong> ${update.lead_time_sebelum} → ${update.lead_time_sesudah}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        }
+
+                        detailHtml += `
+                                <div class="alert alert-info mt-3">
+                                    <i class="fas fa-info-circle"></i> <strong>Sistem telah otomatis menghitung:</strong>
+                                    <ul class="mb-0 pl-3">
+                                        <li>Safety Stock berdasarkan lead time actual dan data penggunaan</li>
+                                        <li>Min, Max, dan ROP berdasarkan rumus sistem</li>
+                                        <li>Lead time rata-rata dan maksimum diperbarui</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+
+                        Swal.fire({
+                            title: 'Pembelian Diterima',
+                            html: detailHtml,
+                            icon: 'success',
+                            confirmButtonText: 'OK',
+                            width: '800px'
+                        });
+
                         setTimeout(() => location.reload(), 2000);
                     },
                     error: function(xhr) {
@@ -1613,7 +1991,7 @@
                 });
             }
 
-            // ========== FUNGSI BANTU ==========
+            // ========== FUNGSI BANTU LAINNYA ==========
             function showConfirmationModal(message, callback) {
                 $('#konfirmasi-pesan').html(message);
                 $('#modalKonfirmasi').modal('show');
@@ -1654,46 +2032,6 @@
                 }
             }
 
-            function showAlert(type, message) {
-                const alertClass = type === 'success' ? 'alert-success' :
-                    type === 'error' ? 'alert-danger' :
-                    type === 'warning' ? 'alert-warning' : 'alert-info';
-
-                const icon = type === 'success' ? 'fa-check-circle' :
-                    type === 'error' ? 'fa-exclamation-circle' :
-                    type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle';
-
-                const alertHtml = `
-                    <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                        <i class="fas ${icon} mr-2"></i>
-                        ${message}
-                        <button type="button" class="close" data-dismiss="alert">&times;</button>
-                    </div>
-                `;
-
-                $('.alert-dismissible').alert('close');
-                $('.card').before(alertHtml);
-
-                setTimeout(() => {
-                    $('.alert-dismissible').alert('close');
-                }, 5000);
-            }
-
-            function showLoading() {
-                Swal.fire({
-                    title: 'Memproses...',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    willOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-            }
-
-            function hideLoading() {
-                Swal.close();
-            }
-
             // ========== FUNGSI FORM TAMBAH PEMBELIAN ==========
             $(document).on('change', '.bahan-baku-select', function() {
                 const selectedOption = $(this).find('option:selected');
@@ -1703,6 +2041,7 @@
                 const rop = selectedOption.data('rop');
                 const rekomendasi = selectedOption.data('rekomendasi');
                 const satuan = selectedOption.data('satuan');
+                const leadTime = selectedOption.data('leadtime');
 
                 if (harga) {
                     $(this).closest('.item-row').find('.harga').val(harga);
@@ -1715,6 +2054,7 @@
                         `<strong>${selectedOption.text().split('(')[0].trim()}</strong><br>` +
                         `• Stok: ${stok} ${satuan} (Min: ${min} ${satuan})<br>` +
                         `• ROP: ${rop} ${satuan}<br>` +
+                        `• Lead Time: ${leadTime} hari<br>` +
                         `• Rekomendasi beli: ${rekomendasi} ${satuan}`
                     );
                 }
@@ -1746,12 +2086,13 @@
                                         data-max="{{ $bahan->max }}" 
                                         data-rop="{{ $rop }}"
                                         data-rekomendasi="{{ $rekomendasiBeli }}"
-                                        data-satuan="{{ $bahan->satuan }}">
+                                        data-satuan="{{ $bahan->satuan }}"
+                                        data-leadtime="{{ $bahan->lead_time }}">
                                         {{ $bahan->nama }}
                                         @if ($bahan->stok <= $bahan->min)
                                             <span class="text-danger">(Stok: {{ $bahan->stok }} - Min: {{ $bahan->min }})</span>
                                         @else
-                                            (Stok: {{ $bahan->stok }}, Min: {{ $bahan->min }})
+                                            (Stok: {{ $bahan->stok }}, Min: {{ $bahan->min }}, LT: {{ $bahan->lead_time }} hari)
                                         @endif
                                     </option>
                                 @endforeach
@@ -1831,7 +2172,7 @@
                     return;
                 }
 
-                showLoading();
+                showLoading('Menyimpan pembelian...');
             });
 
             // Reset form ketika modal ditutup
@@ -1859,12 +2200,13 @@
                                         data-max="{{ $bahan->max }}" 
                                         data-rop="{{ $rop }}"
                                         data-rekomendasi="{{ $rekomendasiBeli }}"
-                                        data-satuan="{{ $bahan->satuan }}">
+                                        data-satuan="{{ $bahan->satuan }}"
+                                        data-leadtime="{{ $bahan->lead_time }}">
                                         {{ $bahan->nama }}
                                         @if ($bahan->stok <= $bahan->min)
                                             <span class="text-danger">(Stok: {{ $bahan->stok }} - Min: {{ $bahan->min }})</span>
                                         @else
-                                            (Stok: {{ $bahan->stok }}, Min: {{ $bahan->min }})
+                                            (Stok: {{ $bahan->stok }}, Min: {{ $bahan->min }}, LT: {{ $bahan->lead_time }} hari)
                                         @endif
                                     </option>
                                 @endforeach

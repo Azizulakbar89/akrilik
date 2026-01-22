@@ -193,106 +193,88 @@
 
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
-            <div class="card-box height-100-p pd-20">
-                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-                    <div class="h5 mb-0">Bahan Baku yang Perlu Dibeli</div>
-                    <div class="dropdown">
-                        <a class="btn btn-primary btn-sm" href="{{ route('owner.bahan-baku.index') }}">
-                            <i class="icon-copy dw dw-list"></i> Lihat Semua Bahan Baku
-                        </a>
-                    </div>
-                </div>
 
-                @if (isset($bahanBakuPerluBeli) && $bahanBakuPerluBeli->count() > 0)
-                    <div class="table-responsive">
-                        <table class="data-table table stripe hover nowrap">
-                            <thead>
+            @if (isset($bahanBakuPerluBeli) && $bahanBakuPerluBeli->count() > 0)
+                <div class="table-responsive">
+                    <table class="data-table table stripe hover nowrap">
+                        <thead>
+                            <tr>
+                                <th class="table-plus">Nama Bahan Baku</th>
+                                <th>Satuan</th>
+                                <th>Stok Saat Ini</th>
+                                <th>Minimal Stok</th>
+                                <th>Safety Stock</th>
+                                <th>ROP</th>
+                                <th>Rekomendasi Beli</th>
+                                <th>Total Nilai</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($bahanBakuPerluBeli as $bahan)
+                                @php
+                                    $rekomendasi = null;
+                                    try {
+                                        $rekomendasi = $bahan->getRekomendasiPembelianRopAttribute();
+                                    } catch (\Exception $e) {
+                                        \Log::error('Error rekomendasi bahan baku: ' . $e->getMessage());
+                                    }
+                                @endphp
                                 <tr>
-                                    <th class="table-plus">Nama Bahan Baku</th>
-                                    <th>Satuan</th>
-                                    <th>Stok Saat Ini</th>
-                                    <th>Minimal Stok</th>
-                                    <th>Safety Stock</th>
-                                    <th>ROP</th>
-                                    <th>Rekomendasi Beli</th>
-                                    <th>Total Nilai</th>
-                                    <th>Status</th>
-                                    <th>Aksi</th>
+                                    <td class="table-plus">
+                                        <div class="d-flex align-items-center">
+                                            @if ($bahan->foto)
+                                                <img src="{{ $bahan->foto_url ?? asset('images/default.png') }}"
+                                                    class="img-fluid rounded-circle mr-2" width="30" height="30"
+                                                    alt="{{ $bahan->nama }}">
+                                            @endif
+                                            <span>{{ $bahan->nama }}</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ $bahan->satuan ?? '-' }}</td>
+                                    <td class="text-center">
+                                        <span
+                                            class="badge badge-{{ ($bahan->stok ?? 0) <= ($bahan->safety_stock ?? 0) ? 'warning' : (($bahan->stok ?? 0) <= ($bahan->min ?? 0) ? 'danger' : 'success') }}">
+                                            {{ $bahan->stok ?? 0 }}
+                                        </span>
+                                    </td>
+                                    <td>{{ $bahan->min ?? 0 }}</td>
+                                    <td>{{ $bahan->safety_stock ?? 0 }}</td>
+                                    <td>{{ $bahan->rop ?? 0 }}</td>
+                                    <td class="text-center">
+                                        @if ($rekomendasi && isset($rekomendasi['jumlah_rekomendasi']) && $rekomendasi['jumlah_rekomendasi'] > 0)
+                                            <span class="badge badge-primary">{{ $rekomendasi['jumlah_rekomendasi'] }}
+                                                {{ $bahan->satuan }}</span>
+                                        @else
+                                            <span class="badge badge-secondary">-</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if ($rekomendasi && isset($rekomendasi['total_nilai']) && $rekomendasi['total_nilai'] > 0)
+                                            Rp {{ number_format($rekomendasi['total_nilai'], 0, ',', '.') }}
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
+                                    <td>{!! $bahan->status_stok ?? '' !!}</td>
+                                    <td>
+                                        <a href="{{ route('owner.bahan-baku.edit', $bahan->id) }}"
+                                            class="btn btn-sm btn-primary" title="Edit Bahan Baku">
+                                            <i class="icon-copy dw dw-edit2"></i>
+                                        </a>
+                                        <a href="{{ route('owner.pembelian.create', ['bahan_baku_id' => $bahan->id]) }}"
+                                            class="btn btn-sm btn-success" title="Buat Pembelian">
+                                            <i class="icon-copy dw dw-shopping-cart1"></i>
+                                        </a>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($bahanBakuPerluBeli as $bahan)
-                                    @php
-                                        $rekomendasi = null;
-                                        try {
-                                            $rekomendasi = $bahan->getRekomendasiPembelianRopAttribute();
-                                        } catch (\Exception $e) {
-                                            \Log::error('Error rekomendasi bahan baku: ' . $e->getMessage());
-                                        }
-                                    @endphp
-                                    <tr>
-                                        <td class="table-plus">
-                                            <div class="d-flex align-items-center">
-                                                @if ($bahan->foto)
-                                                    <img src="{{ $bahan->foto_url ?? asset('images/default.png') }}"
-                                                        class="img-fluid rounded-circle mr-2" width="30"
-                                                        height="30" alt="{{ $bahan->nama }}">
-                                                @endif
-                                                <span>{{ $bahan->nama }}</span>
-                                            </div>
-                                        </td>
-                                        <td>{{ $bahan->satuan ?? '-' }}</td>
-                                        <td class="text-center">
-                                            <span
-                                                class="badge badge-{{ ($bahan->stok ?? 0) <= ($bahan->safety_stock ?? 0) ? 'warning' : (($bahan->stok ?? 0) <= ($bahan->min ?? 0) ? 'danger' : 'success') }}">
-                                                {{ $bahan->stok ?? 0 }}
-                                            </span>
-                                        </td>
-                                        <td>{{ $bahan->min ?? 0 }}</td>
-                                        <td>{{ $bahan->safety_stock ?? 0 }}</td>
-                                        <td>{{ $bahan->rop ?? 0 }}</td>
-                                        <td class="text-center">
-                                            @if ($rekomendasi && isset($rekomendasi['jumlah_rekomendasi']) && $rekomendasi['jumlah_rekomendasi'] > 0)
-                                                <span class="badge badge-primary">{{ $rekomendasi['jumlah_rekomendasi'] }}
-                                                    {{ $bahan->satuan }}</span>
-                                            @else
-                                                <span class="badge badge-secondary">-</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if ($rekomendasi && isset($rekomendasi['total_nilai']) && $rekomendasi['total_nilai'] > 0)
-                                                Rp {{ number_format($rekomendasi['total_nilai'], 0, ',', '.') }}
-                                            @else
-                                                -
-                                            @endif
-                                        </td>
-                                        <td>{!! $bahan->status_stok ?? '' !!}</td>
-                                        <td>
-                                            <a href="{{ route('owner.bahan-baku.edit', $bahan->id) }}"
-                                                class="btn btn-sm btn-primary" title="Edit Bahan Baku">
-                                                <i class="icon-copy dw dw-edit2"></i>
-                                            </a>
-                                            <a href="{{ route('owner.pembelian.create', ['bahan_baku_id' => $bahan->id]) }}"
-                                                class="btn btn-sm btn-success" title="Buat Pembelian">
-                                                <i class="icon-copy dw dw-shopping-cart1"></i>
-                                            </a>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="no-data text-center py-5">
-                        <i class="icon-copy dw dw-check" style="font-size: 40px; color: #28a745;"></i>
-                        <h5 class="mt-3">Semua stok bahan baku dalam kondisi aman</h5>
-                        <p>Tidak ada bahan baku yang perlu dibeli saat ini.</p>
-                        <a href="{{ route('owner.bahan-baku.create') }}" class="btn btn-primary mt-3">
-                            <i class="icon-copy dw dw-add"></i> Tambah Bahan Baku Baru
-                        </a>
-                    </div>
-                @endif
-            </div>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+            @endif
         </div>
     </div>
 
