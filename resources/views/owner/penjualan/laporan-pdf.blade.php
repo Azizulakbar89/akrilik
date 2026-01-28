@@ -4,12 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Penjualan</title>
+    <title>Laporan Penjualan - {{ $tanggalAwal }} hingga {{ $tanggalAkhir }}</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
             font-size: 12px;
             line-height: 1.4;
+            margin: 0;
+            padding: 20px;
         }
 
         .header {
@@ -21,36 +23,56 @@
 
         .header h1 {
             margin: 0;
-            font-size: 20px;
+            font-size: 24px;
+            color: #333;
+        }
+
+        .header h2 {
+            margin: 5px 0;
+            font-size: 18px;
+            color: #666;
         }
 
         .header p {
             margin: 5px 0;
+            color: #777;
         }
 
         .info-box {
             margin: 15px 0;
-            padding: 10px;
+            padding: 15px;
             background-color: #f5f5f5;
             border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin: 10px 0;
-        }
-
-        table th,
-        table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
+            margin: 15px 0;
+            font-size: 11px;
         }
 
         table th {
-            background-color: #f2f2f2;
+            background-color: #2c3e50;
+            color: white;
             font-weight: bold;
+            padding: 8px;
+            border: 1px solid #ddd;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        table td {
+            padding: 6px;
+            border: 1px solid #ddd;
+            vertical-align: middle;
         }
 
         .text-right {
@@ -61,16 +83,22 @@
             text-align: center;
         }
 
+        .text-left {
+            text-align: left;
+        }
+
         .summary {
-            margin-top: 20px;
+            margin-top: 30px;
             padding: 15px;
             border-top: 2px solid #333;
+            background-color: #f8f9fa;
         }
 
         .summary-row {
             display: flex;
             justify-content: space-between;
-            margin: 5px 0;
+            margin: 8px 0;
+            padding: 5px 0;
         }
 
         .page-break {
@@ -78,11 +106,54 @@
         }
 
         .section-title {
-            background-color: #4a5568;
+            background-color: #34495e;
             color: white;
-            padding: 8px;
-            margin: 15px 0;
+            padding: 8px 12px;
+            margin: 20px 0 10px 0;
             border-radius: 3px;
+            font-size: 14px;
+        }
+
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 10px;
+            color: #666;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 10px;
+            border-radius: 3px;
+            margin: 0 2px;
+        }
+
+        .badge-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .badge-info {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        .badge-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        /* Zebra striping */
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* Totals row styling */
+        .totals-row {
+            background-color: #e9ecef;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -90,32 +161,116 @@
 <body>
     <div class="header">
         <h1>LAPORAN PENJUALAN</h1>
+        <h2>Permata Biru Onix</h2>
+        <p>Jl. Contoh No. 123, Kota Contoh - Telp: 0812-3456-7890</p>
         <p>Periode: {{ date('d/m/Y', strtotime($tanggalAwal)) }} - {{ date('d/m/Y', strtotime($tanggalAkhir)) }}</p>
         <p>Tanggal Cetak: {{ date('d/m/Y H:i') }}</p>
     </div>
 
     <div class="info-box">
-        <h3 style="margin: 0 0 10px 0;">Ringkasan Transaksi</h3>
-        <div class="summary-row">
-            <span>Total Transaksi:</span>
-            <span><strong>{{ $penjualan->count() }} Transaksi</strong></span>
+        <div class="section-title" style="margin: 0 0 10px 0; font-size: 12px;">
+            RINGKASAN LAPORAN
         </div>
-        <div class="summary-row">
-            <span>Total Penjualan:</span>
+        <div class="info-row">
+            <span><strong>Total Transaksi:</strong></span>
+            <span>{{ $penjualan->count() }} Transaksi</span>
+        </div>
+        <div class="info-row">
+            <span><strong>Total Penjualan:</strong></span>
             <span><strong>Rp {{ number_format($totalPenjualan, 0, ',', '.') }}</strong></span>
         </div>
-        <div class="summary-row">
-            <span>Total Uang Masuk:</span>
+        <div class="info-row">
+            <span><strong>Total Uang Masuk:</strong></span>
             <span><strong>Rp {{ number_format($totalBayar, 0, ',', '.') }}</strong></span>
         </div>
-        <div class="summary-row">
-            <span>Total Kembalian:</span>
+        <div class="info-row">
+            <span><strong>Total Kembalian:</strong></span>
             <span><strong>Rp {{ number_format($totalKembalian, 0, ',', '.') }}</strong></span>
+        </div>
+        <div class="info-row">
+            <span><strong>Periode Laporan:</strong></span>
+            <span>{{ date('d F Y', strtotime($tanggalAwal)) }} - {{ date('d F Y', strtotime($tanggalAkhir)) }}</span>
         </div>
     </div>
 
+    @if (!empty($laporanDetail))
+        <table>
+            <thead>
+                <tr>
+                    <th width="3%">No</th>
+                    <th width="8%">Tanggal</th>
+                    <th width="10%">Kode</th>
+                    <th width="10%">Customer</th>
+                    <th width="15%">Produk</th>
+                    <th width="6%">Jumlah</th>
+                    <th width="15%">Bahan Baku</th>
+                    <th width="10%">Admin/Kasir</th>
+                    <th width="9%">Total</th>
+                    <th width="9%">Bayar</th>
+                    <th width="9%">Kembalian</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($laporanDetail as $index => $detail)
+                    <tr>
+                        <td class="text-center">{{ $index + 1 }}</td>
+                        <td class="text-center">{{ date('d/m/Y', strtotime($detail['tanggal'])) }}</td>
+                        <td class="text-center">{{ $detail['kode_penjualan'] }}</td>
+                        <td class="text-center">{{ $detail['nama_customer'] }}</td>
+                        <td>
+                            {{ $detail['produk'] }}
+                            @if ($detail['jenis_item'] == 'produk')
+                                <span class="badge badge-success">Produk</span>
+                            @else
+                                <span class="badge badge-info">Bahan Baku</span>
+                            @endif
+                        </td>
+                        <td class="text-center">{{ number_format($detail['jumlah_produk'], 0, ',', '.') }}</td>
+                        <td>
+                            {{ $detail['bahan_baku_digunakan'] ?: '-' }}
+                            @if (!empty($detail['jumlah_digunakan']))
+                                ({{ number_format($detail['jumlah_digunakan'], 0, ',', '.') }})
+                            @endif
+                        </td>
+
+                        <td class="text-center">
+                            @if ($detail['nama_admin'] != '-')
+                                <span class="badge badge-primary">{{ $detail['nama_admin'] }}</span>
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td class="text-right">Rp {{ number_format($detail['total'], 0, ',', '.') }}</td>
+                        <td class="text-right">Rp {{ number_format($detail['bayar'], 0, ',', '.') }}</td>
+                        <td class="text-right">Rp {{ number_format($detail['kembalian'], 0, ',', '.') }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr class="totals-row">
+                    <td colspan="8" class="text-right"><strong>TOTAL KESELURUHAN:</strong></td>
+                    <td class="text-right"><strong>Rp {{ number_format($totalPenjualan, 0, ',', '.') }}</strong></td>
+                    <td class="text-right"><strong>Rp {{ number_format($totalBayar, 0, ',', '.') }}</strong></td>
+                    <td class="text-right"><strong>Rp {{ number_format($totalKembalian, 0, ',', '.') }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    @else
+        <div style="text-align: center; padding: 20px; border: 1px solid #ddd; margin: 20px 0;">
+            <p style="color: #666; font-size: 14px;">Tidak ada data penjualan pada periode ini.</p>
+        </div>
+    @endif
+
+    <div class="page-break"></div>
+
+    <div class="header">
+        <h1>STATISTIK PENJUALAN</h1>
+        <p>Periode: {{ date('d/m/Y', strtotime($tanggalAwal)) }} - {{ date('d/m/Y', strtotime($tanggalAkhir)) }}</p>
+    </div>
+
+    <!-- 10 Produk Terlaris -->
     <div class="section-title">
-        <h3 style="margin: 0; color: white;">10 PRODUK TERLARIS</h3>
+        10 PRODUK TERLARIS
     </div>
 
     @if ($produkTerlaris->count() > 0)
@@ -123,9 +278,9 @@
             <thead>
                 <tr>
                     <th width="5%">#</th>
-                    <th width="40%">Nama Produk</th>
+                    <th width="55%">Nama Produk</th>
                     <th width="15%">Satuan</th>
-                    <th width="20%">Jumlah Terjual</th>
+                    <th width="15%">Jumlah Terjual</th>
                     <th width="20%" class="text-right">Total Pendapatan</th>
                 </tr>
             </thead>
@@ -134,22 +289,32 @@
                     <tr>
                         <td class="text-center">{{ $index + 1 }}</td>
                         <td>{{ $produk['nama'] }}</td>
-                        <td>{{ $produk['satuan'] }}</td>
-                        <td>{{ number_format($produk['total_terjual'], 0, ',', '.') }}</td>
+                        <td class="text-center">{{ $produk['satuan'] }}</td>
+                        <td class="text-center">{{ number_format($produk['total_terjual'], 0, ',', '.') }}</td>
                         <td class="text-right">Rp {{ number_format($produk['total_pendapatan'], 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
             </tbody>
+            <tfoot>
+                <tr class="totals-row">
+                    <td colspan="3" class="text-right"><strong>Total:</strong></td>
+                    <td class="text-center">
+                        <strong>{{ number_format($produkTerlaris->sum('total_terjual'), 0, ',', '.') }}</strong>
+                    </td>
+                    <td class="text-right"><strong>Rp
+                            {{ number_format($produkTerlaris->sum('total_pendapatan'), 0, ',', '.') }}</strong></td>
+                </tr>
+            </tfoot>
         </table>
     @else
-        <p style="text-align: center; color: #666; padding: 10px;">
+        <div style="text-align: center; padding: 10px; color: #666; font-style: italic;">
             Tidak ada data produk terjual pada periode ini.
-        </p>
+        </div>
     @endif
 
     <div class="section-title">
-        <h3 style="margin: 0; color: white;">10 BAHAN BAKU TERLARIS</h3>
-        <small style="color: white;">*Termasuk dari penjualan produk</small>
+        10 BAHAN BAKU TERLARIS
+        <span style="float: right; font-size: 11px;">*Termasuk dari penjualan produk</span>
     </div>
 
     @if ($bahanBakuTerlaris->count() > 0)
@@ -157,8 +322,8 @@
             <thead>
                 <tr>
                     <th width="5%">#</th>
-                    <th width="55%">Nama Bahan Baku</th>
-                    <th width="20%">Satuan</th>
+                    <th width="60%">Nama Bahan Baku</th>
+                    <th width="15%">Satuan</th>
                     <th width="20%">Jumlah Digunakan</th>
                 </tr>
             </thead>
@@ -167,106 +332,43 @@
                     <tr>
                         <td class="text-center">{{ $index + 1 }}</td>
                         <td>{{ $bahan['nama'] }}</td>
-                        <td>{{ $bahan['satuan'] }}</td>
-                        <td>{{ number_format($bahan['total_penggunaan'], 0, ',', '.') }}</td>
+                        <td class="text-center">{{ $bahan['satuan'] }}</td>
+                        <td class="text-center">{{ number_format($bahan['total_penggunaan'], 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
             </tbody>
+            <tfoot>
+                <tr class="totals-row">
+                    <td colspan="3" class="text-right"><strong>Total Penggunaan:</strong></td>
+                    <td class="text-center">
+                        <strong>{{ number_format($bahanBakuTerlaris->sum('total_penggunaan'), 0, ',', '.') }}</strong>
+                    </td>
+                </tr>
+            </tfoot>
         </table>
     @else
-        <p style="text-align: center; color: #666; padding: 10px;">
+        <div style="text-align: center; padding: 10px; color: #666; font-style: italic;">
             Tidak ada data bahan baku digunakan pada periode ini.
-        </p>
+        </div>
     @endif
 
-    <div class="page-break"></div>
-
-    <div class="header">
-        <h1>DETAIL TRANSAKSI PENJUALAN</h1>
-        <p>Periode: {{ date('d/m/Y', strtotime($tanggalAwal)) }} - {{ date('d/m/Y', strtotime($tanggalAkhir)) }}</p>
-    </div>
-
-    @if ($penjualan->count() > 0)
-        @foreach ($penjualan as $index => $transaksi)
-            <div style="margin-bottom: 20px; page-break-inside: avoid;">
-                <h3 style="margin-bottom: 5px; color: #333;">
-                    Transaksi #{{ $index + 1 }} - {{ $transaksi->kode_penjualan }}
-                </h3>
-                <p style="margin: 0 0 10px 0; color: #666;">
-                    Tanggal: {{ date('d/m/Y', strtotime($transaksi->tanggal)) }} |
-                    Customer: {{ $transaksi->nama_customer }} |
-                    Admin/Kasir: <strong>{{ $transaksi->admin ? $transaksi->admin->name : '-' }}</strong>
-                </p>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th width="8%">No</th>
-                            <th width="42%">Item</th>
-                            <th width="12%">Jumlah</th>
-                            <th width="23%" class="text-right">Subtotal</th>
-                            <th width="15%">Admin/Kasir</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($transaksi->detailPenjualan as $detailIndex => $detail)
-                            <tr>
-                                <td class="text-center">{{ $detailIndex + 1 }}</td>
-                                <td>
-                                    {{ $detail->nama_produk }}
-                                    <br><small>{{ $detail->jenis_item == 'produk' ? 'Produk' : 'Bahan Baku' }}</small>
-                                </td>
-                                <td>{{ $detail->jumlah }}</td>
-                                <td class="text-right">Rp {{ number_format($detail->sub_total, 0, ',', '.') }}</td>
-                                <td>{{ $transaksi->admin ? $transaksi->admin->name : '-' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="4" class="text-right"><strong>Total:</strong></td>
-                            <td class="text-right"><strong>Rp
-                                    {{ number_format($transaksi->total, 0, ',', '.') }}</strong></td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="text-right"><strong>Bayar:</strong></td>
-                            <td class="text-right"><strong>Rp
-                                    {{ number_format($transaksi->bayar, 0, ',', '.') }}</strong></td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="text-right"><strong>Kembalian:</strong></td>
-                            <td class="text-right"><strong>Rp
-                                    {{ number_format($transaksi->kembalian, 0, ',', '.') }}</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-
-            @if ($index < $penjualan->count() - 1)
-                <hr style="border: 1px dashed #ddd; margin: 20px 0;">
-            @endif
-        @endforeach
-    @else
-        <p style="text-align: center; color: #666; padding: 20px;">
-            Tidak ada transaksi penjualan pada periode ini.
-        </p>
-    @endif
-
-    <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #333;">
-        <table>
+    <div class="footer">
+        <table width="100%">
             <tr>
                 <td width="70%">
-                    <p style="margin: 0; font-size: 11px;">
-                        <strong>Catatan:</strong><br>
-                        1. Laporan ini dicetak secara otomatis oleh sistem.<br>
-                        2. Data bahan baku terlaris dihitung berdasarkan penggunaan dalam produk yang terjual.<br>
+                    <p style="margin: 0; font-size: 10px;">
+                        <strong>CATATAN:</strong><br>
+                        1. Laporan ini dicetak secara otomatis oleh sistem<br>
+                        2. Data bahan baku terlaris dihitung berdasarkan penggunaan dalam produk yang terjual<br>
                         3. Periode laporan: {{ date('d/m/Y', strtotime($tanggalAwal)) }} -
-                        {{ date('d/m/Y', strtotime($tanggalAkhir)) }}
+                        {{ date('d/m/Y', strtotime($tanggalAkhir)) }}<br>
+                        4. Total transaksi: {{ $penjualan->count() }} penjualan
                     </p>
                 </td>
-                <td width="30%" style="text-align: center;">
-                    <p style="margin: 0; padding-top: 40px;">
-                        <strong>Dicetak Oleh Sistem</strong><br>
+                <td width="30%" style="text-align: center; vertical-align: top;">
+                    <p style="margin: 0; font-size: 10px;">
+                        <strong>DICETAK OLEH SISTEM</strong><br>
+                        Permata Biru Onix<br>
                         {{ date('d/m/Y H:i') }}
                     </p>
                 </td>

@@ -7,6 +7,7 @@ use App\Models\DetailPenjualan;
 use App\Models\Produk;
 use App\Models\BahanBaku;
 use App\Models\PenggunaanBahanBaku;
+use App\Models\KomposisiBahanBaku;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,9 +16,31 @@ use Illuminate\Support\Facades\Auth;
 
 class PenjualanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $penjualan = Penjualan::with('detailPenjualan', 'admin')->latest()->get();
+        $searchBahanBaku = $request->search_bahan_baku ?? null;
+
+        $penjualanQuery = Penjualan::with(['detailPenjualan', 'admin'])->latest();
+
+        if ($searchBahanBaku) {
+            $penjualanQuery->whereHas('detailPenjualan', function ($query) use ($searchBahanBaku) {
+                $query->where(function ($subQuery) use ($searchBahanBaku) {
+                    $subQuery->whereHas('produk.komposisi.bahanBaku', function ($bbQuery) use ($searchBahanBaku) {
+                        $bbQuery->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                    })->orWhereHas('bahanBaku', function ($bbQuery) use ($searchBahanBaku) {
+                        $bbQuery->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                    });
+                });
+            });
+        }
+
+        $penjualan = $penjualanQuery->get();
+
+        $bahanBakuList = BahanBaku::orderBy('nama')->get();
+
+        $penjualan->each(function ($item) {
+            $item->bahan_baku_digunakan = $this->getBahanBakuUntukPenjualan($item);
+        });
 
         $produk = Produk::with(['komposisi.bahanBaku'])->get()->map(function ($produk) {
             $produk->info_penjualan = $produk->getInfoForPenjualan();
@@ -29,7 +52,47 @@ class PenjualanController extends Controller
             return $bahan;
         });
 
-        return view('admin.penjualan.index', compact('penjualan', 'produk', 'bahanBaku'));
+        return view('admin.penjualan.index', compact('penjualan', 'produk', 'bahanBaku', 'bahanBakuList', 'searchBahanBaku'));
+    }
+
+    /**
+     * Mendapatkan daftar bahan baku yang digunakan dalam penjualan
+     */
+    private function getBahanBakuUntukPenjualan($penjualan)
+    {
+        $bahanBakuList = [];
+
+        foreach ($penjualan->detailPenjualan as $detail) {
+            if ($detail->jenis_item == 'produk' && $detail->produk) {
+                foreach ($detail->produk->komposisi as $komposisi) {
+                    $bahanBakuList[] = [
+                        'nama' => $komposisi->bahanBaku->nama,
+                        'jumlah' => $komposisi->jumlah * $detail->jumlah,
+                        'satuan' => $komposisi->bahanBaku->satuan
+                    ];
+                }
+            } elseif ($detail->jenis_item == 'bahan_baku' && $detail->bahanBaku) {
+                $bahanBakuList[] = [
+                    'nama' => $detail->bahanBaku->nama,
+                    'jumlah' => $detail->jumlah,
+                    'satuan' => $detail->bahanBaku->satuan
+                ];
+            }
+        }
+
+        $grouped = [];
+        foreach ($bahanBakuList as $item) {
+            if (!isset($grouped[$item['nama']])) {
+                $grouped[$item['nama']] = [
+                    'nama' => $item['nama'],
+                    'jumlah' => 0,
+                    'satuan' => $item['satuan']
+                ];
+            }
+            $grouped[$item['nama']]['jumlah'] += $item['jumlah'];
+        }
+
+        return array_values($grouped);
     }
 
     public function store(Request $request)
@@ -155,7 +218,8 @@ class PenjualanController extends Controller
                     'total' => $total,
                     'bayar' => $request->bayar,
                     'kembalian' => $kembalian,
-                    'admin_name' => Auth::user()->name
+                    'admin_name' => Auth::user()->name,
+                    'bahan_baku_digunakan' => $this->calculateTotalBahanBaku($penjualan)
                 ]
             ], 200);
         } catch (\Exception $e) {
@@ -167,13 +231,107 @@ class PenjualanController extends Controller
         }
     }
 
+    /**
+     * Menghitung total bahan baku yang digunakan dalam penjualan
+     */
+    private function calculateTotalBahanBaku($penjualan)
+    {
+        $totalBahanBaku = [];
+
+        foreach ($penjualan->detailPenjualan as $detail) {
+            if ($detail->jenis_item == 'produk' && $detail->produk) {
+                foreach ($detail->produk->komposisi as $komposisi) {
+                    $bahanBakuId = $komposisi->bahan_baku_id;
+                    $jumlah = $komposisi->jumlah * $detail->jumlah;
+
+                    if (!isset($totalBahanBaku[$bahanBakuId])) {
+                        $totalBahanBaku[$bahanBakuId] = [
+                            'nama' => $komposisi->bahanBaku->nama,
+                            'jumlah' => 0,
+                            'satuan' => $komposisi->bahanBaku->satuan
+                        ];
+                    }
+                    $totalBahanBaku[$bahanBakuId]['jumlah'] += $jumlah;
+                }
+            } elseif ($detail->jenis_item == 'bahan_baku' && $detail->bahanBaku) {
+                $bahanBakuId = $detail->bahan_baku_id;
+
+                if (!isset($totalBahanBaku[$bahanBakuId])) {
+                    $totalBahanBaku[$bahanBakuId] = [
+                        'nama' => $detail->bahanBaku->nama,
+                        'jumlah' => 0,
+                        'satuan' => $detail->bahanBaku->satuan
+                    ];
+                }
+                $totalBahanBaku[$bahanBakuId]['jumlah'] += $detail->jumlah;
+            }
+        }
+
+        return array_values($totalBahanBaku);
+    }
+
     public function show($id)
     {
         try {
-            $penjualan = Penjualan::with(['detailPenjualan.produk', 'detailPenjualan.bahanBaku', 'admin'])->findOrFail($id);
+            $penjualan = Penjualan::with(['detailPenjualan.produk.komposisi.bahanBaku', 'detailPenjualan.bahanBaku', 'admin'])
+                ->findOrFail($id);
+
+            $detailWithBahanBaku = $penjualan->detailPenjualan->map(function ($detail) {
+                $bahanBakuInfo = [];
+
+                if ($detail->jenis_item == 'produk' && $detail->produk) {
+                    foreach ($detail->produk->komposisi as $komposisi) {
+                        $bahanBakuInfo[] = [
+                            'nama' => $komposisi->bahanBaku->nama,
+                            'jumlah' => $komposisi->jumlah * $detail->jumlah,
+                            'satuan' => $komposisi->bahanBaku->satuan
+                        ];
+                    }
+                } elseif ($detail->jenis_item == 'bahan_baku' && $detail->bahanBaku) {
+                    $bahanBakuInfo[] = [
+                        'nama' => $detail->bahanBaku->nama,
+                        'jumlah' => $detail->jumlah,
+                        'satuan' => $detail->bahanBaku->satuan
+                    ];
+                }
+
+                return [
+                    'id' => $detail->id,
+                    'produk_id' => $detail->produk_id,
+                    'bahan_baku_id' => $detail->bahan_baku_id,
+                    'nama_produk' => $detail->nama_produk,
+                    'jenis_item' => $detail->jenis_item,
+                    'jumlah' => $detail->jumlah,
+                    'harga_sat' => $detail->harga_sat,
+                    'harga_sat_formatted' => 'Rp ' . number_format($detail->harga_sat, 0, ',', '.'),
+                    'sub_total' => $detail->sub_total,
+                    'sub_total_formatted' => 'Rp ' . number_format($detail->sub_total, 0, ',', '.'),
+                    'bahan_baku_digunakan' => $bahanBakuInfo,
+                    'created_at' => $detail->created_at,
+                    'updated_at' => $detail->updated_at
+                ];
+            });
+
+            $formattedData = [
+                'id' => $penjualan->id,
+                'kode_penjualan' => $penjualan->kode_penjualan,
+                'nama_customer' => $penjualan->nama_customer,
+                'total' => $penjualan->total,
+                'total_formatted' => 'Rp ' . number_format($penjualan->total, 0, ',', '.'),
+                'bayar' => $penjualan->bayar,
+                'bayar_formatted' => 'Rp ' . number_format($penjualan->bayar, 0, ',', '.'),
+                'kembalian' => $penjualan->kembalian,
+                'kembalian_formatted' => 'Rp ' . number_format($penjualan->kembalian, 0, ',', '.'),
+                'tanggal' => $penjualan->tanggal,
+                'tanggal_formatted' => $penjualan->tanggal_formatted,
+                'admin' => $penjualan->admin ? $penjualan->admin->name : null,
+                'detail_penjualan' => $detailWithBahanBaku,
+                'total_bahan_baku' => $this->calculateTotalBahanBaku($penjualan)
+            ];
+
             return response()->json([
                 'status' => 'success',
-                'data' => $penjualan
+                'data' => $formattedData
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -213,7 +371,11 @@ class PenjualanController extends Controller
 
     public function printNota($id)
     {
-        $penjualan = Penjualan::with(['detailPenjualan.produk', 'detailPenjualan.bahanBaku', 'admin'])->findOrFail($id);
+        $penjualan = Penjualan::with(['detailPenjualan.produk.komposisi.bahanBaku', 'detailPenjualan.bahanBaku', 'admin'])
+            ->findOrFail($id);
+
+        $penjualan->total_bahan_baku = $this->calculateTotalBahanBaku($penjualan);
+
         return view('admin.penjualan.nota', compact('penjualan'));
     }
 
@@ -246,6 +408,16 @@ class PenjualanController extends Controller
                 $perlu_pembelian = $info['perlu_pembelian_bahan'];
                 $bisa_diproduksi = $info['bisa_diproduksi_satu_unit'];
                 $bahan_tidak_cukup = $info['bahan_tidak_cukup'];
+
+                $bahan_baku_digunakan = [];
+                foreach ($item->komposisi as $komposisi) {
+                    $bahan_baku_digunakan[] = [
+                        'nama' => $komposisi->bahanBaku->nama,
+                        'jumlah_per_unit' => $komposisi->jumlah,
+                        'satuan' => $komposisi->bahanBaku->satuan,
+                        'stok_tersedia' => $komposisi->bahanBaku->stok
+                    ];
+                }
             } else {
                 $item = BahanBaku::findOrFail($itemId);
                 $info = $item->getInfoForPenjualan();
@@ -257,6 +429,7 @@ class PenjualanController extends Controller
                 $perlu_pembelian = !$item->isStokAmanSS();
                 $bisa_diproduksi = null;
                 $bahan_tidak_cukup = [];
+                $bahan_baku_digunakan = [];
             }
 
             return response()->json([
@@ -270,6 +443,7 @@ class PenjualanController extends Controller
                     'perlu_pembelian' => $perlu_pembelian,
                     'bisa_diproduksi' => $bisa_diproduksi,
                     'bahan_tidak_cukup' => $bahan_tidak_cukup,
+                    'bahan_baku_digunakan' => $bahan_baku_digunakan,
                     'info_lengkap' => $info
                 ]
             ]);

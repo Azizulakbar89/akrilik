@@ -17,8 +17,42 @@
                         </ol>
                     </nav>
                 </div>
+                <div class="col-md-6 col-sm-12 text-right">
+                    <form action="{{ route('admin.penjualan.index') }}" method="GET" class="form-inline float-right">
+                        <div class="form-group mr-2">
+                            <label for="search_bahan_baku" class="mr-2">Cari Bahan Baku:</label>
+                            <select name="search_bahan_baku" class="form-control select2" style="min-width: 200px;">
+                                <option value="">-- Semua Bahan Baku --</option>
+                                @foreach ($bahanBakuList as $bahan)
+                                    <option value="{{ $bahan->nama }}"
+                                        {{ $searchBahanBaku == $bahan->nama ? 'selected' : '' }}>
+                                        {{ $bahan->nama }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary mr-2">
+                            <i class="fa fa-search"></i> Filter
+                        </button>
+                        <a href="{{ route('admin.penjualan.index') }}" class="btn btn-secondary">
+                            <i class="fa fa-refresh"></i> Reset
+                        </a>
+                    </form>
+                </div>
             </div>
         </div>
+
+        <!-- Informasi Filter -->
+        @if ($searchBahanBaku)
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="fa fa-filter"></i> Filter Aktif: Menampilkan penjualan yang mengandung bahan baku
+                        <strong>{{ $searchBahanBaku }}</strong>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         <div class="row">
             <div class="col-md-8">
@@ -43,6 +77,7 @@
                                         <tr>
                                             <th>Jenis Item</th>
                                             <th>Nama Item</th>
+                                            <th>Bahan Baku Digunakan</th>
                                             <th>Status SS</th>
                                             <th>Jumlah</th>
                                             <th>Harga Satuan</th>
@@ -52,20 +87,20 @@
                                     </thead>
                                     <tbody id="itemsBody">
                                         <tr>
-                                            <td colspan="7" class="text-center text-muted">Belum ada item</td>
+                                            <td colspan="8" class="text-center text-muted">Belum ada item</td>
                                         </tr>
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colspan="5" class="text-right"><strong>Total</strong></td>
+                                            <td colspan="6" class="text-right"><strong>Total</strong></td>
                                             <td colspan="2"><strong id="totalAmount">Rp 0</strong></td>
                                         </tr>
                                         <tr>
-                                            <td colspan="5" class="text-right"><strong>Bayar</strong></td>
+                                            <td colspan="6" class="text-right"><strong>Bayar</strong></td>
                                             <td colspan="2"><strong id="bayarAmount">Rp 0</strong></td>
                                         </tr>
                                         <tr>
-                                            <td colspan="5" class="text-right"><strong>Kembalian</strong></td>
+                                            <td colspan="6" class="text-right"><strong>Kembalian</strong></td>
                                             <td colspan="2"><strong id="kembalianAmount">Rp 0</strong></td>
                                         </tr>
                                     </tfoot>
@@ -106,6 +141,9 @@
                 <div class="card-box mb-30">
                     <div class="card-header">
                         <h4 class="text-blue h4">Riwayat Penjualan</h4>
+                        @if ($searchBahanBaku)
+                            <small class="text-warning">Filter: {{ $searchBahanBaku }}</small>
+                        @endif
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -115,6 +153,7 @@
                                         <th>Kode</th>
                                         <th>Customer</th>
                                         <th>Total</th>
+                                        <th>Bahan Baku Digunakan</th>
                                         <th>Kasir</th>
                                         <th>Aksi</th>
                                     </tr>
@@ -125,6 +164,21 @@
                                             <td>{{ $item->kode_penjualan }}</td>
                                             <td>{{ $item->nama_customer }}</td>
                                             <td>{{ $item->total_formatted }}</td>
+                                            <td>
+                                                @if (isset($item->bahan_baku_digunakan) && count($item->bahan_baku_digunakan) > 0)
+                                                    @foreach ($item->bahan_baku_digunakan as $index => $bahan)
+                                                        <span class="badge badge-info mb-1" data-toggle="tooltip"
+                                                            title="{{ $bahan['jumlah'] }} {{ $bahan['satuan'] }}">
+                                                            {{ $bahan['nama'] }}
+                                                        </span>
+                                                        @if (!$loop->last)
+                                                            <br>
+                                                        @endif
+                                                    @endforeach
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
                                             <td>
                                                 @if ($item->admin)
                                                     <span class="badge badge-info">{{ $item->admin->name }}</span>
@@ -141,7 +195,7 @@
                                                     <div class="dropdown-menu dropdown-menu-right dropdown-menu-icon-list">
                                                         <button class="dropdown-item view-penjualan"
                                                             data-id="{{ $item->id }}">
-                                                            <i class="dw dw-eye"></i> Lihat
+                                                            <i class="dw dw-eye"></i> Lihat Detail
                                                         </button>
                                                         <button class="dropdown-item print-penjualan"
                                                             data-id="{{ $item->id }}">
@@ -167,7 +221,7 @@
 
     <!-- Modal Tambah Item -->
     <div class="modal fade" id="addItemModal" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Tambah Item</h5>
@@ -196,6 +250,7 @@
                             <input type="number" class="form-control" id="jumlah" name="jumlah" min="1"
                                 required>
                         </div>
+
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -210,6 +265,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -224,6 +280,27 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Informasi Bahan Baku untuk Produk -->
+                        <div id="bahanBakuInfo" style="display: none;">
+                            <hr>
+                            <h6>Bahan Baku yang Digunakan:</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered" id="bahanBakuTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Bahan Baku</th>
+                                            <th>Jumlah per Unit</th>
+                                            <th>Satuan</th>
+                                            <th>Stok Tersedia</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bahanBakuBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                         <div class="alert alert-success" id="successAlert" style="display: none;">
                             <i class="fa fa-check-circle"></i> <span id="successText"></span>
                         </div>
@@ -336,6 +413,22 @@
         .item-enabled {
             color: #333;
         }
+
+        .bahan-baku-badge {
+            margin: 2px;
+            font-size: 11px;
+            cursor: help;
+        }
+
+        #bahanBakuTable th {
+            font-size: 12px;
+            padding: 5px;
+        }
+
+        #bahanBakuTable td {
+            font-size: 12px;
+            padding: 5px;
+        }
     </style>
 @endpush
 
@@ -348,6 +441,12 @@
 
             // Inisialisasi tooltip
             $('[data-toggle="tooltip"]').tooltip();
+
+            // Inisialisasi Select2 untuk filter
+            $('.select2').select2({
+                placeholder: 'Pilih Bahan Baku',
+                allowClear: true
+            });
 
             $('#item_id').select2({
                 placeholder: "Pilih Item",
@@ -394,6 +493,8 @@
                 $('#warningAlert').hide();
                 $('#dangerAlert').hide();
                 $('#errorAlert').hide();
+                $('#bahanBakuInfo').hide();
+                $('#bahanBakuBody').empty();
             });
 
             $('#addItemBtn').click(function() {
@@ -403,6 +504,8 @@
             $('#jenis_item').change(function() {
                 const jenis = $(this).val();
                 $('#item_id').empty().append('<option value="">Pilih Item</option>');
+                $('#bahanBakuInfo').hide();
+                $('#bahanBakuBody').empty();
 
                 if (jenis === 'produk') {
                     @foreach ($produk as $item)
@@ -473,6 +576,10 @@
                 const info = selectedOption.data('info');
                 const isDisabled = selectedOption.prop('disabled');
 
+                // Reset
+                $('#bahanBakuInfo').hide();
+                $('#bahanBakuBody').empty();
+
                 if (isDisabled) {
                     $('#saveItemBtn').prop('disabled', true);
                     if (jenis === 'produk') {
@@ -498,6 +605,43 @@
                         $('#statusInfo').text('Produk - Bahan baku akan diproses saat penjualan')
                             .removeClass('badge-danger badge-warning badge-success')
                             .addClass('badge-info');
+
+                        // Ambil info bahan baku dari server
+                        $.ajax({
+                            url: '{{ url('admin/penjualan/get-item-info') }}',
+                            type: 'GET',
+                            data: {
+                                jenis_item: jenis,
+                                item_id: selectedOption.val()
+                            },
+                            success: function(response) {
+                                if (response.status === 'success') {
+                                    const data = response.data;
+
+                                    // Tampilkan informasi bahan baku
+                                    if (data.bahan_baku_digunakan && data.bahan_baku_digunakan
+                                        .length > 0) {
+                                        $('#bahanBakuInfo').show();
+                                        data.bahan_baku_digunakan.forEach(function(bahan) {
+                                            const row = `
+                                                <tr>
+                                                    <td>${bahan.nama}</td>
+                                                    <td>${bahan.jumlah_per_unit}</td>
+                                                    <td>${bahan.satuan}</td>
+                                                    <td>
+                                                        ${bahan.stok_tersedia}
+                                                        ${bahan.stok_tersedia < bahan.jumlah_per_unit ? 
+                                                            '<span class="badge badge-danger float-right">Kurang</span>' : 
+                                                            '<span class="badge badge-success float-right">Cukup</span>'}
+                                                    </td>
+                                                </tr>
+                                            `;
+                                            $('#bahanBakuBody').append(row);
+                                        });
+                                    }
+                                }
+                            }
+                        });
 
                         if (info.bisa_diproduksi_satu_unit) {
                             if (info.perlu_pembelian_bahan) {
@@ -621,6 +765,8 @@
                 $('#dangerAlert').hide();
                 $('#errorAlert').hide();
                 $('#saveItemBtn').prop('disabled', false);
+                $('#bahanBakuInfo').hide();
+                $('#bahanBakuBody').empty();
             }
 
             $('#saveItemBtn').click(function() {
@@ -722,6 +868,16 @@
                 const satuan = selectedOption.data('satuan');
                 const nama = selectedOption.text().split('(')[0].trim();
 
+                // Ambil informasi bahan baku yang digunakan
+                let bahanBakuDigunakan = '';
+                if (jenisItem === 'produk' && dataFromServer && dataFromServer.bahan_baku_digunakan) {
+                    bahanBakuDigunakan = dataFromServer.bahan_baku_digunakan.map(bahan =>
+                        `${bahan.nama}: ${bahan.jumlah_per_unit * jumlah} ${bahan.satuan}`
+                    ).join('<br>');
+                } else if (jenisItem === 'bahan_baku') {
+                    bahanBakuDigunakan = `${nama}: ${jumlah} ${satuan}`;
+                }
+
                 const item = {
                     id: itemCounter++,
                     jenis_item: jenisItem,
@@ -731,6 +887,7 @@
                     harga: harga,
                     subtotal: subtotal,
                     satuan: satuan,
+                    bahan_baku_digunakan: bahanBakuDigunakan,
                     status_ss: $('#statusSSInfo').html(),
                     perlu_pembelian: info ? (jenisItem === 'produk' ? info.perlu_pembelian_bahan : info
                         .perlu_pembelian) : false,
@@ -757,13 +914,14 @@
                 tbody.empty();
 
                 if (currentItems.length === 0) {
-                    tbody.append('<tr><td colspan="7" class="text-center text-muted">Belum ada item</td></tr>');
+                    tbody.append('<tr><td colspan="8" class="text-center text-muted">Belum ada item</td></tr>');
                 } else {
                     currentItems.forEach((item, index) => {
                         const row = `
                     <tr>
                         <td>${item.jenis_item === 'produk' ? 'Produk' : 'Bahan Baku'}</td>
                         <td>${item.nama}</td>
+                        <td><small>${item.bahan_baku_digunakan || '-'}</small></td>
                         <td class="status-ss-cell">${item.status_ss || '<span class="badge badge-secondary">-</span>'}</td>
                         <td>${item.jumlah} ${item.satuan}</td>
                         <td>Rp ${numberFormat(item.harga)}</td>
@@ -873,6 +1031,17 @@
                     },
                     success: function(response) {
                         if (response.status === 'success') {
+                            let bahanBakuInfo = '';
+                            if (response.data.bahan_baku_digunakan && response.data.bahan_baku_digunakan
+                                .length > 0) {
+                                bahanBakuInfo = '<p><strong>Bahan Baku Digunakan:</strong></p><ul>';
+                                response.data.bahan_baku_digunakan.forEach(function(bahan) {
+                                    bahanBakuInfo +=
+                                        `<li>${bahan.nama}: ${bahan.jumlah} ${bahan.satuan}</li>`;
+                                });
+                                bahanBakuInfo += '</ul>';
+                            }
+
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Berhasil',
@@ -884,6 +1053,7 @@
                                     <p>Bayar: Rp ${numberFormat(response.data.bayar)}</p>
                                     <p>Kembalian: Rp ${numberFormat(response.data.kembalian)}</p>
                                     <p>Kasir: ${response.data.admin_name}</p>
+                                    ${bahanBakuInfo}
                                 </div>
                             `,
                                 confirmButtonText: 'OK'
@@ -929,7 +1099,7 @@
                                     <p><strong>Kode Penjualan:</strong> ${penjualan.kode_penjualan}</p>
                                     <p><strong>Customer:</strong> ${penjualan.nama_customer}</p>
                                     <p><strong>Tanggal:</strong> ${penjualan.tanggal_formatted}</p>
-                                    <p><strong>Kasir:</strong> <span class="badge badge-info">${penjualan.admin ? penjualan.admin.name : 'Unknown'}</span></p>
+                                    <p><strong>Kasir:</strong> <span class="badge badge-info">${penjualan.admin ? penjualan.admin : 'Unknown'}</span></p>
                                 </div>
                                 <div class="col-md-6">
                                     <p><strong>Total:</strong> ${penjualan.total_formatted}</p>
@@ -947,6 +1117,7 @@
                                         <th>Jenis</th>
                                         <th>Nama Item</th>
                                         <th>Jumlah</th>
+                                        <th>Bahan Baku Digunakan</th>
                                         <th>Harga Satuan</th>
                                         <th>Subtotal</th>
                                     </tr>
@@ -955,11 +1126,26 @@
                     `;
 
                         penjualan.detail_penjualan.forEach(detail => {
+                            let bahanBakuHtml = '';
+                            if (detail.bahan_baku_digunakan && detail.bahan_baku_digunakan
+                                .length > 0) {
+                                bahanBakuHtml =
+                                    '<ul class="list-unstyled" style="font-size: 11px;">';
+                                detail.bahan_baku_digunakan.forEach(bb => {
+                                    bahanBakuHtml +=
+                                        `<li>${bb.nama}: ${bb.jumlah} ${bb.satuan}</li>`;
+                                });
+                                bahanBakuHtml += '</ul>';
+                            } else {
+                                bahanBakuHtml = '-';
+                            }
+
                             detailHtml += `
                             <tr>
                                 <td>${detail.jenis_item === 'produk' ? 'Produk' : 'Bahan Baku'}</td>
                                 <td>${detail.nama_produk}</td>
                                 <td>${detail.jumlah}</td>
+                                <td>${bahanBakuHtml}</td>
                                 <td>${detail.harga_sat_formatted}</td>
                                 <td>${detail.sub_total_formatted}</td>
                             </tr>
@@ -971,6 +1157,40 @@
                             </table>
                         </div>
                     `;
+
+                        // Tambahkan ringkasan bahan baku
+                        if (penjualan.total_bahan_baku && penjualan.total_bahan_baku.length > 0) {
+                            detailHtml += `
+                            <hr>
+                            <h6>Ringkasan Bahan Baku Digunakan:</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Bahan Baku</th>
+                                            <th>Jumlah Digunakan</th>
+                                            <th>Satuan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                            `;
+
+                            penjualan.total_bahan_baku.forEach(bb => {
+                                detailHtml += `
+                                <tr>
+                                    <td>${bb.nama}</td>
+                                    <td>${bb.jumlah}</td>
+                                    <td>${bb.satuan}</td>
+                                </tr>
+                                `;
+                            });
+
+                            detailHtml += `
+                                    </tbody>
+                                </table>
+                            </div>
+                            `;
+                        }
 
                         $('#detailContent').html(detailHtml);
                         $('#detailPenjualanModal').modal('show');

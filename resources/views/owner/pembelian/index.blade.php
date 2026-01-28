@@ -1,5 +1,7 @@
 @extends('layoutsAPP.deskapp')
 
+@section('title', 'Pembelian Bahan Baku - Owner')
+
 @section('content')
     <div class="container-fluid">
         <div class="row">
@@ -8,6 +10,33 @@
                     <div class="card-header">
                         <h3 class="card-title">Data Pembelian (Owner)</h3>
                         <div class="float-right">
+                            <!-- Form Search dengan Dropdown -->
+                            <form action="{{ route('owner.pembelian.index') }}" method="GET"
+                                class="form-inline float-right mr-3">
+                                <div class="form-group mr-2">
+                                    <label for="search_bahan_baku" class="mr-2">Cari Bahan Baku:</label>
+                                    <select name="search_bahan_baku" class="form-control select2" style="min-width: 250px;">
+                                        <option value="">-- Semua Bahan Baku --</option>
+                                        @foreach ($bahanBakuList as $bahan)
+                                            <option value="{{ $bahan->nama }}"
+                                                {{ $searchBahanBaku == $bahan->nama ? 'selected' : '' }}>
+                                                {{ $bahan->nama }}
+                                                @if ($bahan->stok <= $bahan->min)
+                                                    <span class="text-danger">(Stok: {{ $bahan->stok }}/Min:
+                                                        {{ $bahan->min }})</span>
+                                                @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary mr-2">
+                                    <i class="fas fa-search"></i> Filter
+                                </button>
+                                <a href="{{ route('owner.pembelian.index') }}" class="btn btn-secondary">
+                                    <i class="fas fa-refresh"></i> Reset
+                                </a>
+                            </form>
+
                             @if ($rekomendasi->count() > 0 || $stokTidakAman->count() > 0)
                                 <button class="btn btn-primary mr-2" id="btn-pembelian-cepat"
                                     title="Buat pembelian cepat untuk bahan baku yang perlu dibeli">
@@ -26,6 +55,17 @@
                     </div>
 
                     <div class="card-body">
+                        <!-- Informasi Filter Aktif -->
+                        @if ($searchBahanBaku)
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-filter"></i> Filter Aktif: Menampilkan pembelian yang mengandung bahan baku
+                                <strong>"{{ $searchBahanBaku }}"</strong>
+                                <a href="{{ route('owner.pembelian.index') }}" class="float-right">
+                                    <i class="fas fa-times"></i> Hapus Filter
+                                </a>
+                            </div>
+                        @endif
+
                         <!-- Statistik Lead Time -->
                         @if ($leadTimeStats['count'] > 0)
                             <div class="alert alert-primary">
@@ -66,18 +106,19 @@
                                             @endphp
 
                                             <div class="progress-bar bg-success"
-                                                style="width: {{ ($groups['1-2 hari'] / $totalBahan) * 100 }}%"
+                                                style="width: {{ $totalBahan > 0 ? ($groups['1-2 hari'] / $totalBahan) * 100 : 0 }}%"
                                                 data-toggle="tooltip"
                                                 title="{{ $groups['1-2 hari'] }} bahan baku (1-2 hari)">
                                             </div>
                                             <div class="progress-bar bg-warning"
-                                                style="width: {{ ($groups['3-5 hari'] / $totalBahan) * 100 }}%"
+                                                style="width: {{ $totalBahan > 0 ? ($groups['3-5 hari'] / $totalBahan) * 100 : 0 }}%"
                                                 data-toggle="tooltip"
                                                 title="{{ $groups['3-5 hari'] }} bahan baku (3-5 hari)">
                                             </div>
                                             <div class="progress-bar bg-danger"
-                                                style="width: {{ ($groups['6+ hari'] / $totalBahan) * 100 }}%"
-                                                data-toggle="tooltip" title="{{ $groups['6+ hari'] }} bahan baku (6+ hari)">
+                                                style="width: {{ $totalBahan > 0 ? ($groups['6+ hari'] / $totalBahan) * 100 : 0 }}%"
+                                                data-toggle="tooltip"
+                                                title="{{ $groups['6+ hari'] }} bahan baku (6+ hari)">
                                             </div>
                                         </div>
                                         <div class="small text-muted mt-1">
@@ -211,7 +252,6 @@
                                     </table>
                                 </div>
 
-                                <!-- Panel Detail Perhitungan (hidden by default) -->
                                 <div id="detail-perhitungan" style="display: none;">
                                     <hr>
                                     <h6><i class="fas fa-calculator"></i> Rumus Perhitungan Parameter Stok</h6>
@@ -277,7 +317,8 @@
                                         </div>
                                     </div>
                                     <div class="alert alert-warning">
-                                        <i class="fas fa-info-circle"></i> <strong>Catatan:</strong> Parameter stok otomatis
+                                        <i class="fas fa-info-circle"></i> <strong>Catatan:</strong> Parameter stok
+                                        otomatis
                                         dihitung ulang setiap kali bahan baku diterima, berdasarkan lead time actual dan
                                         data penggunaan terbaru.
                                     </div>
@@ -410,7 +451,8 @@
                     <h4 class="modal-title"><i class="fas fa-shopping-cart"></i> Pembelian Cepat ROP</h4>
                     <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
                 </div>
-                <form id="formPembelianCepat" action="{{ route('store.pembelian-cepat') }}" method="POST">
+                <form id="formPembelianCepat" action="{{ route('owner.pembelian.pembelian-cepat.store') }}"
+                    method="POST">
                     @csrf
                     <div class="modal-body">
                         <div id="pembelian-cepat-alert"></div>
@@ -478,7 +520,6 @@
                                         </tr>
                                     </thead>
                                     <tbody id="pembelian-cepat-items-body">
-                                        <!-- Data akan dimuat via AJAX -->
                                     </tbody>
                                     <tfoot class="table-success">
                                         <tr>
@@ -699,8 +740,9 @@
     <div class="modal fade" id="modalPrintLaporan">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <form id="formPrintLaporan" action="{{ route('owner.pembelian.laporan') }}" method="GET"
+                <form id="formPrintLaporan" action="{{ route('owner.pembelian.print-laporan') }}" method="POST"
                     target="_blank">
+                    @csrf
                     <div class="modal-header bg-warning text-white">
                         <h4 class="modal-title"><i class="fas fa-print"></i> Print Laporan Pembelian</h4>
                         <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
@@ -729,7 +771,6 @@
                                     <label>Status Pembelian</label>
                                     <select name="status" class="form-control">
                                         <option value="semua">Semua Status</option>
-                                        <option value="completed">Selesai/Disetujui</option>
                                         <option value="diterima">Diterima</option>
                                         <option value="menunggu_persetujuan">Menunggu Persetujuan</option>
                                         <option value="ditolak">Ditolak</option>
@@ -737,10 +778,34 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label>Format Laporan</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="format" id="formatHTML"
+                                            value="html" checked>
+                                        <label class="form-check-label" for="formatHTML">
+                                            <i class="fas fa-file-alt"></i> HTML (Preview di Browser)
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="format" id="formatPDF"
+                                            value="pdf">
+                                        <label class="form-check-label" for="formatPDF">
+                                            <i class="fas fa-file-pdf"></i> PDF (Download File)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-warning">Print Laporan</button>
+                        <button type="submit" class="btn btn-warning" id="btnPrintLaporan">
+                            <i class="fas fa-print"></i> Print Laporan
+                        </button>
                     </div>
                 </form>
             </div>
@@ -893,6 +958,15 @@
             cursor: not-allowed;
         }
 
+        /* Search form styling */
+        .form-inline .form-group {
+            margin-bottom: 0;
+        }
+
+        .select2-container {
+            min-width: 250px !important;
+        }
+
         /* Loading overlay */
         .swal2-container {
             z-index: 10000 !important;
@@ -901,8 +975,19 @@
 @endpush
 
 @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
     <script>
         $(document).ready(function() {
+            // Inisialisasi Select2
+            $('.select2').select2({
+                placeholder: 'Pilih Bahan Baku',
+                allowClear: true,
+                width: '100%'
+            });
+
             let itemCounter = 1;
             let currentEditId = null;
 
@@ -913,7 +998,7 @@
                 }
             });
 
-            // ========== FUNGSI PEMBELIAN CEPAT (DIPERBAIKI) ==========
+            // ========== FUNGSI PEMBELIAN CEPAT ==========
             $('#btn-pembelian-cepat').click(function() {
                 loadDataPembelianCepat();
                 $('#modalPembelianCepat').modal('show');
@@ -928,8 +1013,9 @@
                 $('#btn-submit-pembelian-cepat').prop('disabled', true);
                 $('#pembelian-cepat-alert').html('');
 
+                // PERBAIKAN: Gunakan route name yang benar
                 $.ajax({
-                    url: '{{ route('get.pembelian-cepat-data') }}',
+                    url: '{{ route('owner.pembelian.pembelian-cepat.data') }}',
                     type: 'GET',
                     dataType: 'json',
                     success: function(response) {
@@ -1325,12 +1411,40 @@
                 }
             });
 
+            // ========== FUNGSI PRINT LAPORAN ==========
+            $('#formPrintLaporan').submit(function(e) {
+                e.preventDefault();
+
+                const form = $(this);
+                const format = $('input[name="format"]:checked').val();
+                const tanggalAwal = $('input[name="tanggal_awal"]').val();
+                const tanggalAkhir = $('input[name="tanggal_akhir"]').val();
+                const status = $('select[name="status"]').val();
+
+                if (!tanggalAwal || !tanggalAkhir) {
+                    showAlert('error', 'Harap isi tanggal awal dan tanggal akhir');
+                    return;
+                }
+
+                if (format === 'pdf') {
+                    // PERBAIKAN: Gunakan route name yang benar untuk export PDF
+                    window.open(
+                        `{{ route('owner.pembelian.export-pdf') }}?tanggal_awal=${tanggalAwal}&tanggal_akhir=${tanggalAkhir}&status=${status}`,
+                        '_blank');
+                } else {
+                    // Untuk HTML, submit form normal ke target blank
+                    // Data akan dikirim via POST ke route print-laporan
+                    form.off('submit').submit();
+                }
+            });
+
             // ========== FUNGSI REKOMENDASI ROP UNTUK FORM TAMBAH ==========
             $('#btn-use-recommendation').click(function() {
                 showLoading('Memuat rekomendasi...');
 
+                // PERBAIKAN: Gunakan route name yang benar
                 $.ajax({
-                    url: '{{ route('get.rekomendasi-data') }}',
+                    url: '{{ route('owner.pembelian.rekomendasi.data') }}',
                     type: 'GET',
                     success: function(response) {
                         hideLoading();
@@ -1620,14 +1734,14 @@
                                 <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select-edit" required>
                                     <option value="">Pilih Bahan Baku</option>
                                     ${bahanBaku.map(b => `
-                                                                                    <option value="${b.id}" 
-                                                                                        data-harga="${b.harga_beli}"
-                                                                                        data-stok="${b.stok}"
-                                                                                        data-leadtime="${b.lead_time}"
-                                                                                        ${item.bahan_baku_id == b.id ? 'selected' : ''}>
-                                                                                        ${b.nome} (Stok: ${b.stok}, LT: ${b.lead_time} hari)
-                                                                                    </option>
-                                                                                `).join('')}
+                                                                                                                                                <option value="${b.id}" 
+                                                                                                                                                    data-harga="${b.harga_beli}"
+                                                                                                                                                    data-stok="${b.stok}"
+                                                                                                                                                    data-leadtime="${b.lead_time}"
+                                                                                                                                                    ${item.bahan_baku_id == b.id ? 'selected' : ''}>
+                                                                                                                                                    ${b.nama} (Stok: ${b.stok}, LT: ${b.lead_time} hari)
+                                                                                                                                                </option>
+                                                                                                                                            `).join('')}
                                 </select>
                             </div>
                             <div class="col-md-2">
@@ -1661,10 +1775,10 @@
                                 <select name="supplier_id" class="form-control" required>
                                     <option value="">Pilih Supplier</option>
                                     ${supplier.map(s => `
-                                                                                    <option value="${s.id}" ${pembelian.supplier_id == s.id ? 'selected' : ''}>
-                                                                                        ${s.nama}
-                                                                                    </option>
-                                                                                `).join('')}
+                                                                                                                                                <option value="${s.id}" ${pembelian.supplier_id == s.id ? 'selected' : ''}>
+                                                                                                                                                    ${s.nama}
+                                                                                                                                                </option>
+                                                                                                                                            `).join('')}
                                 </select>
                             </div>
                         </div>

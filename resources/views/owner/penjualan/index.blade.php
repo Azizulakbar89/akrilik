@@ -19,12 +19,13 @@
                 </div>
                 <div class="col-md-6 col-sm-12 text-right">
                     <button class="btn btn-info" data-toggle="modal" data-target="#modalPrintLaporan">
-                        <i class="fa fa-file-pdf"></i> Print Laporan
+                        <i class="fa fa-file-pdf"></i> Print PDF
                     </button>
                 </div>
             </div>
         </div>
 
+        <!-- Form Filter -->
         <div class="row mb-3">
             <div class="col-12">
                 <div class="card-box">
@@ -39,6 +40,18 @@
                                 <label for="tanggal_akhir" class="mr-2">Tanggal Akhir:</label>
                                 <input type="date" name="tanggal_akhir" class="form-control"
                                     value="{{ $tanggalAkhir ?? date('Y-m-d') }}">
+                            </div>
+                            <div class="form-group mr-2">
+                                <label for="search_bahan_baku" class="mr-2">Cari Bahan Baku:</label>
+                                <select name="search_bahan_baku" class="form-control select2" style="min-width: 200px;">
+                                    <option value="">-- Semua Bahan Baku --</option>
+                                    @foreach ($bahanBakuList as $bahan)
+                                        <option value="{{ $bahan->nama }}"
+                                            {{ $searchBahanBaku == $bahan->nama ? 'selected' : '' }}>
+                                            {{ $bahan->nama }}
+                                        </option>
+                                    @endforeach
+                                </select>
                             </div>
                             <button type="submit" class="btn btn-primary mr-2">
                                 <i class="fa fa-filter"></i> Filter
@@ -60,6 +73,9 @@
                     <div class="card-header">
                         <h4 class="text-blue h4">10 Produk Terlaris</h4>
                         <p class="text-muted">Periode: {{ $tanggalAwal }} s/d {{ $tanggalAkhir }}</p>
+                        @if ($searchBahanBaku)
+                            <small class="text-warning">Filter: {{ $searchBahanBaku }}</small>
+                        @endif
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -99,6 +115,9 @@
                         <h4 class="text-blue h4">10 Bahan Baku Terlaris</h4>
                         <p class="text-muted">Periode: {{ $tanggalAwal }} s/d {{ $tanggalAkhir }}</p>
                         <small class="text-muted">*Termasuk dari penjualan produk</small>
+                        @if ($searchBahanBaku)
+                            <small class="text-warning d-block">Filter: {{ $searchBahanBaku }}</small>
+                        @endif
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -116,7 +135,7 @@
                                         <tr>
                                             <td>{{ $index + 1 }}</td>
                                             <td>{{ $bahan['nama'] }}</td>
-                                            <td>{{ $bahan['total_penggunaan'] }}</td>
+                                            <td>{{ number_format($bahan['total_penggunaan'], 2) }}</td>
                                             <td>{{ $bahan['satuan'] }}</td>
                                         </tr>
                                     @empty
@@ -139,6 +158,15 @@
                     <div class="card-header">
                         <h4 class="text-blue h4">Data Transaksi Penjualan</h4>
                         <p class="text-muted">Hanya dapat melihat data penjualan</p>
+                        @if ($searchBahanBaku)
+                            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                                <i class="fa fa-info-circle"></i> Menampilkan penjualan yang mengandung bahan baku:
+                                <strong>{{ $searchBahanBaku }}</strong>
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        @endif
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -150,7 +178,9 @@
                                         <th>Total</th>
                                         <th>Bayar</th>
                                         <th>Kembalian</th>
+                                        <th>Bahan Baku Digunakan</th>
                                         <th>Tanggal</th>
+                                        <th>Admin/Kasir</th>
                                         <th>Aksi</th>
                                     </tr>
                                 </thead>
@@ -162,7 +192,29 @@
                                             <td>{{ $item->total_formatted }}</td>
                                             <td>{{ $item->bayar_formatted }}</td>
                                             <td>{{ $item->kembalian_formatted }}</td>
+                                            <td>
+                                                @if (isset($item->bahan_baku_digunakan) && count($item->bahan_baku_digunakan) > 0)
+                                                    @foreach ($item->bahan_baku_digunakan as $index => $bahan)
+                                                        <span class="badge badge-info mb-1">
+                                                            {{ $bahan['nama'] }}: {{ $bahan['jumlah'] }}
+                                                            {{ $bahan['satuan'] }}
+                                                        </span>
+                                                        @if (!$loop->last)
+                                                            <br>
+                                                        @endif
+                                                    @endforeach
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
                                             <td>{{ date('d/m/Y', strtotime($item->tanggal)) }}</td>
+                                            <td>
+                                                @if ($item->admin)
+                                                    <span class="badge badge-info">{{ $item->admin->name }}</span>
+                                                @else
+                                                    <span class="badge badge-secondary">-</span>
+                                                @endif
+                                            </td>
                                             <td>
                                                 <div class="dropdown">
                                                     <a class="btn btn-link font-24 p-0 line-height-1 no-arrow dropdown-toggle"
@@ -188,7 +240,6 @@
         </div>
     </div>
 
-    <!-- Modals -->
     <div class="modal fade" id="detailPenjualanModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -215,7 +266,7 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Print Laporan</h5>
+                    <h5 class="modal-title">Print Laporan PDF</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -232,11 +283,23 @@
                             <input type="date" name="tanggal_akhir" class="form-control"
                                 value="{{ $tanggalAkhir ?? date('Y-m-d') }}" required>
                         </div>
+                        <div class="form-group">
+                            <label for="search_bahan_baku">Filter Bahan Baku (Opsional)</label>
+                            <select name="search_bahan_baku" class="form-control select2">
+                                <option value="">-- Semua Bahan Baku --</option>
+                                @foreach ($bahanBakuList as $bahan)
+                                    <option value="{{ $bahan->nama }}"
+                                        {{ $searchBahanBaku == $bahan->nama ? 'selected' : '' }}>
+                                        {{ $bahan->nama }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="fa fa-file-pdf"></i> Print Laporan
+                            <i class="fa fa-file-pdf"></i> Print Laporan PDF
                         </button>
                     </div>
                 </form>
@@ -287,12 +350,35 @@
             font-size: 12px;
             font-weight: normal;
         }
+
+        .bahan-baku-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .bahan-baku-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .bahan-baku-list li:last-child {
+            border-bottom: none;
+        }
+
+        .select2-container {
+            min-width: 200px;
+        }
     </style>
 @endpush
 
 @push('scripts')
     <script>
         $(document).ready(function() {
+            $('.select2').select2({
+                placeholder: 'Pilih Bahan Baku',
+                allowClear: true
+            });
+
             let currentPenjualanId = null;
 
             $('.view-penjualan').click(function() {
@@ -302,6 +388,7 @@
                 $.get('{{ url('owner/penjualan') }}/' + id, function(response) {
                     if (response.status === 'success') {
                         const penjualan = response.data;
+
                         let detailHtml = `
                         <div class="detail-summary">
                             <div class="row">
@@ -309,6 +396,7 @@
                                     <p><strong>Kode Penjualan:</strong> ${penjualan.kode_penjualan}</p>
                                     <p><strong>Customer:</strong> ${penjualan.nama_customer}</p>
                                     <p><strong>Tanggal:</strong> ${new Date(penjualan.tanggal).toLocaleDateString('id-ID')}</p>
+                                    <p><strong>Admin/Kasir:</strong> ${penjualan.admin ? penjualan.admin : '-'}</p>
                                 </div>
                                 <div class="col-md-6">
                                     <p><strong>Total:</strong> ${penjualan.total_formatted}</p>
@@ -328,12 +416,26 @@
                                         <th>Jumlah</th>
                                         <th>Harga Satuan</th>
                                         <th>Subtotal</th>
+                                        <th>Bahan Baku Digunakan</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                         `;
 
                         penjualan.detail_penjualan.forEach(detail => {
+                            let bahanBakuHtml = '';
+                            if (detail.bahan_baku_digunakan && detail.bahan_baku_digunakan
+                                .length > 0) {
+                                bahanBakuHtml = '<ul class="bahan-baku-list">';
+                                detail.bahan_baku_digunakan.forEach(bb => {
+                                    bahanBakuHtml +=
+                                        `<li>${bb.nama}: ${bb.jumlah} ${bb.satuan}</li>`;
+                                });
+                                bahanBakuHtml += '</ul>';
+                            } else {
+                                bahanBakuHtml = '-';
+                            }
+
                             detailHtml += `
                             <tr>
                                 <td>${detail.jenis_item === 'produk' ? 'Produk' : 'Bahan Baku'}</td>
@@ -341,6 +443,7 @@
                                 <td>${detail.jumlah}</td>
                                 <td>${detail.harga_sat_formatted}</td>
                                 <td>${detail.sub_total_formatted}</td>
+                                <td>${bahanBakuHtml}</td>
                             </tr>
                         `;
                         });
@@ -350,6 +453,39 @@
                             </table>
                         </div>
                     `;
+
+                        if (penjualan.total_bahan_baku && penjualan.total_bahan_baku.length > 0) {
+                            detailHtml += `
+                            <hr>
+                            <h6>Ringkasan Bahan Baku Digunakan:</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Bahan Baku</th>
+                                            <th>Jumlah Digunakan</th>
+                                            <th>Satuan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                            `;
+
+                            penjualan.total_bahan_baku.forEach(bb => {
+                                detailHtml += `
+                                <tr>
+                                    <td>${bb.nama}</td>
+                                    <td>${bb.jumlah}</td>
+                                    <td>${bb.satuan}</td>
+                                </tr>
+                                `;
+                            });
+
+                            detailHtml += `
+                                    </tbody>
+                                </table>
+                            </div>
+                            `;
+                        }
 
                         $('#detailContent').html(detailHtml);
                         $('#detailPenjualanModal').modal('show');

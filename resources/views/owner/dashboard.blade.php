@@ -191,94 +191,6 @@
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
-
-            @if (isset($bahanBakuPerluBeli) && $bahanBakuPerluBeli->count() > 0)
-                <div class="table-responsive">
-                    <table class="data-table table stripe hover nowrap">
-                        <thead>
-                            <tr>
-                                <th class="table-plus">Nama Bahan Baku</th>
-                                <th>Satuan</th>
-                                <th>Stok Saat Ini</th>
-                                <th>Minimal Stok</th>
-                                <th>Safety Stock</th>
-                                <th>ROP</th>
-                                <th>Rekomendasi Beli</th>
-                                <th>Total Nilai</th>
-                                <th>Status</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($bahanBakuPerluBeli as $bahan)
-                                @php
-                                    $rekomendasi = null;
-                                    try {
-                                        $rekomendasi = $bahan->getRekomendasiPembelianRopAttribute();
-                                    } catch (\Exception $e) {
-                                        \Log::error('Error rekomendasi bahan baku: ' . $e->getMessage());
-                                    }
-                                @endphp
-                                <tr>
-                                    <td class="table-plus">
-                                        <div class="d-flex align-items-center">
-                                            @if ($bahan->foto)
-                                                <img src="{{ $bahan->foto_url ?? asset('images/default.png') }}"
-                                                    class="img-fluid rounded-circle mr-2" width="30" height="30"
-                                                    alt="{{ $bahan->nama }}">
-                                            @endif
-                                            <span>{{ $bahan->nama }}</span>
-                                        </div>
-                                    </td>
-                                    <td>{{ $bahan->satuan ?? '-' }}</td>
-                                    <td class="text-center">
-                                        <span
-                                            class="badge badge-{{ ($bahan->stok ?? 0) <= ($bahan->safety_stock ?? 0) ? 'warning' : (($bahan->stok ?? 0) <= ($bahan->min ?? 0) ? 'danger' : 'success') }}">
-                                            {{ $bahan->stok ?? 0 }}
-                                        </span>
-                                    </td>
-                                    <td>{{ $bahan->min ?? 0 }}</td>
-                                    <td>{{ $bahan->safety_stock ?? 0 }}</td>
-                                    <td>{{ $bahan->rop ?? 0 }}</td>
-                                    <td class="text-center">
-                                        @if ($rekomendasi && isset($rekomendasi['jumlah_rekomendasi']) && $rekomendasi['jumlah_rekomendasi'] > 0)
-                                            <span class="badge badge-primary">{{ $rekomendasi['jumlah_rekomendasi'] }}
-                                                {{ $bahan->satuan }}</span>
-                                        @else
-                                            <span class="badge badge-secondary">-</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if ($rekomendasi && isset($rekomendasi['total_nilai']) && $rekomendasi['total_nilai'] > 0)
-                                            Rp {{ number_format($rekomendasi['total_nilai'], 0, ',', '.') }}
-                                        @else
-                                            -
-                                        @endif
-                                    </td>
-                                    <td>{!! $bahan->status_stok ?? '' !!}</td>
-                                    <td>
-                                        <a href="{{ route('owner.bahan-baku.edit', $bahan->id) }}"
-                                            class="btn btn-sm btn-primary" title="Edit Bahan Baku">
-                                            <i class="icon-copy dw dw-edit2"></i>
-                                        </a>
-                                        <a href="{{ route('owner.pembelian.create', ['bahan_baku_id' => $bahan->id]) }}"
-                                            class="btn btn-sm btn-success" title="Buat Pembelian">
-                                            <i class="icon-copy dw dw-shopping-cart1"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @else
-            @endif
-        </div>
-    </div>
-
-    <!-- Grafik Penggunaan Bahan Baku -->
     @if (isset($penggunaanBahanBaku) && ($penggunaanBahanBaku['total_bahan_baku'] ?? 0) > 0)
         <div class="row">
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
@@ -332,6 +244,96 @@
                         <a href="{{ route('owner.penjualan.create') }}" class="btn btn-primary mt-3">
                             <i class="icon-copy dw dw-cart"></i> Buat Penjualan Baru
                         </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if (isset($bahanBakuPerluBeli) && $bahanBakuPerluBeli->count() > 0)
+        <div class="row">
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
+                <div class="card-box height-100-p pd-20">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-0">
+                        <div class="h5 mb-0">Bahan Baku Perlu Pembelian</div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table table stripe hover nowrap">
+                            <thead>
+                                <tr>
+                                    <th class="table-plus">Nama Bahan Baku</th>
+                                    <th>Satuan</th>
+                                    <th>Stok Saat Ini</th>
+                                    <th>Minimal Stok</th>
+                                    <th>Safety Stock</th>
+                                    <th>ROP</th>
+                                    <th>Rekomendasi Beli</th>
+                                    <th>Total Nilai</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($bahanBakuPerluBeli as $bahan)
+                                    @php
+                                        $rekomendasi = null;
+                                        try {
+                                            $rekomendasi = $bahan->getRekomendasiPembelianRopAttribute();
+                                        } catch (\Exception $e) {
+                                            \Log::error('Error rekomendasi bahan baku: ' . $e->getMessage());
+                                        }
+                                    @endphp
+                                    <tr>
+                                        <td class="table-plus">
+                                            <div class="d-flex align-items-center">
+                                                @if ($bahan->foto)
+                                                    <img src="{{ $bahan->foto_url ?? asset('images/default.png') }}"
+                                                        class="img-fluid rounded-circle mr-2" width="30"
+                                                        height="30" alt="{{ $bahan->nama }}">
+                                                @endif
+                                                <span>{{ $bahan->nama }}</span>
+                                            </div>
+                                        </td>
+                                        <td>{{ $bahan->satuan ?? '-' }}</td>
+                                        <td class="text-center">
+                                            <span
+                                                class="badge badge-{{ ($bahan->stok ?? 0) <= ($bahan->safety_stock ?? 0) ? 'warning' : (($bahan->stok ?? 0) <= ($bahan->min ?? 0) ? 'danger' : 'success') }}">
+                                                {{ $bahan->stok ?? 0 }}
+                                            </span>
+                                        </td>
+                                        <td>{{ $bahan->min ?? 0 }}</td>
+                                        <td>{{ $bahan->safety_stock ?? 0 }}</td>
+                                        <td>{{ $bahan->rop ?? 0 }}</td>
+                                        <td class="text-center">
+                                            @if ($rekomendasi && isset($rekomendasi['jumlah_rekomendasi']) && $rekomendasi['jumlah_rekomendasi'] > 0)
+                                                <span class="badge badge-primary">{{ $rekomendasi['jumlah_rekomendasi'] }}
+                                                    {{ $bahan->satuan }}</span>
+                                            @else
+                                                <span class="badge badge-secondary">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($rekomendasi && isset($rekomendasi['total_nilai']) && $rekomendasi['total_nilai'] > 0)
+                                                Rp {{ number_format($rekomendasi['total_nilai'], 0, ',', '.') }}
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                        <td>{!! $bahan->status_stok ?? '' !!}</td>
+                                        <td>
+                                            <a href="{{ route('owner.bahan-baku.edit', $bahan->id) }}"
+                                                class="btn btn-sm btn-primary" title="Edit Bahan Baku">
+                                                <i class="icon-copy dw dw-edit2"></i>
+                                            </a>
+                                            <a href="{{ route('owner.pembelian.create', ['bahan_baku_id' => $bahan->id]) }}"
+                                                class="btn btn-sm btn-success" title="Buat Pembelian">
+                                                <i class="icon-copy dw dw-shopping-cart1"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -556,7 +558,7 @@
                             chart: {
                                 type: 'bar',
                                 height: 400,
-                                stacked: true,
+                                stacked: false,
                                 toolbar: {
                                     show: true,
                                     tools: {
@@ -571,16 +573,25 @@
                                 }
                             },
                             series: series,
+                            plotOptions: {
+                                bar: {
+                                    horizontal: true,
+                                    columnWidth: '70%',
+                                    barHeight: '80%',
+                                    dataLabels: {
+                                        position: 'top'
+                                    }
+                                }
+                            },
                             xaxis: {
                                 categories: penggunaanData.bulan_labels || [],
                                 labels: {
-                                    rotate: -45,
                                     style: {
                                         fontSize: '12px'
                                     }
                                 },
                                 title: {
-                                    text: 'Bulan',
+                                    text: 'Jumlah Penggunaan',
                                     style: {
                                         fontSize: '14px',
                                         fontWeight: 'bold'
@@ -589,15 +600,15 @@
                             },
                             yaxis: {
                                 title: {
-                                    text: 'Jumlah Penggunaan',
+                                    text: 'Bahan Baku',
                                     style: {
                                         fontSize: '14px',
                                         fontWeight: 'bold'
                                     }
                                 },
                                 labels: {
-                                    formatter: function(val) {
-                                        return val.toLocaleString('id-ID');
+                                    style: {
+                                        fontSize: '12px'
                                     }
                                 }
                             },
@@ -616,14 +627,6 @@
                                 shared: true,
                                 intersect: false
                             },
-                            plotOptions: {
-                                bar: {
-                                    columnWidth: '70%',
-                                    dataLabels: {
-                                        position: 'top'
-                                    }
-                                }
-                            },
                             dataLabels: {
                                 enabled: false
                             },
@@ -638,13 +641,19 @@
                                     },
                                     legend: {
                                         position: 'bottom'
+                                    },
+                                    plotOptions: {
+                                        bar: {
+                                            horizontal: true,
+                                            columnWidth: '50%'
+                                        }
                                     }
                                 }
                             }]
                         });
 
                         chart.render();
-                        console.log('Chart penggunaan bahan baku berhasil dirender');
+                        console.log('Chart penggunaan bahan baku berhasil dirender (horizontal)');
                     } catch (err) {
                         console.error('Error render penggunaan chart:', err);
                         penggunaanChartEl.innerHTML =
@@ -769,6 +778,14 @@
             border: 1px solid #f5c6cb;
             border-radius: 4px;
             text-align: center;
+        }
+
+        .apexcharts-bar-series.apexcharts-plot-series .apexcharts-series path {
+            fill-opacity: 0.8;
+        }
+
+        .apexcharts-bar-series.apexcharts-plot-series:hover .apexcharts-series path {
+            fill-opacity: 1;
         }
     </style>
 @endpush

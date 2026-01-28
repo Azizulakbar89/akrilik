@@ -318,8 +318,12 @@
                                     <span style="color: #28a745;">● Selesai</span>
                                 @elseif($item->status == 'menunggu_persetujuan')
                                     <span style="color: #ffc107;">● Menunggu</span>
+                                @elseif($item->status == 'diterima')
+                                    <span style="color: #007bff;">● Diterima</span>
                                 @elseif($item->status == 'ditolak')
                                     <span style="color: #dc3545;">● Ditolak</span>
+                                @else
+                                    <span style="color: #6c757d;">● {{ $item->status }}</span>
                                 @endif
                             </td>
                         </tr>
@@ -381,10 +385,12 @@
             </div>
         @endforeach
 
-        @if ($supplierTerbanyak->count() > 0 || $bahanBakuTerbanyak->count() > 0)
+        @if (
+            (isset($supplierTerbanyak) && $supplierTerbanyak->count() > 0) ||
+                (isset($bahanBakuTerbanyak) && $bahanBakuTerbanyak->count() > 0))
             <h3>Analisis Pembelian</h3>
 
-            @if ($supplierTerbanyak->count() > 0)
+            @if (isset($supplierTerbanyak) && $supplierTerbanyak->count() > 0)
                 <div style="margin-bottom: 15px;">
                     <h4 style="margin-bottom: 5px;">Supplier Terbanyak</h4>
                     <table style="width: 100%; font-size: 9px;">
@@ -411,14 +417,14 @@
                 </div>
             @endif
 
-            @if ($bahanBakuTerbanyak->count() > 0)
+            @if (isset($bahanBakuTerbanyak) && $bahanBakuTerbanyak->count() > 0)
                 <div>
                     <h4 style="margin-bottom: 5px;">Bahan Baku Terbanyak Dibeli</h4>
                     <table style="width: 100%; font-size: 9px;">
                         <thead>
                             <tr>
                                 <th width="8%" class="text-center">No</th>
-                                <th width="47%">Bahan Baku</th>
+                                <th width="47%">Nahan Baku</th>
                                 <th width="25%" class="text-center">Jumlah</th>
                                 <th width="20%" class="text-right">Total</th>
                             </tr>
@@ -452,11 +458,12 @@
                 window.print();
             }, 500);
 
-            setTimeout(function() {
-                if (!document.hidden) {
-                    window.history.back();
-                }
-            }, 2000);
+            // Auto close after print (optional)
+            window.onafterprint = function() {
+                setTimeout(function() {
+                    window.close();
+                }, 1000);
+            };
         }
     </script>
 </body>

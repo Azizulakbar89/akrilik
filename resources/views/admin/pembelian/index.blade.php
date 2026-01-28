@@ -8,19 +8,37 @@
                     <div class="card-header">
                         <h3 class="card-title">Data Pembelian</h3>
                         <div class="float-right">
-                            @if ($rekomendasi->count() > 0)
-                                <button class="btn btn-success mr-2" data-toggle="modal" data-target="#modalPembelianCepat"
-                                    id="btnPembelianCepat">
-                                    <i class="fas fa-bolt"></i> Pembelian Cepat (ROP)
+                            <form action="{{ route('admin.pembelian.index') }}" method="GET" class="form-inline">
+                                <div class="form-group mr-2">
+                                    <label for="search_bahan_baku" class="mr-2">Cari Bahan Baku:</label>
+                                    <select name="search_bahan_baku" class="form-control select2" style="min-width: 200px;">
+                                        <option value="">-- Semua Bahan Baku --</option>
+                                        @foreach ($bahanBakuList as $bahan)
+                                            <option value="{{ $bahan->nama }}"
+                                                {{ $searchBahanBaku == $bahan->nama ? 'selected' : '' }}>
+                                                {{ $bahan->nama }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary mr-2">
+                                    <i class="fas fa-search"></i> Filter
                                 </button>
-                            @endif
-                            <button class="btn btn-primary" data-toggle="modal" data-target="#modalTambah"
-                                id="btnTambahPembelian">
-                                <i class="fas fa-plus"></i> Tambah Pembelian
-                            </button>
+                                <a href="{{ route('admin.pembelian.index') }}" class="btn btn-secondary">
+                                    <i class="fas fa-refresh"></i> Reset
+                                </a>
+                            </form>
                         </div>
                     </div>
                     <div class="card-body">
+                        <!-- Informasi Filter -->
+                        @if ($searchBahanBaku)
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-filter"></i> Filter Aktif: Menampilkan pembelian yang mengandung bahan baku
+                                <strong>{{ $searchBahanBaku }}</strong>
+                            </div>
+                        @endif
+
                         @if ($stokTidakAman->count() > 0)
                             <div class="alert alert-danger">
                                 <h5><i class="fas fa-exclamation-triangle"></i> Peringatan Stok Tidak Aman</h5>
@@ -114,11 +132,29 @@
                                         </tfoot>
                                     </table>
                                 </div>
+                                <div class="mt-3">
+                                    @if ($rekomendasi->count() > 0)
+                                        <button class="btn btn-success mr-2" data-toggle="modal"
+                                            data-target="#modalPembelianCepat" id="btnPembelianCepat">
+                                            <i class="fas fa-bolt"></i> Pembelian Cepat (ROP)
+                                        </button>
+                                    @endif
+                                    <button class="btn btn-primary" data-toggle="modal" data-target="#modalTambah"
+                                        id="btnTambahPembelian">
+                                        <i class="fas fa-plus"></i> Tambah Pembelian
+                                    </button>
+                                </div>
                             </div>
                         @else
                             <div class="alert alert-success">
                                 <h5><i class="fas fa-check-circle"></i> Stok Aman</h5>
                                 <p>Semua bahan baku dalam kondisi aman. Tidak ada rekomendasi pembelian saat ini.</p>
+                                <div class="mt-3">
+                                    <button class="btn btn-primary" data-toggle="modal" data-target="#modalTambah"
+                                        id="btnTambahPembelian">
+                                        <i class="fas fa-plus"></i> Tambah Pembelian
+                                    </button>
+                                </div>
                             </div>
                         @endif
 
@@ -135,7 +171,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($pembelian as $item)
+                                    @forelse ($pembelian as $item)
                                         <tr>
                                             <td>{{ $item->kode_pembelian }}</td>
                                             <td>{{ $item->supplier->nama }}</td>
@@ -149,11 +185,6 @@
                                                 </button>
 
                                                 @if ($item->isMenungguPersetujuan())
-                                                    {{-- <button class="btn btn-warning btn-sm btn-edit"
-                                                        data-id="{{ $item->id }}" title="Edit">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button> --}}
-
                                                     <button class="btn btn-danger btn-sm btn-delete"
                                                         data-id="{{ $item->id }}" title="Hapus">
                                                         <i class="fas fa-trash"></i>
@@ -161,7 +192,11 @@
                                                 @endif
                                             </td>
                                         </tr>
-                                    @endforeach
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="text-center">Tidak ada data pembelian</td>
+                                        </tr>
+                                    @endforelse
                                 </tbody>
                             </table>
                         </div>
@@ -197,8 +232,8 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label>Tanggal <span class="text-danger">*</span></label>
-                                    <input type="date" name="tanggal" class="form-control" value="{{ date('Y-m-d') }}"
-                                        required>
+                                    <input type="date" name="tanggal" class="form-control"
+                                        value="{{ date('Y-m-d') }}" required>
                                 </div>
                             </div>
                         </div>
@@ -549,6 +584,14 @@
             opacity: 0.65;
             cursor: not-allowed;
         }
+
+        .select2-container {
+            min-width: 200px;
+        }
+
+        .filter-form {
+            margin-top: 10px;
+        }
     </style>
 @endpush
 
@@ -565,6 +608,12 @@
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
+            });
+
+            // Inisialisasi Select2 untuk dropdown search
+            $('.select2').select2({
+                placeholder: 'Pilih Bahan Baku',
+                allowClear: true
             });
 
             initializeTambahModal();
@@ -1149,20 +1198,20 @@
                                         <select name="items[${index}][bahan_baku_id]" class="form-control bahan-baku-select" required>
                                             <option value="">Pilih Bahan Baku</option>
                                             ${response.bahanBaku.map(bahan => `
-                                                                                                                <option value="${bahan.id}" 
-                                                                                                                    data-harga="${bahan.harga_beli}"
-                                                                                                                    data-stok="${bahan.stok}"
-                                                                                                                    data-min="${bahan.min}"
-                                                                                                                    data-max="${bahan.max}"
-                                                                                                                    data-rop="${bahan.rop}"
-                                                                                                                    data-satuan="${bahan.satuan}"
-                                                                                                                    ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
-                                                                                                                    ${bahan.nama} 
-                                                                                                                    ${bahan.stok <= bahan.min ? 
-                                                                                                                        `<span class="text-danger">(Stok: ${bahan.stok}/Min: ${bahan.min} - ROP: ${bahan.rop})</span>` : 
-                                                                                                                        `(Stok: ${bahan.stok}/Min: ${bahan.min})`}
-                                                                                                                </option>
-                                                                                                            `).join('')}
+                                                                                                                        <option value="${bahan.id}" 
+                                                                                                                            data-harga="${bahan.harga_beli}"
+                                                                                                                            data-stok="${bahan.stok}"
+                                                                                                                            data-min="${bahan.min}"
+                                                                                                                            data-max="${bahan.max}"
+                                                                                                                            data-rop="${bahan.rop}"
+                                                                                                                            data-satuan="${bahan.satuan}"
+                                                                                                                            ${item.bahan_baku_id == bahan.id ? 'selected' : ''}>
+                                                                                                                            ${bahan.nama} 
+                                                                                                                            ${bahan.stok <= bahan.min ? 
+                                                                                                                                `<span class="text-danger">(Stok: ${bahan.stok}/Min: ${bahan.min} - ROP: ${bahan.rop})</span>` : 
+                                                                                                                                `(Stok: ${bahan.stok}/Min: ${bahan.min})`}
+                                                                                                                        </option>
+                                                                                                                    `).join('')}
                                         </select>
                                     </div>
                                     <div class="col-md-2">
@@ -1192,10 +1241,10 @@
                                         <select name="supplier_id" class="form-control" required>
                                             <option value="">Pilih Supplier</option>
                                             ${response.supplier.map(sup => `
-                                                                                                                <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
-                                                                                                                    ${sup.nama}
-                                                                                                                </option>
-                                                                                                            `).join('')}
+                                                                                                                        <option value="${sup.id}" ${pembelian.supplier_id == sup.id ? 'selected' : ''}>
+                                                                                                                            ${sup.nama}
+                                                                                                                        </option>
+                                                                                                                    `).join('')}
                                         </select>
                                     </div>
                                 </div>

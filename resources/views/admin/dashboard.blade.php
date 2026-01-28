@@ -169,6 +169,67 @@
         </div>
     </div>
 
+    <!-- Grafik Penggunaan Bahan Baku Horizontal -->
+    @if (isset($penggunaanBahanBaku) && ($penggunaanBahanBaku['total_bahan_baku'] ?? 0) > 0)
+        <div class="row">
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
+                <div class="card-box height-100-p pd-20">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-0">
+                        <div class="h5 mb-0">Grafik Penggunaan Bahan Baku 12 Bulan Terakhir</div>
+                        <div class="dropdown">
+                            <a class="btn btn-link font-24 p-0 line-height-1 no-arrow dropdown-toggle"
+                                data-color="#1b3133" href="#" role="button" data-toggle="dropdown">
+                                <i class="dw dw-more"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-right dropdown-menu-icon-list">
+                                <a class="dropdown-item" href="{{ route('admin.bahan-baku.index') }}">
+                                    <i class="dw dw-eye"></i> Lihat Semua Bahan Baku
+                                </a>
+                                <a class="dropdown-item" href="{{ route('admin.penjualan.index') }}">
+                                    <i class="dw dw-money"></i> Lihat Penjualan
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info alert-dismissible fade show mt-3" role="alert">
+                        <i class="icon-copy dw dw-info"></i>
+                        <strong>Informasi:</strong> Grafik ini menampilkan penggunaan bahan baku dari semua sumber, termasuk
+                        penjualan bahan baku langsung dan penggunaan melalui produk yang terjual.
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div id="penggunaan-bahan-baku-chart" class="chart-container" style="min-height: 400px;">
+                        <div class="chart-loading">
+                            <i class="icon-copy dw dw-arrow-circle"></i>
+                            <div class="mt-2">Memuat grafik penggunaan bahan baku...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @else
+        <div class="row">
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
+                <div class="card-box height-100-p pd-20">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-0">
+                        <div class="h5 mb-0">Grafik Penggunaan Bahan Baku 12 Bulan Terakhir</div>
+                    </div>
+                    <div class="no-data text-center py-5">
+                        <i class="icon-copy dw dw-chart" style="font-size: 40px; color: #ccc;"></i>
+                        <h5 class="mt-3">Belum ada data penggunaan bahan baku</h5>
+                        <p>Data akan muncul setelah ada penjualan bahan baku langsung atau produk yang menggunakan bahan
+                            baku.</p>
+                        <a href="{{ route('admin.penjualan.create') }}" class="btn btn-primary mt-3">
+                            <i class="icon-copy dw dw-cart"></i> Buat Penjualan Baru
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Tabel Bahan Baku Perlu Beli -->
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
             <div class="card-box height-100-p pd-20">
@@ -254,73 +315,11 @@
                         <i class="icon-copy dw dw-check" style="font-size: 40px; color: #28a745;"></i>
                         <h5 class="mt-3">Semua stok bahan baku dalam kondisi aman</h5>
                         <p>Tidak ada bahan baku yang perlu dibeli saat ini.</p>
-                        {{-- <a href="{{ route('admin.bahan-baku.create') }}" class="btn btn-primary mt-3">
-                            <i class="icon-copy dw dw-add"></i> Tambah Bahan Baku Baru
-                        </a> --}}
                     </div>
                 @endif
             </div>
         </div>
     </div>
-
-    @if (isset($penggunaanBahanBaku) && ($penggunaanBahanBaku['total_bahan_baku'] ?? 0) > 0)
-        <div class="row">
-            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
-                <div class="card-box height-100-p pd-20">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-0">
-                        <div class="h5 mb-0">Grafik Penggunaan Bahan Baku 12 Bulan Terakhir</div>
-                        <div class="dropdown">
-                            <a class="btn btn-link font-24 p-0 line-height-1 no-arrow dropdown-toggle"
-                                data-color="#1b3133" href="#" role="button" data-toggle="dropdown">
-                                <i class="dw dw-more"></i>
-                            </a>
-                            <div class="dropdown-menu dropdown-menu-right dropdown-menu-icon-list">
-                                <a class="dropdown-item" href="{{ route('admin.bahan-baku.index') }}">
-                                    <i class="dw dw-eye"></i> Lihat Semua Bahan Baku
-                                </a>
-                                <a class="dropdown-item" href="{{ route('admin.penjualan.index') }}">
-                                    <i class="dw dw-money"></i> Lihat Penjualan
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="alert alert-info alert-dismissible fade show mt-3" role="alert">
-                        <i class="icon-copy dw dw-info"></i>
-                        <strong>Informasi:</strong> Grafik ini menampilkan penggunaan bahan baku dari semua sumber, termasuk
-                        penjualan bahan baku langsung dan penggunaan melalui produk yang terjual.
-                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div id="penggunaan-bahan-baku-chart" class="chart-container" style="min-height: 400px;">
-                        <div class="chart-loading">
-                            <i class="icon-copy dw dw-arrow-circle"></i>
-                            <div class="mt-2">Memuat grafik penggunaan bahan baku...</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @else
-        <div class="row">
-            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 mb-30">
-                <div class="card-box height-100-p pd-20">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-0">
-                        <div class="h5 mb-0">Grafik Penggunaan Bahan Baku 12 Bulan Terakhir</div>
-                    </div>
-                    <div class="no-data text-center py-5">
-                        <i class="icon-copy dw dw-chart" style="font-size: 40px; color: #ccc;"></i>
-                        <h5 class="mt-3">Belum ada data penggunaan bahan baku</h5>
-                        <p>Data akan muncul setelah ada penjualan bahan baku langsung atau produk yang menggunakan bahan
-                            baku.</p>
-                        <a href="{{ route('admin.penjualan.create') }}" class="btn btn-primary mt-3">
-                            <i class="icon-copy dw dw-cart"></i> Buat Penjualan Baru
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
 @endsection
 
 @push('scripts')
@@ -531,16 +530,33 @@
                     try {
                         penggunaanChartEl.innerHTML = '';
 
+                        // Prepare data for horizontal bar chart
                         const series = penggunaanData.series_data.map(item => ({
                             name: item.name,
                             data: item.data || []
                         }));
 
+                        // For horizontal bar chart, we need to swap categories and data structure
+                        // Get all unique bahan baku names from series
+                        const bahanBakuNames = series.map(item => item.name);
+
+                        // Get all bulan labels
+                        const bulanLabels = penggunaanData.bulan_labels || [];
+
+                        // Transform data for horizontal bar chart
+                        const transformedSeries = bulanLabels.map((bulan, index) => {
+                            const data = series.map(item => item.data[index] || 0);
+                            return {
+                                name: bulan,
+                                data: data
+                            };
+                        });
+
                         const chart = new ApexCharts(penggunaanChartEl, {
                             chart: {
                                 type: 'bar',
                                 height: 400,
-                                stacked: true,
+                                stacked: false, // Changed to false for side-by-side comparison
                                 toolbar: {
                                     show: true,
                                     tools: {
@@ -555,16 +571,25 @@
                                 }
                             },
                             series: series,
+                            plotOptions: {
+                                bar: {
+                                    horizontal: true, // This makes the chart horizontal
+                                    columnWidth: '70%',
+                                    barHeight: '80%',
+                                    dataLabels: {
+                                        position: 'top'
+                                    }
+                                }
+                            },
                             xaxis: {
-                                categories: penggunaanData.bulan_labels || [],
+                                categories: bulanLabels,
                                 labels: {
-                                    rotate: -45,
                                     style: {
                                         fontSize: '12px'
                                     }
                                 },
                                 title: {
-                                    text: 'Bulan',
+                                    text: 'Jumlah Penggunaan',
                                     style: {
                                         fontSize: '14px',
                                         fontWeight: 'bold'
@@ -573,15 +598,15 @@
                             },
                             yaxis: {
                                 title: {
-                                    text: 'Jumlah Penggunaan',
+                                    text: 'Bulan',
                                     style: {
                                         fontSize: '14px',
                                         fontWeight: 'bold'
                                     }
                                 },
                                 labels: {
-                                    formatter: function(val) {
-                                        return val.toLocaleString('id-ID');
+                                    style: {
+                                        fontSize: '12px'
                                     }
                                 }
                             },
@@ -600,14 +625,6 @@
                                 shared: true,
                                 intersect: false
                             },
-                            plotOptions: {
-                                bar: {
-                                    columnWidth: '70%',
-                                    dataLabels: {
-                                        position: 'top'
-                                    }
-                                }
-                            },
                             dataLabels: {
                                 enabled: false
                             },
@@ -622,13 +639,19 @@
                                     },
                                     legend: {
                                         position: 'bottom'
+                                    },
+                                    plotOptions: {
+                                        bar: {
+                                            horizontal: true,
+                                            columnWidth: '50%'
+                                        }
                                     }
                                 }
                             }]
                         });
 
                         chart.render();
-                        console.log('Chart penggunaan bahan baku berhasil dirender');
+                        console.log('Chart penggunaan bahan baku berhasil dirender (horizontal)');
                     } catch (err) {
                         console.error('Error render penggunaan chart:', err);
                         penggunaanChartEl.innerHTML =
@@ -673,4 +696,95 @@
             console.log('Dashboard script selesai');
         });
     </script>
+    <style>
+        .chart-container {
+            position: relative;
+            padding: 10px;
+        }
+
+        .chart-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .chart-loading i {
+            font-size: 24px;
+            margin-bottom: 10px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .no-data {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 40px 20px;
+            color: #666;
+            text-align: center;
+        }
+
+        .no-data i {
+            margin-bottom: 20px;
+        }
+
+        .icon-box {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .icon-box.bg-blue {
+            background-color: #1b00ff;
+        }
+
+        .icon-box.bg-danger {
+            background-color: #dc3545;
+        }
+
+        .icon-box.bg-success {
+            background-color: #28a745;
+        }
+
+        .icon-box.bg-warning {
+            background-color: #ffc107;
+        }
+
+        .error-message {
+            padding: 20px;
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        /* Style untuk chart horizontal */
+        .apexcharts-bar-series.apexcharts-plot-series .apexcharts-series path {
+            fill-opacity: 0.8;
+        }
+
+        .apexcharts-bar-series.apexcharts-plot-series:hover .apexcharts-series path {
+            fill-opacity: 1;
+        }
+    </style>
 @endpush

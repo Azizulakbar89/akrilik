@@ -91,7 +91,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         Route::get('/{id}', [PenjualanController::class, 'show'])->name('show');
         Route::delete('/{id}', [PenjualanController::class, 'destroy'])->name('destroy');
         Route::get('/{id}/print', [PenjualanController::class, 'printNota'])->name('print-nota');
-        Route::get('/get-item-info', [PenjualanController::class, 'getItemInfo'])->name('get-item-info'); // TAMBAHKAN INI
+        Route::get('/get-item-info', [PenjualanController::class, 'getItemInfo'])->name('get-item-info');
     });
 });
 
@@ -116,38 +116,34 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
         Route::get('/laporan', [PenjualanOwnerController::class, 'laporan'])->name('laporan');
         Route::get('/generate-pdf', [PenjualanOwnerController::class, 'generatePDF'])->name('generate-pdf');
         Route::get('/{penjualan}', [PenjualanOwnerController::class, 'show'])->name('show');
-        Route::get('/{penjualan}/print', [PembelianOwnerController::class, 'printNota'])->name('print-nota');
+        Route::get('/{penjualan}/print', [PenjualanOwnerController::class, 'printNota'])->name('print-nota');
     });
-});
 
-
-Route::prefix('owner')->middleware(['auth', 'role:owner'])->group(function () {
-
-    // Pembelian routes
-    Route::prefix('pembelian')->group(function () {
-        Route::get('/', [PembelianOwnerController::class, 'index'])->name('owner.pembelian.index');
-        Route::get('/create', [PembelianOwnerController::class, 'create'])->name('owner.pembelian.create');
-        Route::post('/', [PembelianOwnerController::class, 'store'])->name('owner.pembelian.store');
-        Route::get('/{id}', [PembelianOwnerController::class, 'show'])->name('owner.pembelian.show');
-        Route::get('/{id}/edit', [PembelianOwnerController::class, 'edit'])->name('owner.pembelian.edit');
-        Route::put('/{id}', [PembelianOwnerController::class, 'update'])->name('owner.pembelian.update');
-        Route::delete('/{id}', [PembelianOwnerController::class, 'destroy'])->name('owner.pembelian.destroy');
+    Route::prefix('pembelian')->name('pembelian.')->group(function () {
+        // CRUD Routes
+        Route::get('/', [PembelianOwnerController::class, 'index'])->name('index');
+        Route::get('/create', [PembelianOwnerController::class, 'create'])->name('create');
+        Route::post('/', [PembelianOwnerController::class, 'store'])->name('store');
+        Route::get('/{id}', [PembelianOwnerController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [PembelianOwnerController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [PembelianOwnerController::class, 'update'])->name('update');
+        Route::delete('/{id}', [PembelianOwnerController::class, 'destroy'])->name('destroy');
 
         // Aksi khusus
-        Route::post('/{id}/approve', [PembelianOwnerController::class, 'approve'])->name('owner.pembelian.approve');
-        Route::post('/{id}/reject', [PembelianOwnerController::class, 'reject'])->name('owner.pembelian.reject');
-        Route::post('/{id}/receive', [PembelianOwnerController::class, 'receive'])->name('owner.pembelian.receive');
+        Route::post('/{id}/approve', [PembelianOwnerController::class, 'approve'])->name('approve');
+        Route::post('/{id}/reject', [PembelianOwnerController::class, 'reject'])->name('reject');
+        Route::post('/{id}/receive', [PembelianOwnerController::class, 'receive'])->name('receive');
 
-        Route::get('/data/rekomendasi', [PembelianOwnerController::class, 'getRekomendasiData'])->name('get.rekomendasi-data');
-        Route::get('/data/pembelian-cepat', [PembelianOwnerController::class, 'getPembelianCepatData'])->name('get.pembelian-cepat-data');
-        Route::post('/store/pembelian-cepat', [PembelianOwnerController::class, 'storePembelianCepat'])->name('store.pembelian-cepat');
-        Route::post('/store/rekomendasi', [PembelianOwnerController::class, 'storeRekomendasi'])->name('store.rekomendasi');
+        Route::get('/data/rekomendasi', [PembelianOwnerController::class, 'getRekomendasiData'])->name('rekomendasi.data');
+        Route::get('/data/pembelian-cepat', [PembelianOwnerController::class, 'getPembelianCepatData'])->name('pembelian-cepat.data');
+        Route::post('/store/pembelian-cepat', [PembelianOwnerController::class, 'storePembelianCepat'])->name('pembelian-cepat.store');
+        Route::post('/store/rekomendasi', [PembelianOwnerController::class, 'storeRekomendasi'])->name('rekomendasi.store');
 
-        // Route untuk halaman pembelian cepat (optional)
         Route::get('/pembelian-cepat/form', [PembelianOwnerController::class, 'showPembelianCepat'])->name('pembelian-cepat.form');
 
-        // Laporan
-        Route::get('/laporan', [PembelianOwnerController::class, 'laporan'])->name('owner.pembelian.laporan');
+        Route::get('/laporan', [PembelianOwnerController::class, 'laporan'])->name('laporan');
+        Route::post('/print-laporan', [PembelianOwnerController::class, 'printLaporan'])->name('print-laporan');
+        Route::get('/export-pdf', [PembelianOwnerController::class, 'exportPDF'])->name('export-pdf');
     });
 });
 

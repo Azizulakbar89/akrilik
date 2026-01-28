@@ -14,11 +14,21 @@ use Illuminate\Support\Facades\Log;
 
 class PembelianOwnerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $pembelian = Pembelian::with(['supplier', 'detailPembelian.bahanBaku'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = Pembelian::with(['supplier', 'detailPembelian.bahanBaku'])
+            ->orderBy('created_at', 'desc');
+
+        $searchBahanBaku = $request->get('search_bahan_baku');
+        $bahanBakuList = BahanBaku::orderBy('nama')->get();
+
+        if ($searchBahanBaku) {
+            $query->whereHas('detailPembelian.bahanBaku', function ($q) use ($searchBahanBaku) {
+                $q->where('nama', 'like', '%' . $searchBahanBaku . '%');
+            });
+        }
+
+        $pembelian = $query->get();
         $supplier = Supplier::all();
         $bahanBaku = BahanBaku::all();
 
@@ -49,7 +59,9 @@ class PembelianOwnerController extends Controller
             'stokTidakAman',
             'bahanBakuPerluBeli',
             'totalRekomendasi',
-            'leadTimeStats'
+            'leadTimeStats',
+            'searchBahanBaku',
+            'bahanBakuList'
         ));
     }
 
@@ -171,7 +183,11 @@ class PembelianOwnerController extends Controller
                 $total += $item['jumlah'] * $item['harga'];
             }
 
+            // Generate kode pembelian
+            $kodePembelian = 'PB-' . date('Ymd') . '-' . str_pad(Pembelian::count() + 1, 4, '0', STR_PAD_LEFT);
+
             $pembelian = Pembelian::create([
+                'kode_pembelian' => $kodePembelian,
                 'supplier_id' => $request->supplier_id,
                 'total' => $total,
                 'tanggal' => $request->tanggal,
@@ -274,8 +290,12 @@ class PembelianOwnerController extends Controller
                     ->withErrors(['error' => 'Tidak ada bahan baku yang valid untuk dibeli. Semua bahan baku sudah dalam kondisi aman.']);
             }
 
+            // Generate kode pembelian
+            $kodePembelian = 'PB-' . date('Ymd') . '-' . str_pad(Pembelian::count() + 1, 4, '0', STR_PAD_LEFT);
+
             // Buat pembelian
             $pembelian = Pembelian::create([
+                'kode_pembelian' => $kodePembelian,
                 'supplier_id' => $request->supplier_id,
                 'total' => $total,
                 'tanggal' => $request->tanggal,
@@ -388,7 +408,11 @@ class PembelianOwnerController extends Controller
                 return response()->json(['error' => 'Tidak ada bahan baku yang perlu pembelian'], 400);
             }
 
+            // Generate kode pembelian
+            $kodePembelian = 'PB-' . date('Ymd') . '-' . str_pad(Pembelian::count() + 1, 4, '0', STR_PAD_LEFT);
+
             $pembelian = Pembelian::create([
+                'kode_pembelian' => $kodePembelian,
                 'supplier_id' => $request->supplier_id,
                 'total' => $total,
                 'tanggal' => $request->tanggal,
@@ -623,7 +647,7 @@ class PembelianOwnerController extends Controller
      */
     private function calculateActualLeadTime($pembelian)
     {
-        $tanggalPesan = Carbon::parse($pembelian->created_at);
+        $tanggalPesan = Carbon::parse($pembelian->tanggal);
         $tanggalTerima = Carbon::parse(now());
 
         // Hitung selisih dalam jam
@@ -693,17 +717,12 @@ class PembelianOwnerController extends Controller
     public function getPembelianCepatData()
     {
         try {
-            // LOG untuk debugging
-            Log::info('Memulai getPembelianCepatData');
-
             // Ambil semua bahan baku dengan kondisi yang sederhana
             $bahanBaku = BahanBaku::where('min', '>', 0)
                 ->whereNotNull('harga_beli')
                 ->where('harga_beli', '>', 0)
                 ->orderBy('nama')
                 ->get();
-
-            Log::info('Jumlah bahan baku ditemukan: ' . $bahanBaku->count());
 
             $data = [];
             $totalNilai = 0;
@@ -781,14 +800,9 @@ class PembelianOwnerController extends Controller
 
                 $totalNilai += $totalNilaiItem;
                 $totalItems++;
-
-                Log::info('Bahan baku ditambahkan: ' . $bahan->nama . ' - Status: ' . $statusStok . ' - Jumlah: ' . $jumlahRekomendasi);
             }
 
-            Log::info('Total items ditemukan: ' . $totalItems . ' - Total nilai: ' . $totalNilai);
-
             if ($totalItems === 0) {
-                Log::info('Tidak ada bahan baku yang perlu dibeli');
                 return response()->json([
                     'success' => true,
                     'data' => [],
@@ -840,16 +854,114 @@ class PembelianOwnerController extends Controller
         $pembelian = $query->get();
         $totalPembelian = $pembelian->sum('total');
 
+        // Analisis supplier terbanyak
+        $supplierTerbanyak = Pembelian::select(
+            'supplier_id',
+            DB::raw('COUNT(*) as jumlah_transaksi'),
+            DB::raw('SUM(total) as total_pembelian')
+        )
+            ->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir])
+            ->groupBy('supplier_id')
+            ->orderByDesc('jumlah_transaksi')
+            ->limit(5)
+            ->get();
+
+        // Analisis bahan baku terbanyak
+        $bahanBakuTerbanyak = DetailPembelian::select(
+            'bahan_baku_id',
+            DB::raw('SUM(jumlah) as total_dibeli'),
+            DB::raw('SUM(sub_total) as total_pembelian')
+        )
+            ->whereHas('pembelian', function ($q) use ($request) {
+                $q->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir]);
+            })
+            ->groupBy('bahan_baku_id')
+            ->orderByDesc('total_dibeli')
+            ->limit(10)
+            ->get();
+
         $data = [
             'pembelian' => $pembelian,
             'totalPembelian' => $totalPembelian,
             'tanggal_awal' => $request->tanggal_awal,
             'tanggal_akhir' => $request->tanggal_akhir,
             'status' => $request->status,
-            'request' => $request
+            'request' => $request,
+            'supplierTerbanyak' => $supplierTerbanyak,
+            'bahanBakuTerbanyak' => $bahanBakuTerbanyak
         ];
 
-        return view('owner.pembelian.laporan_pdf', $data);
+        // Jika request dari modal print, return view PDF
+        if ($request->ajax() || $request->wantsJson()) {
+            return view('owner.pembelian.laporan_pdf', $data);
+        }
+
+        return view('owner.pembelian.laporan', $data);
+    }
+
+    /**
+     * Print Laporan Pembelian (POST request)
+     */
+    public function printLaporan(Request $request)
+    {
+        $request->validate([
+            'tanggal_awal' => 'required|date',
+            'tanggal_akhir' => 'required|date',
+            'status' => 'nullable|in:semua,completed,menunggu_persetujuan,ditolak,diterima'
+        ]);
+
+        $query = Pembelian::with(['supplier', 'detailPembelian.bahanBaku'])
+            ->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir])
+            ->orderBy('tanggal', 'asc');
+
+        if ($request->status && $request->status !== 'semua') {
+            $query->where('status', $request->status);
+        }
+
+        $pembelian = $query->get();
+        $totalPembelian = $pembelian->sum('total');
+
+        // Analisis supplier terbanyak
+        $supplierTerbanyak = Pembelian::select(
+            'supplier_id',
+            DB::raw('COUNT(*) as jumlah_transaksi'),
+            DB::raw('SUM(total) as total_pembelian')
+        )
+            ->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir])
+            ->groupBy('supplier_id')
+            ->orderByDesc('jumlah_transaksi')
+            ->limit(5)
+            ->get();
+
+        // Analisis bahan baku terbanyak
+        $bahanBakuTerbanyak = DetailPembelian::select(
+            'bahan_baku_id',
+            DB::raw('SUM(jumlah) as total_dibeli'),
+            DB::raw('SUM(sub_total) as total_pembelian')
+        )
+            ->whereHas('pembelian', function ($q) use ($request) {
+                $q->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir]);
+            })
+            ->groupBy('bahan_baku_id')
+            ->orderByDesc('total_dibeli')
+            ->limit(10)
+            ->get();
+
+        $data = [
+            'pembelian' => $pembelian,
+            'totalPembelian' => $totalPembelian,
+            'tanggal_awal' => $request->tanggal_awal,
+            'tanggal_akhir' => $request->tanggal_akhir,
+            'status' => $request->status,
+            'supplierTerbanyak' => $supplierTerbanyak,
+            'bahanBakuTerbanyak' => $bahanBakuTerbanyak
+        ];
+
+        if ($request->ajax()) {
+            return view('owner.pembelian.laporan_print', $data);
+        }
+
+        return view('owner.pembelian.laporan_print', $data);
     }
 
     /**
@@ -962,5 +1074,68 @@ class PembelianOwnerController extends Controller
                 'has_data' => false
             ];
         }
+    }
+
+    /**
+     * Export PDF untuk laporan
+     */
+    public function exportPDF(Request $request)
+    {
+        $request->validate([
+            'tanggal_awal' => 'required|date',
+            'tanggal_akhir' => 'required|date',
+            'status' => 'nullable|in:semua,completed,menunggu_persetujuan,ditolak,diterima'
+        ]);
+
+        $query = Pembelian::with(['supplier', 'detailPembelian.bahanBaku'])
+            ->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir])
+            ->orderBy('tanggal', 'asc');
+
+        if ($request->status && $request->status !== 'semua') {
+            $query->where('status', $request->status);
+        }
+
+        $pembelian = $query->get();
+        $totalPembelian = $pembelian->sum('total');
+
+        // Analisis supplier terbanyak
+        $supplierTerbanyak = Pembelian::select(
+            'supplier_id',
+            DB::raw('COUNT(*) as jumlah_transaksi'),
+            DB::raw('SUM(total) as total_pembelian')
+        )
+            ->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir])
+            ->groupBy('supplier_id')
+            ->orderByDesc('jumlah_transaksi')
+            ->limit(5)
+            ->get();
+
+        // Analisis bahan baku terbanyak
+        $bahanBakuTerbanyak = DetailPembelian::select(
+            'bahan_baku_id',
+            DB::raw('SUM(jumlah) as total_dibeli'),
+            DB::raw('SUM(sub_total) as total_pembelian')
+        )
+            ->whereHas('pembelian', function ($q) use ($request) {
+                $q->whereBetween('tanggal', [$request->tanggal_awal, $request->tanggal_akhir]);
+            })
+            ->groupBy('bahan_baku_id')
+            ->orderByDesc('total_dibeli')
+            ->limit(10)
+            ->get();
+
+        $data = [
+            'pembelian' => $pembelian,
+            'totalPembelian' => $totalPembelian,
+            'tanggal_awal' => $request->tanggal_awal,
+            'tanggal_akhir' => $request->tanggal_akhir,
+            'status' => $request->status,
+            'supplierTerbanyak' => $supplierTerbanyak,
+            'bahanBakuTerbanyak' => $bahanBakuTerbanyak
+        ];
+
+        $pdf = \PDF::loadView('owner.pembelian.laporan_pdf', $data);
+
+        return $pdf->download('laporan-pembelian-' . date('Y-m-d') . '.pdf');
     }
 }

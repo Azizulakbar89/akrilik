@@ -132,6 +132,11 @@
                 <span><strong>Tanggal:</strong>
                     {{ \Carbon\Carbon::parse($penjualan->tanggal)->format('d/m/Y H:i') }}</span>
             </div>
+            @if ($penjualan->admin)
+                <div class="info-row">
+                    <span><strong>Kasir:</strong> {{ $penjualan->admin->name }}</span>
+                </div>
+            @endif
         </div>
 
         <table class="table">
@@ -192,7 +197,9 @@
             }, 500);
         }
 
-        window.onafterprint = function() {}
+        window.onafterprint = function() {
+            console.log("Print selesai");
+        }
     </script>
 </body>
 

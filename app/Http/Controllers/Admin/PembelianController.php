@@ -12,16 +12,29 @@ use App\Http\Controllers\Controller;
 
 class PembelianController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $pembelian = Pembelian::with(['supplier', 'detailPembelian.bahanBaku'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $searchBahanBaku = $request->search_bahan_baku ?? null;
+
+        $pembelianQuery = Pembelian::with(['supplier', 'detailPembelian.bahanBaku'])
+            ->orderBy('created_at', 'desc');
+
+        if ($searchBahanBaku) {
+            $pembelianQuery->whereHas('detailPembelian.bahanBaku', function ($query) use ($searchBahanBaku) {
+                $query->where('nama', 'like', '%' . $searchBahanBaku . '%');
+            });
+        }
+
+        $pembelian = $pembelianQuery->get();
+
         $supplier = Supplier::all();
         $bahanBaku = BahanBaku::all();
+        $bahanBakuList = BahanBaku::orderBy('nama')->get();
 
-        // Ambil rekomendasi pembelian berdasarkan ROP
         $rekomendasi = BahanBaku::perluPembelian()
+            ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                return $query->where('nama', 'like', '%' . $searchBahanBaku . '%');
+            })
             ->get()
             ->map(function ($bahan) {
                 return $bahan->rekomendasi_pembelian_rop;
@@ -31,7 +44,11 @@ class PembelianController extends Controller
             })
             ->values();
 
-        $stokTidakAman = BahanBaku::stokTidakAman()->get();
+        $stokTidakAman = BahanBaku::stokTidakAman()
+            ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                return $query->where('nama', 'like', '%' . $searchBahanBaku . '%');
+            })
+            ->get();
 
         $totalRekomendasi = $rekomendasi->sum('total_nilai');
 
@@ -39,18 +56,30 @@ class PembelianController extends Controller
             'pembelian',
             'supplier',
             'bahanBaku',
+            'bahanBakuList',
             'rekomendasi',
             'stokTidakAman',
-            'totalRekomendasi'
+            'totalRekomendasi',
+            'searchBahanBaku'
         ));
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $searchBahanBaku = $request->search_bahan_baku ?? null;
+
         $supplier = Supplier::all();
-        $bahanBaku = BahanBaku::all();
+        $bahanBaku = BahanBaku::when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+            return $query->where('nama', 'like', '%' . $searchBahanBaku . '%');
+        })
+            ->get();
+
+        $bahanBakuList = BahanBaku::orderBy('nama')->get();
 
         $rekomendasi = BahanBaku::perluPembelian()
+            ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                return $query->where('nama', 'like', '%' . $searchBahanBaku . '%');
+            })
             ->get()
             ->map(function ($bahan) {
                 return $bahan->rekomendasi_pembelian_rop;
@@ -60,7 +89,13 @@ class PembelianController extends Controller
             })
             ->values();
 
-        return view('admin.pembelian.create', compact('supplier', 'bahanBaku', 'rekomendasi'));
+        return view('admin.pembelian.create', compact(
+            'supplier',
+            'bahanBaku',
+            'bahanBakuList',
+            'rekomendasi',
+            'searchBahanBaku'
+        ));
     }
 
     public function store(Request $request)
@@ -317,10 +352,15 @@ class PembelianController extends Controller
         }
     }
 
-    public function getStokTidakAman()
+    public function getStokTidakAman(Request $request)
     {
         try {
+            $searchBahanBaku = $request->search_bahan_baku ?? null;
+
             $stokTidakAman = BahanBaku::whereColumn('stok', '<=', 'min')
+                ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                    return $query->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                })
                 ->select('id', 'nama', 'stok', 'min', 'max', 'rop', 'satuan', 'harga_beli')
                 ->get()
                 ->map(function ($bahan) {
@@ -336,10 +376,15 @@ class PembelianController extends Controller
         }
     }
 
-    public function getRekomendasiPembelian()
+    public function getRekomendasiPembelian(Request $request)
     {
         try {
+            $searchBahanBaku = $request->search_bahan_baku ?? null;
+
             $rekomendasi = BahanBaku::perluPembelian()
+                ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                    return $query->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                })
                 ->get()
                 ->map(function ($bahan) {
                     return $bahan->rekomendasi_pembelian_rop;
@@ -408,10 +453,15 @@ class PembelianController extends Controller
         }
     }
 
-    public function getRekomendasiForForm()
+    public function getRekomendasiForForm(Request $request)
     {
         try {
+            $searchBahanBaku = $request->search_bahan_baku ?? null;
+
             $rekomendasi = BahanBaku::perluPembelian()
+                ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                    return $query->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                })
                 ->get()
                 ->map(function ($bahan) {
                     $recommendation = $bahan->rekomendasi_pembelian_rop;
