@@ -321,12 +321,10 @@ class PenjualanOwnerController extends Controller
         $formattedData = [];
 
         foreach ($penjualan as $transaksi) {
-            // Hitung total item dalam transaksi ini
             $itemCount = $transaksi->detailPenjualan->count();
             $currentItem = 0;
 
             foreach ($transaksi->detailPenjualan as $detail) {
-                // Filter berdasarkan bahan baku jika ada
                 if ($searchBahanBaku) {
                     $containsBahanBaku = false;
 
@@ -358,8 +356,7 @@ class PenjualanOwnerController extends Controller
                     'jumlah_produk' => $detail->jumlah,
                     'bahan_baku_digunakan' => '',
                     'jumlah_digunakan' => '',
-                    // PERBAIKAN DI SINI: Gunakan total dari transaksi, bukan dari detail
-                    'total' => $transaksi->total, // Ini total keseluruhan transaksi
+                    'total' => $transaksi->total,
                     'bayar' => $transaksi->bayar,
                     'kembalian' => $transaksi->kembalian,
                     'item_index' => ++$currentItem,
