@@ -72,7 +72,7 @@
         table td {
             padding: 6px;
             border: 1px solid #ddd;
-            vertical-align: middle;
+            vertical-align: top;
         }
 
         .text-right {
@@ -145,15 +145,35 @@
             color: white;
         }
 
-        /* Zebra striping */
-        tr:nth-child(even) {
+        tbody tr:nth-child(even) {
             background-color: #f9f9f9;
         }
 
-        /* Totals row styling */
         .totals-row {
             background-color: #e9ecef;
             font-weight: bold;
+        }
+
+        .grouped-item {
+            border-bottom: 1px dashed #ddd;
+            padding: 4px 0;
+        }
+
+        .grouped-item:last-child {
+            border-bottom: none;
+        }
+
+        .group-header {
+            background-color: #f0f8ff;
+            font-weight: bold;
+        }
+
+        .vertical-top {
+            vertical-align: top;
+        }
+
+        .rowspan-cell {
+            vertical-align: middle;
         }
     </style>
 </head>
@@ -194,6 +214,36 @@
     </div>
 
     @if (!empty($laporanDetail))
+        @php
+            $groupedData = [];
+            $processedKodes = [];
+
+            foreach ($laporanDetail as $detail) {
+                $kode = $detail['kode_penjualan'];
+
+                if (!in_array($kode, $processedKodes)) {
+                    $processedKodes[] = $kode;
+
+                    $itemsWithSameKode = array_filter($laporanDetail, function ($item) use ($kode) {
+                        return $item['kode_penjualan'] == $kode;
+                    });
+
+                    $firstItem = reset($itemsWithSameKode);
+
+                    $groupedData[$kode] = [
+                        'tanggal' => $firstItem['tanggal'],
+                        'kode_penjualan' => $firstItem['kode_penjualan'],
+                        'nama_customer' => $firstItem['nama_customer'],
+                        'nama_admin' => $firstItem['nama_admin'],
+                        'total' => $firstItem['total'],
+                        'bayar' => $firstItem['bayar'],
+                        'kembalian' => $firstItem['kembalian'],
+                        'items' => array_values($itemsWithSameKode),
+                    ];
+                }
+            }
+        @endphp
+
         <table>
             <thead>
                 <tr>
@@ -211,54 +261,80 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach ($laporanDetail as $index => $detail)
+                @php $rowIndex = 1; @endphp
+                @foreach ($groupedData as $kodePenjualan => $group)
+                    @php $itemCount = count($group['items']); @endphp
                     <tr>
-                        <td class="text-center">{{ $index + 1 }}</td>
-                        <td class="text-center">{{ date('d/m/Y', strtotime($detail['tanggal'])) }}</td>
-                        <td class="text-center">{{ $detail['kode_penjualan'] }}</td>
-                        <td class="text-center">{{ $detail['nama_customer'] }}</td>
-                        <td>
-                            {{ $detail['produk'] }}
-                            @if ($detail['jenis_item'] == 'produk')
-                                <span class="badge badge-success">Produk</span>
-                            @else
-                                <span class="badge badge-info">Bahan Baku</span>
-                            @endif
-                        </td>
-                        <td class="text-center">{{ number_format($detail['jumlah_produk'], 0, ',', '.') }}</td>
-                        <td>
-                            {{ $detail['bahan_baku_digunakan'] ?: '-' }}
-                            @if (!empty($detail['jumlah_digunakan']))
-                                ({{ number_format($detail['jumlah_digunakan'], 0, ',', '.') }})
-                            @endif
-                        </td>
+                        <td rowspan="{{ $itemCount }}" class="text-center rowspan-cell">{{ $rowIndex++ }}</td>
+                        <td rowspan="{{ $itemCount }}" class="text-center rowspan-cell">
+                            {{ date('d/m/Y', strtotime($group['tanggal'])) }}</td>
+                        <td rowspan="{{ $itemCount }}" class="text-center rowspan-cell">
+                            {{ $group['kode_penjualan'] }}</td>
+                        <td rowspan="{{ $itemCount }}" class="text-center rowspan-cell">
+                            {{ $group['nama_customer'] }}</td>
 
-                        <td class="text-center">
-                            @if ($detail['nama_admin'] != '-')
-                                <span class="badge badge-primary">{{ $detail['nama_admin'] }}</span>
-                            @else
-                                -
-                            @endif
-                        </td>
-                        <td class="text-right">Rp {{ number_format($detail['total'], 0, ',', '.') }}</td>
-                        <td class="text-right">Rp {{ number_format($detail['bayar'], 0, ',', '.') }}</td>
-                        <td class="text-right">Rp {{ number_format($detail['kembalian'], 0, ',', '.') }}</td>
+                        @foreach ($group['items'] as $index => $item)
+                            @if ($index > 0)
                     </tr>
-                @endforeach
-            </tbody>
-            <tfoot>
-                <tr class="totals-row">
-                    <td colspan="8" class="text-right"><strong>TOTAL KESELURUHAN:</strong></td>
-                    <td class="text-right"><strong>Rp {{ number_format($totalPenjualan, 0, ',', '.') }}</strong></td>
-                    <td class="text-right"><strong>Rp {{ number_format($totalBayar, 0, ',', '.') }}</strong></td>
-                    <td class="text-right"><strong>Rp {{ number_format($totalKembalian, 0, ',', '.') }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-    @else
-        <div style="text-align: center; padding: 20px; border: 1px solid #ddd; margin: 20px 0;">
-            <p style="color: #666; font-size: 14px;">Tidak ada data penjualan pada periode ini.</p>
-        </div>
+                    <tr>
+                @endif
+
+                <td>
+                    <div class="grouped-item">
+                        {{ $item['produk'] }}
+                        @if ($item['jenis_item'] == 'produk')
+                            <span class="badge badge-success">Produk</span>
+                        @else
+                            <span class="badge badge-info">Bahan Baku</span>
+                        @endif
+                    </div>
+                </td>
+                <td class="text-center">{{ number_format($item['jumlah_produk'], 0, ',', '.') }}</td>
+                <td>
+                    @if ($item['bahan_baku_digunakan'])
+                        <div class="grouped-item">
+                            {{ $item['bahan_baku_digunakan'] }}
+                            @if (!empty($item['jumlah_digunakan']))
+                                ({{ number_format($item['jumlah_digunakan'], 0, ',', '.') }})
+                            @endif
+                        </div>
+                    @else
+                        -
+                    @endif
+                </td>
+
+                @if ($index === 0)
+                    <td rowspan="{{ $itemCount }}" class="text-center rowspan-cell">
+                        @if ($group['nama_admin'] != '-')
+                            <span class="badge badge-primary">{{ $group['nama_admin'] }}</span>
+                        @else
+                            -
+                        @endif
+                    </td>
+                    <td rowspan="{{ $itemCount }}" class="text-right rowspan-cell">Rp
+                        {{ number_format($group['total'], 0, ',', '.') }}</td>
+                    <td rowspan="{{ $itemCount }}" class="text-right rowspan-cell">Rp
+                        {{ number_format($group['bayar'], 0, ',', '.') }}</td>
+                    <td rowspan="{{ $itemCount }}" class="text-right rowspan-cell">Rp
+                        {{ number_format($group['kembalian'], 0, ',', '.') }}</td>
+                @endif
+    @endforeach
+    </tr>
+    @endforeach
+    </tbody>
+    <tfoot>
+        <tr class="totals-row">
+            <td colspan="8" class="text-right"><strong>TOTAL KESELURUHAN:</strong></td>
+            <td class="text-right"><strong>Rp {{ number_format($totalPenjualan, 0, ',', '.') }}</strong></td>
+            <td class="text-right"><strong>Rp {{ number_format($totalBayar, 0, ',', '.') }}</strong></td>
+            <td class="text-right"><strong>Rp {{ number_format($totalKembalian, 0, ',', '.') }}</strong></td>
+        </tr>
+    </tfoot>
+    </table>
+@else
+    <div style="text-align: center; padding: 20px; border: 1px solid #ddd; margin: 20px 0;">
+        <p style="color: #666; font-size: 14px;">Tidak ada data penjualan pada periode ini.</p>
+    </div>
     @endif
 
     <div class="page-break"></div>
@@ -362,7 +438,8 @@
                         2. Data bahan baku terlaris dihitung berdasarkan penggunaan dalam produk yang terjual<br>
                         3. Periode laporan: {{ date('d/m/Y', strtotime($tanggalAwal)) }} -
                         {{ date('d/m/Y', strtotime($tanggalAkhir)) }}<br>
-                        4. Total transaksi: {{ $penjualan->count() }} penjualan
+                        4. Total transaksi: {{ $penjualan->count() }} penjualan<br>
+                        5. Data produk dalam satu transaksi ditampilkan dalam satu baris gabungan
                     </p>
                 </td>
                 <td width="30%" style="text-align: center; vertical-align: top;">
