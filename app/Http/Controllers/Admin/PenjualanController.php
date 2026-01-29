@@ -19,8 +19,13 @@ class PenjualanController extends Controller
     public function index(Request $request)
     {
         $searchBahanBaku = $request->search_bahan_baku ?? null;
+        $tanggalAwal = $request->tanggal_awal ?? date('Y-m-01');
+        $tanggalAkhir = $request->tanggal_akhir ?? date('Y-m-d');
 
-        $penjualanQuery = Penjualan::with(['detailPenjualan', 'admin'])->latest();
+        // Query untuk data penjualan dengan filter tanggal
+        $penjualanQuery = Penjualan::with(['detailPenjualan', 'admin'])
+            ->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir])
+            ->latest();
 
         if ($searchBahanBaku) {
             $penjualanQuery->whereHas('detailPenjualan', function ($query) use ($searchBahanBaku) {
@@ -36,12 +41,25 @@ class PenjualanController extends Controller
 
         $penjualan = $penjualanQuery->get();
 
-        $bahanBakuList = BahanBaku::orderBy('nama')->get();
-
+        // Tambahkan format untuk total, bayar, dan kembalian
         $penjualan->each(function ($item) {
+            $item->total_formatted = 'Rp ' . number_format($item->total, 0, ',', '.');
+            $item->bayar_formatted = 'Rp ' . number_format($item->bayar, 0, ',', '.');
+            $item->kembalian_formatted = 'Rp ' . number_format($item->kembalian, 0, ',', '.');
             $item->bahan_baku_digunakan = $this->getBahanBakuUntukPenjualan($item);
         });
 
+        // Hitung total bahan baku keluar per periode
+        $totalBahanBakuKeluar = $this->getTotalBahanBakuKeluar($tanggalAwal, $tanggalAkhir, $searchBahanBaku);
+
+        // Hitung total pendapatan
+        $totalPendapatan = $penjualan->sum('total');
+        $totalPendapatanFormatted = 'Rp ' . number_format($totalPendapatan, 0, ',', '.');
+
+        // Get bahan baku list for dropdown
+        $bahanBakuList = BahanBaku::orderBy('nama')->get();
+
+        // Get produk dan bahan baku untuk form penjualan
         $produk = Produk::with(['komposisi.bahanBaku'])->get()->map(function ($produk) {
             $produk->info_penjualan = $produk->getInfoForPenjualan();
             return $produk;
@@ -52,7 +70,120 @@ class PenjualanController extends Controller
             return $bahan;
         });
 
-        return view('admin.penjualan.index', compact('penjualan', 'produk', 'bahanBaku', 'bahanBakuList', 'searchBahanBaku'));
+        return view('admin.penjualan.index', compact(
+            'penjualan',
+            'produk',
+            'bahanBaku',
+            'bahanBakuList',
+            'searchBahanBaku',
+            'tanggalAwal',
+            'tanggalAkhir',
+            'totalBahanBakuKeluar',
+            'totalPendapatan',
+            'totalPendapatanFormatted'
+        ));
+    }
+
+    /**
+     * Mendapatkan total bahan baku keluar per periode
+     */
+    private function getTotalBahanBakuKeluar($tanggalAwal, $tanggalAkhir, $searchBahanBaku = null)
+    {
+        $produkTerjual = DetailPenjualan::select(
+            'produk_id',
+            DB::raw('SUM(jumlah) as total_produk_terjual')
+        )
+            ->whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir, $searchBahanBaku) {
+                $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+                if ($searchBahanBaku) {
+                    $query->whereHas('detailPenjualan.produk.komposisi.bahanBaku', function ($bbQuery) use ($searchBahanBaku) {
+                        $bbQuery->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                    });
+                }
+            })
+            ->where('jenis_item', 'produk')
+            ->groupBy('produk_id')
+            ->get();
+
+        $bahanBakuUsage = [];
+
+        foreach ($produkTerjual as $produk) {
+            $komposisi = KomposisiBahanBaku::where('produk_id', $produk->produk_id)
+                ->with('bahanBaku')
+                ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                    return $query->whereHas('bahanBaku', function ($bbQuery) use ($searchBahanBaku) {
+                        $bbQuery->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                    });
+                })
+                ->get();
+
+            foreach ($komposisi as $item) {
+                if ($item->bahanBaku) {
+                    $bahanBakuId = $item->bahan_baku_id;
+                    $jumlahPenggunaan = $item->jumlah * $produk->total_produk_terjual;
+
+                    if (!isset($bahanBakuUsage[$bahanBakuId])) {
+                        $bahanBakuUsage[$bahanBakuId] = [
+                            'bahan_baku' => $item->bahanBaku,
+                            'total_penggunaan' => 0,
+                            'total_harga_beli' => 0
+                        ];
+                    }
+
+                    $bahanBakuUsage[$bahanBakuId]['total_penggunaan'] += $jumlahPenggunaan;
+                    $bahanBakuUsage[$bahanBakuId]['total_harga_beli'] += ($item->bahanBaku->harga_beli ?? 0) * $jumlahPenggunaan;
+                }
+            }
+        }
+
+        $bahanBakuLangsung = DetailPenjualan::select(
+            'bahan_baku_id',
+            DB::raw('SUM(jumlah) as total_terjual_langsung'),
+            DB::raw('SUM(sub_total) as total_pendapatan_langsung')
+        )
+            ->whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir, $searchBahanBaku) {
+                $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+            })
+            ->where('jenis_item', 'bahan_baku')
+            ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                return $query->whereHas('bahanBaku', function ($bbQuery) use ($searchBahanBaku) {
+                    $bbQuery->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                });
+            })
+            ->groupBy('bahan_baku_id')
+            ->get();
+
+        foreach ($bahanBakuLangsung as $item) {
+            $bahanBaku = BahanBaku::find($item->bahan_baku_id);
+            if ($bahanBaku) {
+                if (!isset($bahanBakuUsage[$item->bahan_baku_id])) {
+                    $bahanBakuUsage[$item->bahan_baku_id] = [
+                        'bahan_baku' => $bahanBaku,
+                        'total_penggunaan' => 0,
+                        'total_harga_beli' => 0
+                    ];
+                }
+                $bahanBakuUsage[$item->bahan_baku_id]['total_penggunaan'] += $item->total_terjual_langsung;
+                $bahanBakuUsage[$item->bahan_baku_id]['total_harga_beli'] += ($bahanBaku->harga_beli ?? 0) * $item->total_terjual_langsung;
+            }
+        }
+
+        // Format data untuk view
+        $formattedData = collect($bahanBakuUsage)->map(function ($item) {
+            return [
+                'id' => $item['bahan_baku']->id,
+                'nama' => $item['bahan_baku']->nama,
+                'total_penggunaan' => $item['total_penggunaan'],
+                'satuan' => $item['bahan_baku']->satuan,
+                'harga_beli' => $item['bahan_baku']->harga_beli,
+                'total_harga_beli' => $item['total_harga_beli'],
+                'harga_beli_formatted' => 'Rp ' . number_format($item['bahan_baku']->harga_beli ?? 0, 0, ',', '.'),
+                'total_harga_beli_formatted' => 'Rp ' . number_format($item['total_harga_beli'] ?? 0, 0, ',', '.'),
+                'total_penggunaan_formatted' => number_format($item['total_penggunaan'], 2, ',', '.')
+            ];
+        })->sortBy('nama')->values();
+
+        return $formattedData;
     }
 
     /**

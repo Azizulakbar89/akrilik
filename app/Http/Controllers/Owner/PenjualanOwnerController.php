@@ -38,12 +38,34 @@ class PenjualanOwnerController extends Controller
 
         $penjualan = $penjualanQuery->orderBy('created_at', 'desc')->get();
 
-        $bahanBakuList = BahanBaku::orderBy('nama')->get();
-
         $penjualan->each(function ($item) {
+            $item->total_formatted = 'Rp ' . number_format($item->total, 0, ',', '.');
+            $item->bayar_formatted = 'Rp ' . number_format($item->bayar, 0, ',', '.');
+            $item->kembalian_formatted = 'Rp ' . number_format($item->kembalian, 0, ',', '.');
+
+            // Hitung total bahan baku untuk setiap penjualan
             $item->bahan_baku_digunakan = $this->getBahanBakuUntukPenjualan($item);
         });
 
+        // Get bahan baku list for dropdown
+        $bahanBakuList = BahanBaku::orderBy('nama')->get();
+
+        // Hitung total bahan baku keluar per periode
+        $totalBahanBakuKeluar = $this->getTotalBahanBakuKeluar($tanggalAwal, $tanggalAkhir, $searchBahanBaku);
+
+        // Hitung total pendapatan dan margin keuntungan
+        $totalPendapatan = $penjualan->sum('total');
+        $totalPendapatanFormatted = 'Rp ' . number_format($totalPendapatan, 0, ',', '.');
+
+        // Hitung total biaya bahan baku
+        $totalBiayaBahanBaku = $totalBahanBakuKeluar->sum('total_harga_beli');
+
+        // Hitung laba kotor dan margin keuntungan
+        $labaKotor = $totalPendapatan - $totalBiayaBahanBaku;
+        $marginKeuntungan = $totalBiayaBahanBaku > 0 ? (($labaKotor / $totalBiayaBahanBaku) * 100) : 0;
+        $marginKeuntunganFormatted = number_format($marginKeuntungan, 2, ',', '.') . '%';
+
+        // Get produk terlaris dengan margin keuntungan
         $produkTerlaris = DetailPenjualan::select(
             'produk_id',
             DB::raw('SUM(jumlah) as total_terjual'),
@@ -63,16 +85,40 @@ class PenjualanOwnerController extends Controller
             ->take(10)
             ->get()
             ->map(function ($item) {
-                $produk = Produk::find($item->produk_id);
+                $produk = Produk::with('komposisi.bahanBaku')->find($item->produk_id);
+
+                // Hitung margin keuntungan untuk setiap produk
+                $biayaProduksi = 0;
+                $marginProduk = 0;
+
+                if ($produk) {
+                    foreach ($produk->komposisi as $komposisi) {
+                        $biayaProduksi += ($komposisi->bahanBaku->harga_beli ?? 0) * $komposisi->jumlah * $item->total_terjual;
+                    }
+
+                    if ($biayaProduksi > 0) {
+                        $labaProduk = $item->total_pendapatan - $biayaProduksi;
+                        $marginProduk = ($labaProduk / $biayaProduksi) * 100;
+                    }
+                }
+
                 return [
                     'id' => $item->produk_id,
                     'nama' => $produk ? $produk->nama : 'Produk Tidak Ditemukan',
                     'total_terjual' => $item->total_terjual,
                     'total_pendapatan' => $item->total_pendapatan,
-                    'satuan' => $produk ? $produk->satuan : '-'
+                    'satuan' => $produk ? $produk->satuan : '-',
+                    'total_pendapatan_formatted' => 'Rp ' . number_format($item->total_pendapatan, 0, ',', '.'),
+                    'biaya_produksi' => $biayaProduksi,
+                    'biaya_produksi_formatted' => 'Rp ' . number_format($biayaProduksi, 0, ',', '.'),
+                    'laba_produk' => $item->total_pendapatan - $biayaProduksi,
+                    'laba_produk_formatted' => 'Rp ' . number_format($item->total_pendapatan - $biayaProduksi, 0, ',', '.'),
+                    'margin_keuntungan' => $marginProduk,
+                    'margin_keuntungan_formatted' => number_format($marginProduk, 2, ',', '.') . '%'
                 ];
             });
 
+        // Get bahan baku terlaris dengan harga jual untuk perhitungan margin
         $bahanBakuTerlaris = $this->getBahanBakuTerlaris($tanggalAwal, $tanggalAkhir, $searchBahanBaku);
 
         return view('owner.penjualan.index', compact(
@@ -82,8 +128,142 @@ class PenjualanOwnerController extends Controller
             'bahanBakuList',
             'tanggalAwal',
             'tanggalAkhir',
-            'searchBahanBaku'
+            'searchBahanBaku',
+            'totalBahanBakuKeluar',
+            'totalPendapatan',
+            'totalPendapatanFormatted',
+            'totalBiayaBahanBaku',
+            'labaKotor',
+            'marginKeuntunganFormatted'
         ));
+    }
+
+    private function getTotalBahanBakuKeluar($tanggalAwal, $tanggalAkhir, $searchBahanBaku = null)
+    {
+        // Data dari penjualan produk (bahan baku yang digunakan dalam produk)
+        $produkTerjual = DetailPenjualan::select(
+            'produk_id',
+            DB::raw('SUM(jumlah) as total_produk_terjual'),
+            DB::raw('SUM(sub_total) as total_pendapatan_produk')
+        )
+            ->whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir, $searchBahanBaku) {
+                $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+                if ($searchBahanBaku) {
+                    $query->whereHas('detailPenjualan.produk.komposisi.bahanBaku', function ($bbQuery) use ($searchBahanBaku) {
+                        $bbQuery->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                    });
+                }
+            })
+            ->where('jenis_item', 'produk')
+            ->groupBy('produk_id')
+            ->get();
+
+        $bahanBakuUsage = [];
+
+        // Hitung penggunaan bahan baku dari produk yang terjual
+        foreach ($produkTerjual as $produk) {
+            $komposisi = KomposisiBahanBaku::where('produk_id', $produk->produk_id)
+                ->with('bahanBaku')
+                ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                    return $query->whereHas('bahanBaku', function ($bbQuery) use ($searchBahanBaku) {
+                        $bbQuery->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                    });
+                })
+                ->get();
+
+            foreach ($komposisi as $item) {
+                if ($item->bahanBaku) {
+                    $bahanBakuId = $item->bahan_baku_id;
+                    $jumlahPenggunaan = $item->jumlah * $produk->total_produk_terjual;
+
+                    if (!isset($bahanBakuUsage[$bahanBakuId])) {
+                        $bahanBakuUsage[$bahanBakuId] = [
+                            'bahan_baku' => $item->bahanBaku,
+                            'total_penggunaan' => 0,
+                            'total_harga_beli' => 0,
+                            'total_harga_jual' => 0,
+                            'total_pendapatan' => 0
+                        ];
+                    }
+
+                    $bahanBakuUsage[$bahanBakuId]['total_penggunaan'] += $jumlahPenggunaan;
+                    $bahanBakuUsage[$bahanBakuId]['total_harga_beli'] += ($item->bahanBaku->harga_beli ?? 0) * $jumlahPenggunaan;
+                    $bahanBakuUsage[$bahanBakuId]['total_harga_jual'] += ($item->bahanBaku->harga_jual ?? 0) * $jumlahPenggunaan;
+
+                    // Hitung pendapatan dari bahan baku ini
+                    $hargaJualProduk = $produk->total_pendapatan_produk / max($produk->total_produk_terjual, 1);
+                    $proporsiBahan = ($item->jumlah * $produk->total_produk_terjual) / max(array_sum(array_column($komposisi->toArray(), 'jumlah')) * $produk->total_produk_terjual, 1);
+                    $bahanBakuUsage[$bahanBakuId]['total_pendapatan'] += $hargaJualProduk * $proporsiBahan * $produk->total_produk_terjual;
+                }
+            }
+        }
+
+        // Data dari penjualan bahan baku langsung
+        $bahanBakuLangsung = DetailPenjualan::select(
+            'bahan_baku_id',
+            DB::raw('SUM(jumlah) as total_terjual_langsung'),
+            DB::raw('SUM(sub_total) as total_pendapatan_langsung')
+        )
+            ->whereHas('penjualan', function ($query) use ($tanggalAwal, $tanggalAkhir, $searchBahanBaku) {
+                $query->whereBetween('tanggal', [$tanggalAwal, $tanggalAkhir]);
+            })
+            ->where('jenis_item', 'bahan_baku')
+            ->when($searchBahanBaku, function ($query) use ($searchBahanBaku) {
+                return $query->whereHas('bahanBaku', function ($bbQuery) use ($searchBahanBaku) {
+                    $bbQuery->where('nama', 'like', '%' . $searchBahanBaku . '%');
+                });
+            })
+            ->groupBy('bahan_baku_id')
+            ->get();
+
+        foreach ($bahanBakuLangsung as $item) {
+            $bahanBaku = BahanBaku::find($item->bahan_baku_id);
+            if ($bahanBaku) {
+                if (!isset($bahanBakuUsage[$item->bahan_baku_id])) {
+                    $bahanBakuUsage[$item->bahan_baku_id] = [
+                        'bahan_baku' => $bahanBaku,
+                        'total_penggunaan' => 0,
+                        'total_harga_beli' => 0,
+                        'total_harga_jual' => 0,
+                        'total_pendapatan' => 0
+                    ];
+                }
+                $bahanBakuUsage[$item->bahan_baku_id]['total_penggunaan'] += $item->total_terjual_langsung;
+                $bahanBakuUsage[$item->bahan_baku_id]['total_harga_beli'] += ($bahanBaku->harga_beli ?? 0) * $item->total_terjual_langsung;
+                $bahanBakuUsage[$item->bahan_baku_id]['total_harga_jual'] += ($bahanBaku->harga_jual ?? 0) * $item->total_terjual_langsung;
+                $bahanBakuUsage[$item->bahan_baku_id]['total_pendapatan'] += $item->total_pendapatan_langsung;
+            }
+        }
+
+        // Format data untuk view dengan margin keuntungan
+        $formattedData = collect($bahanBakuUsage)->map(function ($item) {
+            $totalHargaBeli = $item['total_harga_beli'] ?? 0;
+            $totalHargaJual = $item['total_pendapatan'] ?? 0;
+            $laba = $totalHargaJual - $totalHargaBeli;
+            $margin = $totalHargaBeli > 0 ? ($laba / $totalHargaBeli) * 100 : 0;
+
+            return [
+                'id' => $item['bahan_baku']->id,
+                'nama' => $item['bahan_baku']->nama,
+                'total_penggunaan' => $item['total_penggunaan'],
+                'satuan' => $item['bahan_baku']->satuan,
+                'harga_beli' => $item['bahan_baku']->harga_beli,
+                'harga_jual' => $item['bahan_baku']->harga_jual,
+                'total_harga_beli' => $item['total_harga_beli'],
+                'total_pendapatan' => $item['total_pendapatan'],
+                'laba' => $laba,
+                'margin_keuntungan' => $margin,
+                'harga_beli_formatted' => 'Rp ' . number_format($item['bahan_baku']->harga_beli ?? 0, 0, ',', '.'),
+                'harga_jual_formatted' => 'Rp ' . number_format($item['bahan_baku']->harga_jual ?? 0, 0, ',', '.'),
+                'total_harga_beli_formatted' => 'Rp ' . number_format($item['total_harga_beli'] ?? 0, 0, ',', '.'),
+                'total_pendapatan_formatted' => 'Rp ' . number_format($item['total_pendapatan'] ?? 0, 0, ',', '.'),
+                'laba_formatted' => 'Rp ' . number_format($laba, 0, ',', '.'),
+                'margin_keuntungan_formatted' => number_format($margin, 2, ',', '.') . '%',
+                'total_penggunaan_formatted' => number_format($item['total_penggunaan'], 2, ',', '.')
+            ];
+        })->sortBy('nama')->values();
+
+        return $formattedData;
     }
 
     /**
@@ -215,7 +395,11 @@ class PenjualanOwnerController extends Controller
                 'nama' => $item['bahan_baku']->nama,
                 'total_penggunaan' => $item['total_penggunaan'],
                 'satuan' => $item['bahan_baku']->satuan,
-                'harga_beli' => $item['bahan_baku']->harga_beli
+                'harga_beli' => $item['bahan_baku']->harga_beli,
+                'harga_jual' => $item['bahan_baku']->harga_jual,
+                'margin' => $item['bahan_baku']->harga_beli > 0 ? (($item['bahan_baku']->harga_jual - $item['bahan_baku']->harga_beli) / $item['bahan_baku']->harga_beli) * 100 : 0,
+                'total_penggunaan_formatted' => number_format($item['total_penggunaan'], 2, ',', '.'),
+                'margin_formatted' => number_format(($item['bahan_baku']->harga_beli > 0 ? (($item['bahan_baku']->harga_jual - $item['bahan_baku']->harga_beli) / $item['bahan_baku']->harga_beli) * 100 : 0), 2, ',', '.') . '%'
             ];
         });
     }
@@ -249,6 +433,15 @@ class PenjualanOwnerController extends Controller
         $totalBayar = $penjualan->sum('bayar');
         $totalKembalian = $penjualan->sum('kembalian');
 
+        // Hitung total bahan baku keluar
+        $totalBahanBakuKeluar = $this->getTotalBahanBakuKeluar($tanggalAwal, $tanggalAkhir, $searchBahanBaku);
+
+        // Hitung margin keuntungan
+        $totalBiayaBahanBaku = $totalBahanBakuKeluar->sum('total_harga_beli');
+        $labaKotor = $totalPenjualan - $totalBiayaBahanBaku;
+        $marginKeuntungan = $totalBiayaBahanBaku > 0 ? (($labaKotor / $totalBiayaBahanBaku) * 100) : 0;
+        $marginKeuntunganFormatted = number_format($marginKeuntungan, 2, ',', '.') . '%';
+
         $produkTerlaris = DetailPenjualan::select(
             'produk_id',
             DB::raw('SUM(jumlah) as total_terjual'),
@@ -268,14 +461,37 @@ class PenjualanOwnerController extends Controller
             ->take(10)
             ->get()
             ->map(function ($item) {
-                $produk = Produk::find($item->produk_id);
+                $produk = Produk::with('komposisi.bahanBaku')->find($item->produk_id);
+
+                // Hitung margin keuntungan untuk setiap produk
+                $biayaProduksi = 0;
+                $marginProduk = 0;
+
+                if ($produk) {
+                    foreach ($produk->komposisi as $komposisi) {
+                        $biayaProduksi += ($komposisi->bahanBaku->harga_beli ?? 0) * $komposisi->jumlah * $item->total_terjual;
+                    }
+
+                    if ($biayaProduksi > 0) {
+                        $labaProduk = $item->total_pendapatan - $biayaProduksi;
+                        $marginProduk = ($labaProduk / $biayaProduksi) * 100;
+                    }
+                }
+
                 return [
                     'id' => $item->produk_id,
                     'nama' => $produk ? $produk->nama : 'Produk Tidak Ditemukan',
                     'total_terjual' => $item->total_terjual,
                     'total_pendapatan' => $item->total_pendapatan,
                     'satuan' => $produk ? $produk->satuan : '-',
-                    'harga' => $produk ? $produk->harga : 0
+                    'harga' => $produk ? $produk->harga : 0,
+                    'total_pendapatan_formatted' => 'Rp ' . number_format($item->total_pendapatan, 0, ',', '.'),
+                    'biaya_produksi' => $biayaProduksi,
+                    'biaya_produksi_formatted' => 'Rp ' . number_format($biayaProduksi, 0, ',', '.'),
+                    'laba_produk' => $item->total_pendapatan - $biayaProduksi,
+                    'laba_produk_formatted' => 'Rp ' . number_format($item->total_pendapatan - $biayaProduksi, 0, ',', '.'),
+                    'margin_keuntungan' => $marginProduk,
+                    'margin_keuntungan_formatted' => number_format($marginProduk, 2, ',', '.') . '%'
                 ];
             });
 
@@ -294,7 +510,11 @@ class PenjualanOwnerController extends Controller
                 'bahanBakuList',
                 'tanggalAwal',
                 'tanggalAkhir',
-                'searchBahanBaku'
+                'searchBahanBaku',
+                'totalBahanBakuKeluar',
+                'totalBiayaBahanBaku',
+                'labaKotor',
+                'marginKeuntunganFormatted'
             ));
         }
 
@@ -309,7 +529,11 @@ class PenjualanOwnerController extends Controller
             'bahanBakuList',
             'tanggalAwal',
             'tanggalAkhir',
-            'searchBahanBaku'
+            'searchBahanBaku',
+            'totalBahanBakuKeluar',
+            'totalBiayaBahanBaku',
+            'labaKotor',
+            'marginKeuntunganFormatted'
         ));
     }
 
@@ -363,7 +587,6 @@ class PenjualanOwnerController extends Controller
                     'item_count' => $itemCount
                 ];
 
-                // Jika item adalah produk, cari bahan baku yang digunakan
                 if ($detail->jenis_item == 'produk' && $detail->produk) {
                     $komposisi = $detail->produk->komposisi;
                     $bahanBakuList = [];
@@ -424,6 +647,15 @@ class PenjualanOwnerController extends Controller
         $totalBayar = $penjualan->sum('bayar');
         $totalKembalian = $penjualan->sum('kembalian');
 
+        // Hitung total bahan baku keluar
+        $totalBahanBakuKeluar = $this->getTotalBahanBakuKeluar($tanggalAwal, $tanggalAkhir, $searchBahanBaku);
+
+        // Hitung margin keuntungan
+        $totalBiayaBahanBaku = $totalBahanBakuKeluar->sum('total_harga_beli');
+        $labaKotor = $totalPenjualan - $totalBiayaBahanBaku;
+        $marginKeuntungan = $totalBiayaBahanBaku > 0 ? (($labaKotor / $totalBiayaBahanBaku) * 100) : 0;
+        $marginKeuntunganFormatted = number_format($marginKeuntungan, 2, ',', '.') . '%';
+
         $produkTerlaris = DetailPenjualan::select(
             'produk_id',
             DB::raw('SUM(jumlah) as total_terjual'),
@@ -443,14 +675,37 @@ class PenjualanOwnerController extends Controller
             ->take(10)
             ->get()
             ->map(function ($item) {
-                $produk = Produk::find($item->produk_id);
+                $produk = Produk::with('komposisi.bahanBaku')->find($item->produk_id);
+
+                // Hitung margin keuntungan untuk setiap produk
+                $biayaProduksi = 0;
+                $marginProduk = 0;
+
+                if ($produk) {
+                    foreach ($produk->komposisi as $komposisi) {
+                        $biayaProduksi += ($komposisi->bahanBaku->harga_beli ?? 0) * $komposisi->jumlah * $item->total_terjual;
+                    }
+
+                    if ($biayaProduksi > 0) {
+                        $labaProduk = $item->total_pendapatan - $biayaProduksi;
+                        $marginProduk = ($labaProduk / $biayaProduksi) * 100;
+                    }
+                }
+
                 return [
                     'id' => $item->produk_id,
                     'nama' => $produk ? $produk->nama : 'Produk Tidak Ditemukan',
                     'total_terjual' => $item->total_terjual,
                     'total_pendapatan' => $item->total_pendapatan,
                     'satuan' => $produk ? $produk->satuan : '-',
-                    'harga' => $produk ? $produk->harga : 0
+                    'harga' => $produk ? $produk->harga : 0,
+                    'total_pendapatan_formatted' => 'Rp ' . number_format($item->total_pendapatan, 0, ',', '.'),
+                    'biaya_produksi' => $biayaProduksi,
+                    'biaya_produksi_formatted' => 'Rp ' . number_format($biayaProduksi, 0, ',', '.'),
+                    'laba_produk' => $item->total_pendapatan - $biayaProduksi,
+                    'laba_produk_formatted' => 'Rp ' . number_format($item->total_pendapatan - $biayaProduksi, 0, ',', '.'),
+                    'margin_keuntungan' => $marginProduk,
+                    'margin_keuntungan_formatted' => number_format($marginProduk, 2, ',', '.') . '%'
                 ];
             });
 
@@ -466,7 +721,11 @@ class PenjualanOwnerController extends Controller
             'bahanBakuTerlaris',
             'tanggalAwal',
             'tanggalAkhir',
-            'searchBahanBaku'
+            'searchBahanBaku',
+            'totalBahanBakuKeluar',
+            'totalBiayaBahanBaku',
+            'labaKotor',
+            'marginKeuntunganFormatted'
         ));
 
         $filename = 'laporan-penjualan-' . $tanggalAwal . '-hingga-' . $tanggalAkhir;
@@ -484,7 +743,6 @@ class PenjualanOwnerController extends Controller
             $penjualan = Penjualan::with(['detailPenjualan.produk.komposisi.bahanBaku', 'detailPenjualan.bahanBaku'])
                 ->findOrFail($id);
 
-            // Tambahkan informasi bahan baku untuk detail
             $detailWithBahanBaku = $penjualan->detailPenjualan->map(function ($detail) {
                 $bahanBakuInfo = [];
 

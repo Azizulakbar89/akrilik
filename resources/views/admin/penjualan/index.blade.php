@@ -17,27 +17,79 @@
                         </ol>
                     </nav>
                 </div>
-                <div class="col-md-6 col-sm-12 text-right">
-                    <form action="{{ route('admin.penjualan.index') }}" method="GET" class="form-inline float-right">
-                        <div class="form-group mr-2">
-                            <label for="search_bahan_baku" class="mr-2">Cari Bahan Baku:</label>
-                            <select name="search_bahan_baku" class="form-control select2" style="min-width: 200px;">
-                                <option value="">-- Semua Bahan Baku --</option>
-                                @foreach ($bahanBakuList as $bahan)
-                                    <option value="{{ $bahan->nama }}"
-                                        {{ $searchBahanBaku == $bahan->nama ? 'selected' : '' }}>
-                                        {{ $bahan->nama }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary mr-2">
-                            <i class="fa fa-search"></i> Filter
-                        </button>
-                        <a href="{{ route('admin.penjualan.index') }}" class="btn btn-secondary">
-                            <i class="fa fa-refresh"></i> Reset
-                        </a>
-                    </form>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <div class="card-box bg-primary text-white">
+                    <div class="card-body">
+                        <h5 class="card-title text-white">Total Pendapatan</h5>
+                        <h3 class="font-weight-bold">{{ $totalPendapatanFormatted }}</h3>
+                        <p class="card-text">
+                            Periode: {{ date('d/m/Y', strtotime($tanggalAwal)) }} -
+                            {{ date('d/m/Y', strtotime($tanggalAkhir)) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-box bg-success text-white">
+                    <div class="card-body">
+                        <h5 class="card-title text-white">Total Transaksi</h5>
+                        <h3 class="font-weight-bold">{{ $penjualan->count() }}</h3>
+                        <p class="card-text">Transaksi Penjualan</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-box bg-info text-white">
+                    <div class="card-body">
+                        <h5 class="card-title text-white">Bahan Baku Digunakan</h5>
+                        <h3 class="font-weight-bold">{{ $totalBahanBakuKeluar->count() }}</h3>
+                        <p class="card-text">Jenis Bahan Baku</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card-box">
+                    <div class="card-body">
+                        <form action="{{ route('admin.penjualan.index') }}" method="GET" class="form-inline">
+                            <div class="form-group mr-2">
+                                <label for="tanggal_awal" class="mr-2">Tanggal Awal:</label>
+                                <input type="date" name="tanggal_awal" class="form-control"
+                                    value="{{ $tanggalAwal ?? date('Y-m-01') }}">
+                            </div>
+                            <div class="form-group mr-2">
+                                <label for="tanggal_akhir" class="mr-2">Tanggal Akhir:</label>
+                                <input type="date" name="tanggal_akhir" class="form-control"
+                                    value="{{ $tanggalAkhir ?? date('Y-m-d') }}">
+                            </div>
+                            <div class="form-group mr-2">
+                                <label for="search_bahan_baku" class="mr-2">Cari Bahan Baku:</label>
+                                <select name="search_bahan_baku" class="form-control select2" style="min-width: 200px;">
+                                    <option value="">-- Semua Bahan Baku --</option>
+                                    @foreach ($bahanBakuList as $bahan)
+                                        <option value="{{ $bahan->nama }}"
+                                            {{ $searchBahanBaku == $bahan->nama ? 'selected' : '' }}>
+                                            {{ $bahan->nama }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary mr-2">
+                                <i class="fa fa-filter"></i> Filter
+                            </button>
+                            <a href="{{ route('admin.penjualan.index') }}" class="btn btn-secondary">
+                                <i class="fa fa-refresh"></i> Reset
+                            </a>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -111,7 +163,8 @@
                                 <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="total">Total</label>
-                                        <input type="text" class="form-control" id="total" readonly value="Rp 0">
+                                        <input type="text" class="form-control" id="total" readonly
+                                            value="Rp 0">
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -124,7 +177,8 @@
                                 <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="kembalian">Kembalian</label>
-                                        <input type="text" class="form-control" id="kembalian" readonly value="Rp 0">
+                                        <input type="text" class="form-control" id="kembalian" readonly
+                                            value="Rp 0">
                                     </div>
                                 </div>
                             </div>
@@ -141,6 +195,7 @@
                 <div class="card-box mb-30">
                     <div class="card-header">
                         <h4 class="text-blue h4">Riwayat Penjualan</h4>
+                        <p class="text-muted mb-0">Periode: {{ $tanggalAwal }} s/d {{ $tanggalAkhir }}</p>
                         @if ($searchBahanBaku)
                             <small class="text-warning">Filter: {{ $searchBahanBaku }}</small>
                         @endif
@@ -349,10 +404,147 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Laporan Bahan Baku -->
+    <div class="modal fade" id="modalLaporan" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fa fa-chart-bar"></i> Laporan Bahan Baku Keluar & Pendapatan
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="bg-dark text-white">
+                                <tr>
+                                    <th width="5%">#</th>
+                                    <th>Nama Bahan Baku</th>
+                                    <th width="12%">Satuan</th>
+                                    <th width="15%">Harga Beli/Unit</th>
+                                    <th width="15%">Total Digunakan</th>
+                                    <th width="15%">Total Biaya Bahan Baku</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($totalBahanBakuKeluar as $index => $bahan)
+                                    <tr>
+                                        <td class="text-center">{{ $index + 1 }}</td>
+                                        <td>
+                                            <strong>{{ $bahan['nama'] }}</strong>
+                                        </td>
+                                        <td class="text-center">{{ $bahan['satuan'] }}</td>
+                                        <td class="text-right">{{ $bahan['harga_beli_formatted'] }}</td>
+                                        <td class="text-center">
+                                            <span
+                                                class="badge badge-info">{{ $bahan['total_penggunaan_formatted'] }}</span>
+                                        </td>
+                                        <td class="text-right">
+                                            <strong
+                                                class="text-primary">{{ $bahan['total_harga_beli_formatted'] }}</strong>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">
+                                            <i class="fa fa-box fa-2x mb-2"></i><br>
+                                            Tidak ada data bahan baku keluar pada periode ini
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                            @if ($totalBahanBakuKeluar->count() > 0)
+                                <tfoot class="bg-light">
+                                    <tr>
+                                        <td colspan="4" class="text-right">
+                                            <strong>TOTAL BIAYA BAHAN BAKU:</strong>
+                                        </td>
+                                        <td class="text-center">
+                                            <strong>
+                                                {{ number_format($totalBahanBakuKeluar->sum('total_penggunaan'), 2, ',', '.') }}
+                                            </strong>
+                                        </td>
+                                        <td class="text-right">
+                                            <strong class="text-success">
+                                                Rp
+                                                {{ number_format($totalBahanBakuKeluar->sum('total_harga_beli'), 0, ',', '.') }}
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" class="text-right">
+                                            <strong>TOTAL PENDAPATAN:</strong>
+                                        </td>
+                                        <td colspan="2" class="text-right">
+                                            <strong class="text-danger" style="font-size: 1.2em;">
+                                                {{ $totalPendapatanFormatted }}
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                    @php
+                                        $totalBiayaBahanBaku = $totalBahanBakuKeluar->sum('total_harga_beli');
+                                        $labaKotor = $totalPendapatan - $totalBiayaBahanBaku;
+                                    @endphp
+                                    <tr>
+                                        <td colspan="4" class="text-right">
+                                            <strong>ESTIMASI LABA KOTOR:</strong>
+                                        </td>
+                                        <td colspan="2" class="text-right">
+                                            <strong class="text-success" style="font-size: 1.2em;">
+                                                Rp {{ number_format($labaKotor, 0, ',', '.') }}
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            @endif
+                        </table>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <h6><i class="fa fa-info-circle"></i> Keterangan:</h6>
+                        <ul class="mb-0">
+                            <li>Data dihitung berdasarkan periode: <strong>{{ date('d/m/Y', strtotime($tanggalAwal)) }} -
+                                    {{ date('d/m/Y', strtotime($tanggalAkhir)) }}</strong></li>
+                            <li>Total bahan baku digunakan termasuk dari produk yang terjual dan penjualan bahan baku
+                                langsung</li>
+                            <li>Estimasi laba kotor = Total Pendapatan - Total Biaya Bahan Baku</li>
+                            @if ($searchBahanBaku)
+                                <li class="text-warning">Filter aktif: {{ $searchBahanBaku }}</li>
+                            @endif
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                    <button type="button" class="btn btn-primary" id="printLaporan">
+                        <i class="fa fa-print"></i> Print Laporan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('styles')
     <style>
+        .card-box.bg-primary,
+        .card-box.bg-success,
+        .card-box.bg-info {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-box.bg-primary h3,
+        .card-box.bg-success h3,
+        .card-box.bg-info h3 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
         .table th,
         .table td {
             vertical-align: middle;
@@ -429,6 +621,32 @@
             font-size: 12px;
             padding: 5px;
         }
+
+        .form-inline .form-group {
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .form-inline .form-group {
+                display: block;
+                margin-bottom: 15px;
+            }
+
+            .form-inline .form-group label {
+                display: block;
+                margin-bottom: 5px;
+            }
+
+            .select2-container {
+                width: 100% !important;
+            }
+
+            .card-box.bg-primary h3,
+            .card-box.bg-success h3,
+            .card-box.bg-info h3 {
+                font-size: 1.5rem;
+            }
+        }
     </style>
 @endpush
 
@@ -476,6 +694,23 @@
                     var $item = $('<span>' + item.text.split('(')[0].trim() + '</span>');
                     return $item;
                 }
+            });
+
+            // Handle modal laporan print
+            $('#printLaporan').click(function() {
+                const tanggalAwal = $('input[name="tanggal_awal"]').val();
+                const tanggalAkhir = $('input[name="tanggal_akhir"]').val();
+                const searchBahanBaku = $('select[name="search_bahan_baku"]').val();
+
+                let url = '{{ route('admin.penjualan.index') }}?tanggal_awal=' + tanggalAwal +
+                    '&tanggal_akhir=' + tanggalAkhir;
+                if (searchBahanBaku) {
+                    url += '&search_bahan_baku=' + encodeURIComponent(searchBahanBaku);
+                }
+                url += '&print_laporan=true';
+
+                window.open(url, '_blank');
+                $('#modalLaporan').modal('hide');
             });
 
             $('#addItemModal').on('hidden.bs.modal', function() {

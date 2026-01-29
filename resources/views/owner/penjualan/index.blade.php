@@ -8,7 +8,7 @@
             <div class="row">
                 <div class="col-md-6 col-sm-12">
                     <div class="title">
-                        <h4>Data Penjualan</h4>
+                        <h4>Laporan Penjualan</h4>
                     </div>
                     <nav aria-label="breadcrumb" role="navigation">
                         <ol class="breadcrumb">
@@ -25,10 +25,55 @@
             </div>
         </div>
 
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <div class="card-box bg-primary text-white">
+                    <div class="card-body">
+                        <h5 class="card-title text-white">Total Pendapatan</h5>
+                        <h3 class="font-weight-bold">{{ $totalPendapatanFormatted }}</h3>
+                        <p class="card-text">
+                            Periode: {{ date('d/m/Y', strtotime($tanggalAwal)) }} -
+                            {{ date('d/m/Y', strtotime($tanggalAkhir)) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-box bg-success text-white">
+                    <div class="card-body">
+                        <h5 class="card-title text-white">Total Transaksi</h5>
+                        <h3 class="font-weight-bold">{{ $penjualan->count() }}</h3>
+                        <p class="card-text">Transaksi Penjualan</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-box bg-info text-white">
+                    <div class="card-body">
+                        <h5 class="card-title text-white">Margin Keuntungan</h5>
+                        <h3 class="font-weight-bold">{{ $marginKeuntunganFormatted }}</h3>
+                        <p class="card-text">Dari Harga Beli ke Jual</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-box bg-warning text-white">
+                    <div class="card-body">
+                        <h5 class="card-title text-white">Laba Kotor</h5>
+                        <h3 class="font-weight-bold">Rp {{ number_format($labaKotor, 0, ',', '.') }}</h3>
+                        <p class="card-text">Pendapatan - Biaya Bahan Baku</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Form Filter -->
         <div class="row mb-3">
             <div class="col-12">
                 <div class="card-box">
+                    <div class="card-header">
+                        <h5 class="text-blue h5">Filter Laporan</h5>
+                    </div>
                     <div class="card-body">
                         <form action="{{ route('owner.penjualan.index') }}" method="GET" class="form-inline">
                             <div class="form-group mr-2">
@@ -84,8 +129,9 @@
                                     <tr>
                                         <th>#</th>
                                         <th>Nama Produk</th>
-                                        <th>Jumlah Terjual</th>
-                                        <th>Total Pendapatan</th>
+                                        <th>Terjual</th>
+                                        <th>Pendapatan</th>
+                                        <th>Margin</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -94,11 +140,24 @@
                                             <td>{{ $index + 1 }}</td>
                                             <td>{{ $produk['nama'] }}</td>
                                             <td>{{ $produk['total_terjual'] }} {{ $produk['satuan'] }}</td>
-                                            <td>Rp {{ number_format($produk['total_pendapatan'], 0, ',', '.') }}</td>
+                                            <td>{{ $produk['total_pendapatan_formatted'] }}</td>
+                                            <td>
+                                                @php
+                                                    $marginClass =
+                                                        $produk['margin_keuntungan'] >= 30
+                                                            ? 'badge-success'
+                                                            : ($produk['margin_keuntungan'] >= 15
+                                                                ? 'badge-warning'
+                                                                : 'badge-danger');
+                                                @endphp
+                                                <span class="badge {{ $marginClass }}">
+                                                    {{ $produk['margin_keuntungan_formatted'] }}
+                                                </span>
+                                            </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="4" class="text-center">Tidak ada data produk terjual</td>
+                                            <td colspan="5" class="text-center">Tidak ada data produk terjual</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -126,8 +185,9 @@
                                     <tr>
                                         <th>#</th>
                                         <th>Nama Bahan Baku</th>
-                                        <th>Jumlah Digunakan</th>
+                                        <th>Digunakan</th>
                                         <th>Satuan</th>
+                                        <th>Margin</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -135,12 +195,26 @@
                                         <tr>
                                             <td>{{ $index + 1 }}</td>
                                             <td>{{ $bahan['nama'] }}</td>
-                                            <td>{{ number_format($bahan['total_penggunaan'], 2) }}</td>
+                                            <td>{{ $bahan['total_penggunaan_formatted'] }}</td>
                                             <td>{{ $bahan['satuan'] }}</td>
+                                            <td>
+                                                @php
+                                                    $marginClass =
+                                                        $bahan['margin'] >= 30
+                                                            ? 'badge-success'
+                                                            : ($bahan['margin'] >= 15
+                                                                ? 'badge-warning'
+                                                                : 'badge-danger');
+                                                @endphp
+                                                <span class="badge {{ $marginClass }}">
+                                                    {{ $bahan['margin_formatted'] }}
+                                                </span>
+                                            </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="4" class="text-center">Tidak ada data bahan baku digunakan</td>
+                                            <td colspan="5" class="text-center">Tidak ada data bahan baku digunakan
+                                            </td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -238,8 +312,202 @@
                 </div>
             </div>
         </div>
+
+        <!-- Tabel Total Bahan Baku Keluar dengan Margin Keuntungan -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card-box">
+                    <div class="card-header">
+                        <h4 class="text-blue h4">
+                            <i class="fa fa-box"></i> Total Bahan Baku Keluar & Margin Keuntungan
+                            <span class="float-right badge badge-primary">{{ $totalBahanBakuKeluar->count() }}
+                                Jenis</span>
+                        </h4>
+                        <p class="text-muted mb-0">Periode: {{ $tanggalAwal }} s/d {{ $tanggalAkhir }}</p>
+                        @if ($searchBahanBaku)
+                            <small class="text-warning">
+                                <i class="fa fa-filter"></i> Filter: {{ $searchBahanBaku }}
+                            </small>
+                        @endif
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-bordered">
+                                <thead class="bg-dark text-white">
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th>Nama Bahan Baku</th>
+                                        <th width="10%">Satuan</th>
+                                        <th width="12%">Harga Beli/Unit</th>
+                                        <th width="12%">Harga Jual/Unit</th>
+                                        <th width="10%">Total Digunakan</th>
+                                        <th width="12%">Total Biaya</th>
+                                        <th width="12%">Total Pendapatan</th>
+                                        <th width="12%">Laba</th>
+                                        <th width="15%">Margin Keuntungan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($totalBahanBakuKeluar as $index => $bahan)
+                                        <tr>
+                                            <td class="text-center">{{ $index + 1 }}</td>
+                                            <td>
+                                                <strong>{{ $bahan['nama'] }}</strong>
+                                            </td>
+                                            <td class="text-center">{{ $bahan['satuan'] }}</td>
+                                            <td class="text-right">{{ $bahan['harga_beli_formatted'] }}</td>
+                                            <td class="text-right">{{ $bahan['harga_jual_formatted'] }}</td>
+                                            <td class="text-center">
+                                                <span
+                                                    class="badge badge-info">{{ $bahan['total_penggunaan_formatted'] }}</span>
+                                            </td>
+                                            <td class="text-right">
+                                                <strong
+                                                    class="text-primary">{{ $bahan['total_harga_beli_formatted'] }}</strong>
+                                            </td>
+                                            <td class="text-right">
+                                                <strong
+                                                    class="text-info">{{ $bahan['total_pendapatan_formatted'] }}</strong>
+                                            </td>
+                                            <td class="text-right">
+                                                @php
+                                                    $labaClass = $bahan['laba'] >= 0 ? 'text-success' : 'text-danger';
+                                                @endphp
+                                                <strong
+                                                    class="{{ $labaClass }}">{{ $bahan['laba_formatted'] }}</strong>
+                                            </td>
+                                            <td class="text-center">
+                                                @php
+                                                    $marginClass =
+                                                        $bahan['margin_keuntungan'] >= 30
+                                                            ? 'badge-success'
+                                                            : ($bahan['margin_keuntungan'] >= 15
+                                                                ? 'badge-warning'
+                                                                : 'badge-danger');
+                                                @endphp
+                                                <span class="badge {{ $marginClass }}">
+                                                    {{ $bahan['margin_keuntungan_formatted'] }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="10" class="text-center text-muted py-4">
+                                                <i class="fa fa-box fa-2x mb-2"></i><br>
+                                                Tidak ada data bahan baku keluar pada periode ini
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                                @if ($totalBahanBakuKeluar->count() > 0)
+                                    <tfoot class="bg-light">
+                                        <tr>
+                                            <td colspan="5" class="text-right">
+                                                <strong>TOTAL KESELURUHAN:</strong>
+                                            </td>
+                                            <td class="text-center">
+                                                <strong>
+                                                    {{ number_format($totalBahanBakuKeluar->sum('total_penggunaan'), 2, ',', '.') }}
+                                                </strong>
+                                            </td>
+                                            <td class="text-right">
+                                                <strong class="text-primary">
+                                                    Rp
+                                                    {{ number_format($totalBahanBakuKeluar->sum('total_harga_beli'), 0, ',', '.') }}
+                                                </strong>
+                                            </td>
+                                            <td class="text-right">
+                                                <strong class="text-info">
+                                                    Rp
+                                                    {{ number_format($totalBahanBakuKeluar->sum('total_pendapatan'), 0, ',', '.') }}
+                                                </strong>
+                                            </td>
+                                            <td class="text-right">
+                                                <strong class="text-success">
+                                                    Rp
+                                                    {{ number_format($totalBahanBakuKeluar->sum('laba'), 0, ',', '.') }}
+                                                </strong>
+                                            </td>
+                                            <td class="text-center">
+                                                @php
+                                                    $totalMargin =
+                                                        $totalBahanBakuKeluar->sum('total_harga_beli') > 0
+                                                            ? ($totalBahanBakuKeluar->sum('laba') /
+                                                                    $totalBahanBakuKeluar->sum('total_harga_beli')) *
+                                                                100
+                                                            : 0;
+                                                    $totalMarginClass =
+                                                        $totalMargin >= 30
+                                                            ? 'badge-success'
+                                                            : ($totalMargin >= 15
+                                                                ? 'badge-warning'
+                                                                : 'badge-danger');
+                                                @endphp
+                                                <strong class="badge {{ $totalMarginClass }}">
+                                                    {{ number_format($totalMargin, 2, ',', '.') }}%
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="5" class="text-right">
+                                                <strong>TOTAL PENDAPATAN:</strong>
+                                            </td>
+                                            <td colspan="5" class="text-right">
+                                                <strong class="text-danger" style="font-size: 1.2em;">
+                                                    {{ $totalPendapatanFormatted }}
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="5" class="text-right">
+                                                <strong>TOTAL BIAYA BAHAN BAKU:</strong>
+                                            </td>
+                                            <td colspan="5" class="text-right">
+                                                <strong class="text-primary" style="font-size: 1.1em;">
+                                                    Rp {{ number_format($totalBiayaBahanBaku, 0, ',', '.') }}
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="5" class="text-right">
+                                                <strong>LABA KOTOR:</strong>
+                                            </td>
+                                            <td colspan="5" class="text-right">
+                                                <strong class="text-success" style="font-size: 1.2em;">
+                                                    Rp {{ number_format($labaKotor, 0, ',', '.') }}
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="5" class="text-right">
+                                                <strong>MARGIN KEUNTUNGAN (Keseluruhan):</strong>
+                                            </td>
+                                            <td colspan="5" class="text-center">
+                                                @php
+                                                    $overallMarginClass =
+                                                        $marginKeuntunganFormatted >= 30
+                                                            ? 'badge-success'
+                                                            : ($marginKeuntunganFormatted >= 15
+                                                                ? 'badge-warning'
+                                                                : 'badge-danger');
+                                                @endphp
+                                                <strong class="badge {{ $overallMarginClass }}"
+                                                    style="font-size: 1.1em;">
+                                                    {{ $marginKeuntunganFormatted }}
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                @endif
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Modal Detail Penjualan -->
     <div class="modal fade" id="detailPenjualanModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -262,6 +530,7 @@
         </div>
     </div>
 
+    <!-- Modal Print PDF -->
     <div class="modal fade" id="modalPrintLaporan" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -310,6 +579,26 @@
 
 @push('styles')
     <style>
+        .card-box.bg-primary,
+        .card-box.bg-success,
+        .card-box.bg-info,
+        .card-box.bg-warning {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-box.bg-primary h3,
+        .card-box.bg-success h3,
+        .card-box.bg-info h3,
+        .card-box.bg-warning h3 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .card-box.bg-warning {
+            background-color: #ffc107 !important;
+        }
+
         .table th,
         .table td {
             vertical-align: middle;
@@ -351,6 +640,18 @@
             font-weight: normal;
         }
 
+        .badge-success {
+            background-color: #28a745;
+        }
+
+        .badge-warning {
+            background-color: #ffc107;
+        }
+
+        .badge-danger {
+            background-color: #dc3545;
+        }
+
         .bahan-baku-list {
             list-style-type: none;
             padding-left: 0;
@@ -368,12 +669,89 @@
         .select2-container {
             min-width: 200px;
         }
+
+        /* Custom styles for tables */
+        .table-hover tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .table-bordered {
+            border: 1px solid #dee2e6;
+        }
+
+        .table-bordered thead th {
+            border-bottom-width: 2px;
+        }
+
+        .bg-light {
+            background-color: #f8f9fa !important;
+        }
+
+        .text-muted {
+            color: #6c757d !important;
+        }
+
+        .text-primary {
+            color: #007bff !important;
+        }
+
+        .text-success {
+            color: #28a745 !important;
+        }
+
+        .text-danger {
+            color: #dc3545 !important;
+        }
+
+        .text-info {
+            color: #17a2b8 !important;
+        }
+
+        .badge-primary {
+            background-color: #007bff;
+        }
+
+        .badge-info {
+            background-color: #17a2b8;
+        }
+
+        .badge-secondary {
+            background-color: #6c757d;
+        }
+
+        .form-inline .form-group {
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .form-inline .form-group {
+                display: block;
+                margin-bottom: 15px;
+            }
+
+            .form-inline .form-group label {
+                display: block;
+                margin-bottom: 5px;
+            }
+
+            .select2-container {
+                width: 100% !important;
+            }
+
+            .card-box.bg-primary h3,
+            .card-box.bg-success h3,
+            .card-box.bg-info h3,
+            .card-box.bg-warning h3 {
+                font-size: 1.4rem;
+            }
+        }
     </style>
 @endpush
 
 @push('scripts')
     <script>
         $(document).ready(function() {
+            // Initialize Select2
             $('.select2').select2({
                 placeholder: 'Pilih Bahan Baku',
                 allowClear: true
@@ -381,6 +759,7 @@
 
             let currentPenjualanId = null;
 
+            // View Penjualan Detail
             $('.view-penjualan').click(function() {
                 const id = $(this).data('id');
                 currentPenjualanId = id;
@@ -493,11 +872,31 @@
                 });
             });
 
+            // Print Nota Button
             $('#printNotaBtn').click(function() {
                 if (currentPenjualanId) {
                     window.open('{{ url('owner/penjualan') }}/' + currentPenjualanId + '/print', '_blank');
                 }
             });
+
+            // DataTable initialization
+            if ($.fn.DataTable) {
+                $('#riwayatTable').DataTable({
+                    "pageLength": 10,
+                    "lengthMenu": [10, 25, 50, 100],
+                    "language": {
+                        "paginate": {
+                            "previous": "<i class='fa fa-angle-left'></i>",
+                            "next": "<i class='fa fa-angle-right'></i>"
+                        },
+                        "search": "Cari:",
+                        "lengthMenu": "Tampilkan _MENU_ data",
+                        "info": "Menampilkan _START_ sampai _END_ dari _TOTAL_ data",
+                        "infoEmpty": "Tidak ada data",
+                        "infoFiltered": "(disaring dari _MAX_ total data)"
+                    }
+                });
+            }
         });
     </script>
 @endpush

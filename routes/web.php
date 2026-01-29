@@ -95,6 +95,15 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     });
 });
 
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('/penjualan', [PenjualanController::class, 'index'])->name('penjualan.index');
+    Route::post('/penjualan', [PenjualanController::class, 'store'])->name('penjualan.store');
+    Route::get('/penjualan/{id}', [PenjualanController::class, 'show'])->name('penjualan.show');
+    Route::delete('/penjualan/{id}', [PenjualanController::class, 'destroy'])->name('penjualan.destroy');
+    Route::get('/penjualan/{id}/print', [PenjualanController::class, 'printNota'])->name('penjualan.print-nota');
+    Route::get('/penjualan/get-item-info', [PenjualanController::class, 'getItemInfo'])->name('penjualan.get-item-info');
+});
+
 Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->group(function () {
     Route::get('/dashboard', [OwnerDashboard::class, 'index'])->name('dashboard');
 
